@@ -1,9 +1,8 @@
-package author.modname;
+package spinloki.Intrigue;
 
 import com.fs.starfarer.api.BaseModPlugin;
-import com.fs.starfarer.api.Global;
 
-public class TemplateModPlugin extends BaseModPlugin {
+public class Intrigue extends BaseModPlugin {
     @Override
     public void onApplicationLoad() throws Exception {
         super.onApplicationLoad();
