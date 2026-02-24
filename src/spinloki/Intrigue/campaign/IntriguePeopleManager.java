@@ -1,12 +1,12 @@
 package spinloki.Intrigue.campaign;
 
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.CommDirectoryAPI;
 import com.fs.starfarer.api.campaign.CommDirectoryEntryAPI;
 import com.fs.starfarer.api.campaign.FactionAPI;
-import com.fs.starfarer.api.campaign.CommDirectoryAPI;
+import com.fs.starfarer.api.campaign.PersonImportance;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.characters.PersonAPI;
-import com.fs.starfarer.api.campaign.PersonImportance;
 import spinloki.Intrigue.IntrigueIds;
 
 import java.io.Serializable;
@@ -17,6 +17,84 @@ public class IntriguePeopleManager implements Serializable {
     private final Map<String, IntriguePerson> people = new LinkedHashMap<>();
     private int nextId = 1;
     private boolean bootstrapped = false;
+
+    /**
+     * Placement is the common interface for ensuring an Intrigue person's presence/absence in a location.
+     * For now, MarketPlacement is fully implemented and FleetPlacement is a stub.
+     *
+     * NOTE: This is intentionally an internal detail of the manager; IntriguePerson remains pure data.
+     */
+    private interface Placement {
+        IntriguePerson.LocationType type();
+        String debugId();
+
+        void ensurePresent(PersonAPI canonical);
+        void ensureAbsent(String personId);
+    }
+
+    private final class MarketPlacement implements Placement {
+        private final MarketAPI market;
+
+        private MarketPlacement(MarketAPI market) {
+            this.market = market;
+        }
+
+        @Override
+        public IntriguePerson.LocationType type() {
+            return IntriguePerson.LocationType.MARKET;
+        }
+
+        @Override
+        public String debugId() {
+            return market.getId();
+        }
+
+        @Override
+        public void ensurePresent(PersonAPI canonical) {
+            // Keep the PersonAPI's own market pointer aligned with where it is actually placed.
+            canonical.setMarket(market);
+
+            ensureSingleInMarket(market, canonical);
+            ensureSingleInCommDirectory(market, canonical);
+        }
+
+        @Override
+        public void ensureAbsent(String personId) {
+            removeAllFromMarketAndComm(market, personId);
+        }
+    }
+
+    /**
+     * Stub for Milestone 2+.
+     * For now, "placing into a fleet" means "not present in any market/comm directory".
+     */
+    private static final class FleetPlacement implements Placement {
+        private final String fleetId;
+
+        private FleetPlacement(String fleetId) {
+            this.fleetId = fleetId;
+        }
+
+        @Override
+        public IntriguePerson.LocationType type() {
+            return IntriguePerson.LocationType.FLEET;
+        }
+
+        @Override
+        public String debugId() {
+            return fleetId;
+        }
+
+        @Override
+        public void ensurePresent(PersonAPI canonical) {
+            // TODO: Implement real fleet attachment (commander/officer/VIP) in Milestone 2.
+        }
+
+        @Override
+        public void ensureAbsent(String personId) {
+            // No-op until real fleet attachment is implemented.
+        }
+    }
 
     public static IntriguePeopleManager get() {
         Map<String, Object> data = Global.getSector().getPersistentData();
@@ -33,6 +111,10 @@ public class IntriguePeopleManager implements Serializable {
 
     public Collection<IntriguePerson> getAll() {
         return Collections.unmodifiableCollection(people.values());
+    }
+
+    public IntriguePerson getById(String personId) {
+        return people.get(personId);
     }
 
     public void bootstrapIfNeeded() {
@@ -61,34 +143,66 @@ public class IntriguePeopleManager implements Serializable {
         Map<String, MarketAPI> marketsById = indexMarketsById();
 
         for (IntriguePerson ip : people.values()) {
-            MarketAPI home = marketsById.get(ip.getHomeMarketId());
-            if (home == null) continue;
+            MarketAPI homeMarket = marketsById.get(ip.getHomeMarketId());
+            if (homeMarket == null) continue;
 
             PersonAPI p = Global.getSector().getImportantPeople().getPerson(ip.getPersonId());
             if (p == null) {
-                p = recreatePerson(ip, home, new Random(getStableSeed()));
+                p = recreatePerson(ip, homeMarket, new Random(getStableSeed()));
                 if (p == null) continue;
             }
 
+            Placement home = new MarketPlacement(homeMarket);
+
             if (ip.isCheckedOut()) {
-                // Away: ensure they don't still appear at home
-                removeAllFromMarketAndComm(home, ip.getPersonId());
-                
-                if (ip.getLocationType() == IntriguePerson.LocationType.MARKET) {
-                    MarketAPI dest = marketsById.get(ip.getLocationId());
-                    if (dest != null) {
-                        ensureSingleInMarket(dest, p);
-                        ensureSingleInCommDirectory(dest, p);
-                    }
+                // Away: ensure they do not appear at home
+                home.ensureAbsent(ip.getPersonId());
+
+                Placement current = resolveCurrentPlacement(ip, marketsById);
+                if (current != null) {
+                    current.ensurePresent(p);
+                }
+                else {
+                    ip.returnHome();
+                    home.ensurePresent(ip.resolvePerson());
                 }
             } else {
                 // Home: ensure present & deduped
-                ensureSingleInMarket(home, p);
-                ensureSingleInCommDirectory(home, p);
+                home.ensurePresent(p);
             }
 
             syncToPersonMemory(p, ip);
         }
+    }
+
+    /**
+     * Ensure we remove the person from their *current* known placement before changing location fields.
+     * This prevents "ghost" presence in an old market when locationId is overwritten.
+     */
+    private void unplaceFromCurrentLocation(IntriguePerson ip, Map<String, MarketAPI> marketsById) {
+        Placement cur = resolveCurrentPlacement(ip, marketsById);
+        if (cur == null) return;
+        cur.ensureAbsent(ip.getPersonId());
+    }
+
+    private Placement resolveCurrentPlacement(IntriguePerson ip, Map<String, MarketAPI> marketsById) {
+        IntriguePerson.LocationType t = ip.getLocationType();
+
+        if (t == IntriguePerson.LocationType.HOME) {
+            MarketAPI home = marketsById.get(ip.getHomeMarketId());
+            return home != null ? new MarketPlacement(home) : null;
+        }
+
+        if (t == IntriguePerson.LocationType.MARKET) {
+            MarketAPI m = marketsById.get(ip.getLocationId());
+            return m != null ? new MarketPlacement(m) : null;
+        }
+
+        if (t == IntriguePerson.LocationType.FLEET) {
+            return new FleetPlacement(ip.getLocationId());
+        }
+
+        return null;
     }
 
     private IntriguePerson createAndPlacePerson(String factionId, MarketAPI market, Random rng) {
@@ -107,9 +221,8 @@ public class IntriguePeopleManager implements Serializable {
 
         Global.getSector().getImportantPeople().addPerson(p);
 
-        market.addPerson(p);
-        CommDirectoryAPI comm = market.getCommDirectory();
-        if (comm != null) comm.addPerson(p);
+        // Place through MarketPlacement so we get dedupe behavior immediately.
+        new MarketPlacement(market).ensurePresent(p);
 
         IntriguePerson ip = new IntriguePerson(id, factionId, market.getId());
 
@@ -124,6 +237,7 @@ public class IntriguePeopleManager implements Serializable {
         }
 
         people.put(id, ip);
+        syncToPersonMemory(p, ip);
         return ip;
     }
 
@@ -145,40 +259,34 @@ public class IntriguePeopleManager implements Serializable {
     }
 
     private Map<String, List<MarketAPI>> getMarketsByFaction() {
-        Map<String, List<MarketAPI>> result = new HashMap<>();
+        Map<String, List<MarketAPI>> result = new HashMap<String, List<MarketAPI>>();
         for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
             if (m == null) continue;
             String fid = m.getFactionId();
             if (fid == null) continue;
             if ("player".equals(fid) || "neutral".equals(fid)) continue;
 
-            result.computeIfAbsent(fid, k -> new ArrayList<>()).add(m);
+            List<MarketAPI> list = result.get(fid);
+            if (list == null) {
+                list = new ArrayList<MarketAPI>();
+                result.put(fid, list);
+            }
+            list.add(m);
         }
         return result;
     }
 
     private Map<String, MarketAPI> indexMarketsById() {
-        Map<String, MarketAPI> result = new HashMap<>();
+        Map<String, MarketAPI> result = new HashMap<String, MarketAPI>();
         for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
             if (m != null) result.put(m.getId(), m);
         }
         return result;
     }
 
-    private boolean containsPerson(MarketAPI market, PersonAPI person) {
-        for (PersonAPI p : market.getPeopleCopy()) {
-            if (p != null && person.getId().equals(p.getId())) return true;
-        }
-        return false;
-    }
-
     private long getStableSeed() {
         // Good enough for prototype: seed from sector memory if you want stable across reloads later
         return 1337L;
-    }
-
-    public IntriguePerson getById(String personId) {
-        return people.get(personId);
     }
 
     private int clampRel(int v) {
@@ -207,13 +315,13 @@ public class IntriguePeopleManager implements Serializable {
     public void addTrait(String personId, String trait) {
         IntriguePerson ip = people.get(personId);
         if (ip == null || trait == null) return;
-        ip.getTraits().add(trait.trim().toUpperCase());
+        ip.getTraits().add(trait.trim().toUpperCase(Locale.ROOT));
     }
 
     public void removeTrait(String personId, String trait) {
         IntriguePerson ip = people.get(personId);
         if (ip == null || trait == null) return;
-        ip.getTraits().remove(trait.trim().toUpperCase());
+        ip.getTraits().remove(trait.trim().toUpperCase(Locale.ROOT));
     }
 
     // Authority: IntriguePerson data in the manager is the source of truth.
@@ -223,7 +331,8 @@ public class IntriguePeopleManager implements Serializable {
         p.getMemoryWithoutUpdate().set("$intrigue_id", ip.getPersonId());
         p.getMemoryWithoutUpdate().set("$intrigue_factionId", ip.getFactionId());
         p.getMemoryWithoutUpdate().set("$intrigue_homeMarketId", ip.getHomeMarketId());
-        p.getMemoryWithoutUpdate().set("$intrigue_locType", ip.getLocationType());
+
+        p.getMemoryWithoutUpdate().set("$intrigue_locType", ip.getLocationType().name());
         p.getMemoryWithoutUpdate().set("$intrigue_locId", ip.getLocationId());
 
         p.getMemoryWithoutUpdate().set("$intrigue_power", ip.getPower());
@@ -236,7 +345,7 @@ public class IntriguePeopleManager implements Serializable {
     private void ensureSingleInMarket(MarketAPI market, PersonAPI canonical) {
         String id = canonical.getId();
 
-        List<PersonAPI> matches = new ArrayList<>();
+        List<PersonAPI> matches = new ArrayList<PersonAPI>();
         for (PersonAPI p : market.getPeopleCopy()) {
             if (p != null && id.equals(p.getId())) matches.add(p);
         }
@@ -248,7 +357,10 @@ public class IntriguePeopleManager implements Serializable {
 
         boolean hasCanonicalInstance = false;
         for (PersonAPI p : matches) {
-            if (p == canonical) { hasCanonicalInstance = true; break; }
+            if (p == canonical) {
+                hasCanonicalInstance = true;
+                break;
+            }
         }
 
         if (!hasCanonicalInstance) {
@@ -272,7 +384,7 @@ public class IntriguePeopleManager implements Serializable {
 
         String id = canonical.getId();
 
-        List<PersonAPI> matches = new ArrayList<>();
+        List<PersonAPI> matches = new ArrayList<PersonAPI>();
         for (CommDirectoryEntryAPI e : comm.getEntriesCopy()) {
             Object data = e.getEntryData();
             if (data instanceof PersonAPI) {
@@ -311,7 +423,7 @@ public class IntriguePeopleManager implements Serializable {
 
     private void removeAllFromMarketAndComm(MarketAPI market, String personId) {
         // Market people list
-        for (PersonAPI p : new ArrayList<>(market.getPeopleCopy())) {
+        for (PersonAPI p : new ArrayList<PersonAPI>(market.getPeopleCopy())) {
             if (p != null && personId.equals(p.getId())) {
                 market.removePerson(p);
             }
@@ -321,7 +433,7 @@ public class IntriguePeopleManager implements Serializable {
         CommDirectoryAPI comm = market.getCommDirectory();
         if (comm == null) return;
 
-        for (CommDirectoryEntryAPI e : new ArrayList<>(comm.getEntriesCopy())) {
+        for (CommDirectoryEntryAPI e : new ArrayList<CommDirectoryEntryAPI>(comm.getEntriesCopy())) {
             Object data = e.getEntryData();
             if (data instanceof PersonAPI) {
                 PersonAPI p = (PersonAPI) data;
@@ -335,6 +447,10 @@ public class IntriguePeopleManager implements Serializable {
     public void checkoutToFleet(String personId, String fleetId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
+
+        Map<String, MarketAPI> marketsById = indexMarketsById();
+        unplaceFromCurrentLocation(ip, marketsById);
+
         ip.setOnFleet(fleetId);
 
         refreshAll();
@@ -344,6 +460,12 @@ public class IntriguePeopleManager implements Serializable {
     public void returnHome(String personId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
+
+        if (ip.isCheckedOut()) {
+            Map<String, MarketAPI> marketsById = indexMarketsById();
+            unplaceFromCurrentLocation(ip, marketsById);
+        }
+
         ip.returnHome();
 
         refreshAll();
@@ -353,7 +475,12 @@ public class IntriguePeopleManager implements Serializable {
     public void checkoutToMarket(String personId, String marketId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
+
+        Map<String, MarketAPI> marketsById = indexMarketsById();
+        unplaceFromCurrentLocation(ip, marketsById);
+
         ip.setAtMarket(marketId);
+
         refreshAll();
         syncMemory(personId);
     }

@@ -35,7 +35,6 @@ public class IntriguePerson implements Serializable {
         this.personId = personId;
         this.factionId = factionId;
         this.homeMarketId = homeMarketId;
-        this.locationType = LocationType.HOME;
         this.locationId = homeMarketId;
     }
 
@@ -64,7 +63,7 @@ public class IntriguePerson implements Serializable {
     }
 
     public void setAtMarket(String marketId) {
-        this.locationType = LocationType.MARKET;
+        this.locationType = marketId.equals(homeMarketId) ? LocationType.HOME : LocationType.MARKET;
         this.locationId = marketId;
     }
 

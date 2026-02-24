@@ -7,3 +7,5 @@ intrigue_set_rel,spinloki.Intrigue.console.IntrigueSetRelCommand,"cheat,campaign
 intrigue_health,spinloki.Intrigue.console.IntrigueHealthCommand,"campaign",,
 intrigue_checkout,spinloki.Intrigue.console.IntrigueCheckoutCommand,"campaign",,
 intrigue_return_home,spinloki.Intrigue.console.IntrigueReturnHomeCommand,"campaign",,
+intrigue_tick,spinloki.Intrigue.console.IntrigueTickCommand,"cheat,campaign",,
+intrigue_list_fleets,spinloki.Intrigue.console.IntrigueListFleetsCommand,"campaign",,

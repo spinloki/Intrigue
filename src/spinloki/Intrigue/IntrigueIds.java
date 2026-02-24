@@ -12,4 +12,6 @@ public final class IntrigueIds {
     // Safe defaults; you can swap these to ids.Ranks constants later if you prefer.
     public static final String DEFAULT_RANK = "citizen";
     public static final String DEFAULT_POST = "agent";
+
+    public static final String PERSIST_PACER_SCRIPT_KEY = "spinloki_intrigue_pacer_script";
 }
