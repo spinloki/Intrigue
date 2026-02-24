@@ -1,10 +1,11 @@
 package spinloki.Intrigue.console;
 
+import org.lazywizard.console.BaseCommand.CommandContext;
 import spinloki.Intrigue.IntrigueIds;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 
-public final class IntrigueArgResolver {
-    private IntrigueArgResolver() {}
+public final class IntrigueCommandUtil {
+    private IntrigueCommandUtil() {}
 
     /** Accepts "14", "p14", full id, or "@14"/"@fullid". Returns full id or null if not found. */
     public static String resolvePersonIdOrNull(String token) {
@@ -27,5 +28,9 @@ public final class IntrigueArgResolver {
 
         // Already a full id (or some other string): just validate it exists
         return (IntriguePeopleManager.get().getById(token) != null) ? token : null;
+    }
+
+    public static boolean isCampaignContext(CommandContext context){
+        return context == CommandContext.CAMPAIGN_MAP || context == CommandContext.CAMPAIGN_MARKET;
     }
 }

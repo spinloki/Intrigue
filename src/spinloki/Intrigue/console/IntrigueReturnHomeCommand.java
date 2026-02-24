@@ -1,34 +1,32 @@
 package spinloki.Intrigue.console;
 
+import org.lazywizard.console.BaseCommandWithSuggestion;
 import org.lazywizard.console.Console;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
-import org.lazywizard.console.BaseCommandWithSuggestion;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class IntrigueSetPlayerRelCommand implements BaseCommandWithSuggestion {
+public class IntrigueReturnHomeCommand implements BaseCommandWithSuggestion {
+
     @Override
     public CommandResult runCommand(String args, CommandContext context) {
         if (!IntrigueCommandUtil.isCampaignContext(context)) return CommandResult.WRONG_CONTEXT;
 
         String[] parts = args.trim().split("\\s+");
-        if (parts.length != 2) {
-            Console.showMessage("Usage: intrigue_set_player_rel <person> <value (-100..100)>");
+        if (parts.length != 1) {
+            Console.showMessage("Usage: intrigue_return_home <person>");
             return CommandResult.BAD_SYNTAX;
         }
 
         String id = IntrigueCommandUtil.resolvePersonIdOrNull(parts[0]);
         if (id == null) {
-            Console.showMessage("Unknown person: " + parts[0] + " (try shorthand: 14, p14)");
+            Console.showMessage("Unknown person: " + parts[0] + " (try 14, p14, @14)");
             return CommandResult.ERROR;
         }
 
-        int v;
-        try { v = Integer.parseInt(parts[1]); }
-        catch (Exception ex) { return CommandResult.BAD_SYNTAX; }
-
-        IntriguePeopleManager.get().setRelToPlayer(id, v);
-        IntriguePeopleManager.get().syncMemory(id);
+        IntriguePeopleManager.get().returnHome(id);
+        Console.showMessage("Returned " + id + " to home.");
         return CommandResult.SUCCESS;
     }
 

@@ -11,9 +11,9 @@ import java.util.Map;
 public class IntrigueShowCommand implements BaseCommandWithSuggestion {
     @Override
     public CommandResult runCommand(String args, CommandContext context) {
-        if (context != CommandContext.CAMPAIGN_MAP) return CommandResult.WRONG_CONTEXT;
+        if (!IntrigueCommandUtil.isCampaignContext(context)) return CommandResult.WRONG_CONTEXT;
 
-        String id = IntrigueArgResolver.resolvePersonIdOrNull(args);
+        String id = IntrigueCommandUtil.resolvePersonIdOrNull(args);
         if (id == null) {
             Console.showMessage("Usage: intrigue_show <personId>  (you can use shorthand: 14, p14, @14)");
             return CommandResult.BAD_SYNTAX;
@@ -27,7 +27,7 @@ public class IntrigueShowCommand implements BaseCommandWithSuggestion {
 
         Console.showMessage("ID: " + ip.getPersonId());
         Console.showMessage("Faction: " + ip.getFactionId());
-        Console.showMessage("Market: " + ip.getMarketId());
+        Console.showMessage("Home Market: " + ip.getHomeMarketId());
         Console.showMessage("Power: " + ip.getPower());
         Console.showMessage("RelToPlayer: " + ip.getRelToPlayer());
         Console.showMessage("Traits: " + ip.getTraits());

@@ -10,7 +10,7 @@ import spinloki.Intrigue.campaign.IntriguePerson;
 public class IntrigueListCommand implements BaseCommand {
     @Override
     public CommandResult runCommand(String args, CommandContext context) {
-        if (context != CommandContext.CAMPAIGN_MAP && context != CommandContext.CAMPAIGN_MARKET) {
+        if (!IntrigueCommandUtil.isCampaignContext(context)) {
             Console.showMessage("Run this in the campaign.");
             return CommandResult.WRONG_CONTEXT;
         }
@@ -19,11 +19,11 @@ public class IntrigueListCommand implements BaseCommand {
         for (IntriguePerson ip : IntriguePeopleManager.get().getAll()) {
             MarketAPI m = null;
             for (MarketAPI mk : Global.getSector().getEconomy().getMarketsCopy()) {
-                if (mk != null && mk.getId().equals(ip.getMarketId())) { m = mk; break; }
+                if (mk != null && mk.getId().equals(ip.getHomeMarketId())) { m = mk; break; }
             }
 
             var name = ip.resolvePerson().getName().getFullName();
-            String marketName = (m != null) ? m.getName() : ip.getMarketId();
+            String marketName = (m != null) ? m.getName() : ip.getHomeMarketId();
             Console.showMessage(" - " + ip.getPersonId() + " | " + name + " | " + ip.getFactionId() + " | " + marketName);
         }
 

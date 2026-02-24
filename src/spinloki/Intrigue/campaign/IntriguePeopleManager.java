@@ -1,6 +1,7 @@
 package spinloki.Intrigue.campaign;
 
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.CommDirectoryEntryAPI;
 import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.campaign.CommDirectoryAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
@@ -60,26 +61,33 @@ public class IntriguePeopleManager implements Serializable {
         Map<String, MarketAPI> marketsById = indexMarketsById();
 
         for (IntriguePerson ip : people.values()) {
-            MarketAPI market = marketsById.get(ip.getMarketId());
-            if (market == null) continue;
+            MarketAPI home = marketsById.get(ip.getHomeMarketId());
+            if (home == null) continue;
 
             PersonAPI p = Global.getSector().getImportantPeople().getPerson(ip.getPersonId());
             if (p == null) {
-                // Recreate if somehow lost
-                p = recreatePerson(ip, market, new Random(getStableSeed()));
+                p = recreatePerson(ip, home, new Random(getStableSeed()));
+                if (p == null) continue;
             }
 
-            // Ensure market placement
-            if (!containsPerson(market, p)) {
-                market.addPerson(p);
+            if (ip.isCheckedOut()) {
+                // Away: ensure they don't still appear at home
+                removeAllFromMarketAndComm(home, ip.getPersonId());
+                
+                if (ip.getLocationType() == IntriguePerson.LocationType.MARKET) {
+                    MarketAPI dest = marketsById.get(ip.getLocationId());
+                    if (dest != null) {
+                        ensureSingleInMarket(dest, p);
+                        ensureSingleInCommDirectory(dest, p);
+                    }
+                }
+            } else {
+                // Home: ensure present & deduped
+                ensureSingleInMarket(home, p);
+                ensureSingleInCommDirectory(home, p);
             }
 
-            // Ensure comm directory entry
-            CommDirectoryAPI comm = market.getCommDirectory();
-            if (comm != null) {
-                // Avoid duplicates if API supports it; if not, repeated add is typically harmless.
-                comm.addPerson(p);
-            }
+            syncToPersonMemory(p, ip);
         }
     }
 
@@ -206,5 +214,147 @@ public class IntriguePeopleManager implements Serializable {
         IntriguePerson ip = people.get(personId);
         if (ip == null || trait == null) return;
         ip.getTraits().remove(trait.trim().toUpperCase());
+    }
+
+    // Authority: IntriguePerson data in the manager is the source of truth.
+    // Person memory ($intrigue_*) is a projection for rules/dialog/UI and may be overwritten any time.
+    private void syncToPersonMemory(PersonAPI p, IntriguePerson ip) {
+        p.getMemoryWithoutUpdate().set("$intrigue", true);
+        p.getMemoryWithoutUpdate().set("$intrigue_id", ip.getPersonId());
+        p.getMemoryWithoutUpdate().set("$intrigue_factionId", ip.getFactionId());
+        p.getMemoryWithoutUpdate().set("$intrigue_homeMarketId", ip.getHomeMarketId());
+        p.getMemoryWithoutUpdate().set("$intrigue_locType", ip.getLocationType());
+        p.getMemoryWithoutUpdate().set("$intrigue_locId", ip.getLocationId());
+
+        p.getMemoryWithoutUpdate().set("$intrigue_power", ip.getPower());
+        p.getMemoryWithoutUpdate().set("$intrigue_relToPlayer", ip.getRelToPlayer());
+
+        // Keep it easy for UI: one string for now
+        p.getMemoryWithoutUpdate().set("$intrigue_traits", String.join(", ", ip.getTraits()));
+    }
+
+    private void ensureSingleInMarket(MarketAPI market, PersonAPI canonical) {
+        String id = canonical.getId();
+
+        List<PersonAPI> matches = new ArrayList<>();
+        for (PersonAPI p : market.getPeopleCopy()) {
+            if (p != null && id.equals(p.getId())) matches.add(p);
+        }
+
+        if (matches.isEmpty()) {
+            market.addPerson(canonical);
+            return;
+        }
+
+        boolean hasCanonicalInstance = false;
+        for (PersonAPI p : matches) {
+            if (p == canonical) { hasCanonicalInstance = true; break; }
+        }
+
+        if (!hasCanonicalInstance) {
+            market.addPerson(canonical);
+            matches.clear();
+            for (PersonAPI p : market.getPeopleCopy()) {
+                if (p != null && id.equals(p.getId())) matches.add(p);
+            }
+        }
+
+        for (PersonAPI p : matches) {
+            if (p != canonical) {
+                market.removePerson(p);
+            }
+        }
+    }
+
+    private void ensureSingleInCommDirectory(MarketAPI market, PersonAPI canonical) {
+        CommDirectoryAPI comm = market.getCommDirectory();
+        if (comm == null) return; // MarketAPI.getCommDirectory() can be null unless inited.
+
+        String id = canonical.getId();
+
+        List<PersonAPI> matches = new ArrayList<>();
+        for (CommDirectoryEntryAPI e : comm.getEntriesCopy()) {
+            Object data = e.getEntryData();
+            if (data instanceof PersonAPI) {
+                PersonAPI p = (PersonAPI) data;
+                if (id.equals(p.getId())) {
+                    matches.add(p);
+                }
+            }
+        }
+
+        // None: add it
+        if (matches.isEmpty()) {
+            comm.addPerson(canonical);
+            return;
+        }
+
+        // Exactly one and already canonical instance: good
+        if (matches.size() == 1 && matches.get(0) == canonical) return;
+
+        // Otherwise: remove every matching instance, then add canonical once
+        for (PersonAPI p : matches) {
+            comm.removePerson(p);
+        }
+        comm.addPerson(canonical);
+    }
+
+    public void syncMemory(String personId) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null) return;
+
+        PersonAPI p = Global.getSector().getImportantPeople().getPerson(personId);
+        if (p == null) return;
+
+        syncToPersonMemory(p, ip);
+    }
+
+    private void removeAllFromMarketAndComm(MarketAPI market, String personId) {
+        // Market people list
+        for (PersonAPI p : new ArrayList<>(market.getPeopleCopy())) {
+            if (p != null && personId.equals(p.getId())) {
+                market.removePerson(p);
+            }
+        }
+
+        // Comm directory
+        CommDirectoryAPI comm = market.getCommDirectory();
+        if (comm == null) return;
+
+        for (CommDirectoryEntryAPI e : new ArrayList<>(comm.getEntriesCopy())) {
+            Object data = e.getEntryData();
+            if (data instanceof PersonAPI) {
+                PersonAPI p = (PersonAPI) data;
+                if (personId.equals(p.getId())) {
+                    comm.removePerson(p);
+                }
+            }
+        }
+    }
+
+    public void checkoutToFleet(String personId, String fleetId) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null) return;
+        ip.setOnFleet(fleetId);
+
+        refreshAll();
+        syncMemory(personId);
+    }
+
+    public void returnHome(String personId) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null) return;
+        ip.returnHome();
+
+        refreshAll();
+        syncMemory(personId);
+    }
+
+    public void checkoutToMarket(String personId, String marketId) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null) return;
+        ip.setAtMarket(marketId);
+        refreshAll();
+        syncMemory(personId);
     }
 }

@@ -9,7 +9,7 @@ import java.util.List;
 public class IntrigueSetRelCommand implements BaseCommandWithSuggestion {
     @Override
     public CommandResult runCommand(String args, CommandContext context) {
-        if (context != CommandContext.CAMPAIGN_MAP) return CommandResult.WRONG_CONTEXT;
+        if (!IntrigueCommandUtil.isCampaignContext(context)) return CommandResult.WRONG_CONTEXT;
 
         String[] parts = args.trim().split("\\s+");
         if (parts.length != 3) {
@@ -17,8 +17,8 @@ public class IntrigueSetRelCommand implements BaseCommandWithSuggestion {
             return CommandResult.BAD_SYNTAX;
         }
 
-        String a = IntrigueArgResolver.resolvePersonIdOrNull(parts[0]);
-        String b = IntrigueArgResolver.resolvePersonIdOrNull(parts[1]);
+        String a = IntrigueCommandUtil.resolvePersonIdOrNull(parts[0]);
+        String b = IntrigueCommandUtil.resolvePersonIdOrNull(parts[1]);
         if (a == null || b == null) {
             Console.showMessage("Could not resolve: " + parts[0] + " or " + parts[1]);
             return CommandResult.ERROR;
@@ -30,6 +30,8 @@ public class IntrigueSetRelCommand implements BaseCommandWithSuggestion {
 
         IntriguePeopleManager.get().setRelationship(a, b, v);
         Console.showMessage("Set relationship " + a + " <-> " + b + " to " + v);
+        IntriguePeopleManager.get().syncMemory(a);
+        IntriguePeopleManager.get().syncMemory(b);
         return CommandResult.SUCCESS;
     }
 
