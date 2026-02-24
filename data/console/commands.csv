@@ -1,3 +1,6 @@
 command,class,tags,syntax,help
 intrigue_init,spinloki.Intrigue.console.IntrigueInitCommand,"cheat,campaign",,
 intrigue_list,spinloki.Intrigue.console.IntrigueListCommand,"cheat,campaign",,
+intrigue_show,spinloki.Intrigue.console.IntrigueShowCommand,"cheat,campaign",,
+intrigue_set_player_rel,spinloki.Intrigue.console.IntrigueSetPlayerRelCommand,"cheat,campaign",,
+intrigue_set_rel,spinloki.Intrigue.console.IntrigueSetRelCommand,"cheat,campaign",,

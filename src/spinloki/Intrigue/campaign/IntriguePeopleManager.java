@@ -104,6 +104,17 @@ public class IntriguePeopleManager implements Serializable {
         if (comm != null) comm.addPerson(p);
 
         IntriguePerson ip = new IntriguePerson(id, factionId, market.getId());
+
+        ip.setPower(40 + rng.nextInt(41)); // 40..80
+        ip.setRelToPlayer(rng.nextInt(21) - 10); // -10..10
+
+        // 0-2 random traits for now
+        int traitCount = rng.nextInt(3);
+        for (int t = 0; t < traitCount; t++) {
+            String trait = spinloki.Intrigue.IntrigueTraits.ALL.get(rng.nextInt(spinloki.Intrigue.IntrigueTraits.ALL.size()));
+            ip.getTraits().add(trait);
+        }
+
         people.put(id, ip);
         return ip;
     }
@@ -156,5 +167,44 @@ public class IntriguePeopleManager implements Serializable {
     private long getStableSeed() {
         // Good enough for prototype: seed from sector memory if you want stable across reloads later
         return 1337L;
+    }
+
+    public IntriguePerson getById(String personId) {
+        return people.get(personId);
+    }
+
+    private int clampRel(int v) {
+        return Math.max(-100, Math.min(100, v));
+    }
+
+    public void setRelationship(String aId, String bId, int value) {
+        if (aId == null || bId == null) return;
+        if (aId.equals(bId)) return;
+
+        IntriguePerson a = people.get(aId);
+        IntriguePerson b = people.get(bId);
+        if (a == null || b == null) return;
+
+        int v = clampRel(value);
+        a.setRelToInternal(bId, v);
+        b.setRelToInternal(aId, v);
+    }
+
+    public void setRelToPlayer(String personId, int value) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null) return;
+        ip.setRelToPlayer(clampRel(value));
+    }
+
+    public void addTrait(String personId, String trait) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null || trait == null) return;
+        ip.getTraits().add(trait.trim().toUpperCase());
+    }
+
+    public void removeTrait(String personId, String trait) {
+        IntriguePerson ip = people.get(personId);
+        if (ip == null || trait == null) return;
+        ip.getTraits().remove(trait.trim().toUpperCase());
     }
 }
