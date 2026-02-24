@@ -1,1 +1,3 @@
 command,class,tags,syntax,help
+intrigue_init,spinloki.Intrigue.console.IntrigueInitCommand,"cheat,campaign",,
+intrigue_list,spinloki.Intrigue.console.IntrigueListCommand,"cheat,campaign",,
