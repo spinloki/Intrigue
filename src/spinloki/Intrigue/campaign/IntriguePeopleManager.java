@@ -8,11 +8,12 @@ import com.fs.starfarer.api.campaign.PersonImportance;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.characters.PersonAPI;
 import spinloki.Intrigue.IntrigueIds;
+import spinloki.Intrigue.campaign.spi.IntriguePeopleAccess;
 
 import java.io.Serializable;
 import java.util.*;
 
-public class IntriguePeopleManager implements Serializable {
+public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess {
 
     private final Map<String, IntriguePerson> people = new LinkedHashMap<>();
     private int nextId = 1;
@@ -109,10 +110,12 @@ public class IntriguePeopleManager implements Serializable {
         return created;
     }
 
+    @Override
     public Collection<IntriguePerson> getAll() {
         return Collections.unmodifiableCollection(people.values());
     }
 
+    @Override
     public IntriguePerson getById(String personId) {
         return people.get(personId);
     }
@@ -164,7 +167,7 @@ public class IntriguePeopleManager implements Serializable {
                 }
                 else {
                     ip.returnHome();
-                    home.ensurePresent(ip.resolvePerson());
+                    home.ensurePresent(p);
                 }
             } else {
                 // Home: ensure present & deduped
@@ -316,6 +319,7 @@ public class IntriguePeopleManager implements Serializable {
         return Math.max(-100, Math.min(100, v));
     }
 
+    @Override
     public void setRelationship(String aId, String bId, int value) {
         if (aId == null || bId == null) return;
         if (aId.equals(bId)) return;
@@ -432,6 +436,7 @@ public class IntriguePeopleManager implements Serializable {
         comm.addPerson(canonical);
     }
 
+    @Override
     public void syncMemory(String personId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
@@ -465,6 +470,7 @@ public class IntriguePeopleManager implements Serializable {
         }
     }
 
+    @Override
     public void checkoutToFleet(String personId, String fleetId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
@@ -477,6 +483,7 @@ public class IntriguePeopleManager implements Serializable {
         refreshOne(ip, marketsById);
     }
 
+    @Override
     public void returnHome(String personId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
@@ -491,6 +498,7 @@ public class IntriguePeopleManager implements Serializable {
         refreshOne(ip, marketsById);
     }
 
+    @Override
     public void checkoutToMarket(String personId, String marketId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;

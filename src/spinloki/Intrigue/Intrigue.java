@@ -6,6 +6,8 @@ import com.thoughtworks.xstream.XStream;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePeopleScript;
 import spinloki.Intrigue.campaign.ops.*;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
+import spinloki.Intrigue.campaign.spi.SectorClock;
 import spinloki.Intrigue.config.IntrigueSettings;
 
 import java.util.Map;
@@ -34,7 +36,7 @@ public class Intrigue extends BaseModPlugin {
 
     @Override
     public void onNewGameAfterEconomyLoad() {
-        // Create and place your initial set of characters
+        initServices();
         IntriguePeopleManager.get().bootstrapIfNeeded();
         IntriguePeopleManager.get().refreshAll();
         ensureScripts();
@@ -42,9 +44,18 @@ public class Intrigue extends BaseModPlugin {
 
     @Override
     public void onGameLoad(boolean newGame) {
-        // Ensure manager exists + script is present on load
+        initServices();
         IntriguePeopleManager.get().refreshAll();
         ensureScripts();
+    }
+
+    private void initServices() {
+        IntrigueServices.init(
+                new SectorClock(),
+                IntriguePeopleManager.get(),
+                IntrigueOpsManager.get(),
+                new GameOpFactory()
+        );
     }
 
     private void ensureScripts() {

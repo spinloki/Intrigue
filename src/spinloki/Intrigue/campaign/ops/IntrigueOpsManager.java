@@ -4,6 +4,7 @@ import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.util.Misc;
 import spinloki.Intrigue.IntrigueIds;
+import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
 
 import java.io.Serializable;
 import java.util.*;
@@ -14,7 +15,7 @@ import java.util.*;
  * Stored in sector persistent data. Registered as an EveryFrameScript so
  * ops are advanced each frame automatically.
  */
-public class IntrigueOpsManager implements EveryFrameScript, Serializable {
+public class IntrigueOpsManager implements EveryFrameScript, Serializable, IntrigueOpRunner {
 
     private final List<IntrigueOp> activeOps = new ArrayList<>();
     private int nextOpSeq = 1;
@@ -37,6 +38,7 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable {
     // ── Op management ───────────────────────────────────────────────────
 
     /** Generate a unique op ID. */
+    @Override
     public String nextOpId(String prefix) {
         return prefix + "_" + (nextOpSeq++);
     }
@@ -44,6 +46,7 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable {
     /**
      * Register and start an op. The op transitions from PROPOSED → ACTIVE.
      */
+    @Override
     public void startOp(IntrigueOp op) {
         activeOps.add(op);
         op.start();
@@ -55,6 +58,7 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable {
     }
 
     /** Get all active ops where the given person is the initiator. */
+    @Override
     public List<IntrigueOp> getOpsInitiatedBy(String personId) {
         List<IntrigueOp> result = new ArrayList<>();
         for (IntrigueOp op : activeOps) {
@@ -86,6 +90,7 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable {
     }
 
     /** Check if a person already has an active op (as initiator). */
+    @Override
     public boolean hasActiveOp(String personId) {
         return !getOpsInitiatedBy(personId).isEmpty();
     }

@@ -1,7 +1,5 @@
 package spinloki.Intrigue.campaign;
 
-import com.fs.starfarer.api.Global;
-import com.fs.starfarer.api.characters.PersonAPI;
 
 import java.io.Serializable;
 import java.util.*;
@@ -85,12 +83,8 @@ public class IntriguePerson implements Serializable {
 
     public Integer getRelTo(String otherPersonId) { return relToOthers.get(otherPersonId); }
     public Map<String, Integer> getRelToOthersView() { return Collections.unmodifiableMap(relToOthers); }
-    void setRelToInternal(String otherPersonId, int value) { relToOthers.put(otherPersonId, value); }
+    public void setRelToInternal(String otherPersonId, int value) { relToOthers.put(otherPersonId, value); }
 
     public long getLastOpTimestamp() { return lastOpTimestamp; }
     public void setLastOpTimestamp(long lastOpTimestamp) { this.lastOpTimestamp = lastOpTimestamp; }
-
-    public PersonAPI resolvePerson() {
-        return Global.getSector().getImportantPeople().getPerson(personId);
-    }
 }

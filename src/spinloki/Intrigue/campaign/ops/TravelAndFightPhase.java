@@ -9,7 +9,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.FleetFactoryV3;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetParamsV3;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
 
-import org.apache.log4j.Logger;
+import java.util.logging.Logger;
 
 /**
  * Phase 2 of a RaidOp: spawn a fleet, send it to the target, and track the battle.
@@ -22,7 +22,7 @@ import org.apache.log4j.Logger;
  */
 public class TravelAndFightPhase implements OpPhase, FleetEventListener {
 
-    private static final Logger log = Global.getLogger(TravelAndFightPhase.class);
+    private static final Logger log = Logger.getLogger(TravelAndFightPhase.class.getName());
 
     private final String initiatorFactionId;
     private final String sourceMarketId;
@@ -56,12 +56,24 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
         if (done) return;
 
         if (!fleetSpawned) {
+            // In sim mode (no sector), auto-complete as a loss.
+            if (!isSectorAvailable()) {
+                log.info("TravelAndFightPhase: no sector available (sim mode); auto-completing.");
+                fleetWon = false;
+                done = true;
+                return;
+            }
             spawnFleet();
             return;
         }
 
         // Re-acquire fleet reference after save/load
         if (fleet == null && fleetId != null) {
+            if (!isSectorAvailable()) {
+                fleetWon = false;
+                done = true;
+                return;
+            }
             for (LocationAPI loc : Global.getSector().getAllLocations()) {
                 for (CampaignFleetAPI f : loc.getFleets()) {
                     if (fleetId.equals(f.getId())) {
@@ -73,7 +85,7 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
             }
             if (fleet == null) {
                 // Fleet no longer exists — treat as loss
-                log.warn("TravelAndFightPhase: fleet " + fleetId + " not found after load; treating as loss.");
+                log.warning("TravelAndFightPhase: fleet " + fleetId + " not found after load; treating as loss.");
                 fleetWon = false;
                 done = true;
                 return;
@@ -92,7 +104,7 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
         MarketAPI target = Global.getSector().getEconomy().getMarket(targetMarketId);
 
         if (source == null || target == null || source.getPrimaryEntity() == null || target.getPrimaryEntity() == null) {
-            log.warn("TravelAndFightPhase: source or target market missing; aborting.");
+            log.warning("TravelAndFightPhase: source or target market missing; aborting.");
             fleetWon = false;
             done = true;
             return;
@@ -113,7 +125,7 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
 
         CampaignFleetAPI created = FleetFactoryV3.createFleet(params);
         if (created == null || created.isEmpty()) {
-            log.warn("TravelAndFightPhase: failed to create fleet; aborting.");
+            log.warning("TravelAndFightPhase: failed to create fleet; aborting.");
             fleetWon = false;
             done = true;
             return;
@@ -142,6 +154,17 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
 
         log.info("TravelAndFightPhase: spawned fleet " + fleetId + " (" + combatFP + " FP) at " +
                  source.getName() + " targeting " + target.getName());
+    }
+
+    /**
+     * Check if the Starsector sector is available. Returns false in sim/test mode.
+     */
+    private boolean isSectorAvailable() {
+        try {
+            return Global.getSector() != null;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -200,5 +223,4 @@ public class TravelAndFightPhase implements OpPhase, FleetEventListener {
                  ", won: " + fleetWon);
     }
 }
-
 

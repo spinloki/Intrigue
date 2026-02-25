@@ -1,7 +1,7 @@
 package spinloki.Intrigue.campaign.ops;
 
-import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -120,11 +120,11 @@ public abstract class IntrigueOp implements Serializable {
     // ── Helpers for subclasses ──────────────────────────────────────────
 
     protected IntriguePerson getInitiator() {
-        return IntriguePeopleManager.get().getById(initiatorId);
+        return IntrigueServices.people().getById(initiatorId);
     }
 
     protected IntriguePerson getTargetPerson() {
-        return IntriguePeopleManager.get().getById(targetId);
+        return IntrigueServices.people().getById(targetId);
     }
 
     // ── Subclass hooks ──────────────────────────────────────────────────

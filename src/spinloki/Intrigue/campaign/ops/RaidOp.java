@@ -1,12 +1,11 @@
 package spinloki.Intrigue.campaign.ops;
 
-import org.apache.log4j.Logger;
-
-import com.fs.starfarer.api.Global;
-
 import spinloki.Intrigue.IntrigueTraits;
-import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.spi.IntriguePeopleAccess;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
+
+import java.util.logging.Logger;
 
 /**
  * "Send a fleet to raid another person's home market."
@@ -23,7 +22,7 @@ import spinloki.Intrigue.campaign.IntriguePerson;
  */
 public class RaidOp extends IntrigueOp {
 
-    private static final Logger log = Global.getLogger(RaidOp.class);
+    private static final Logger log = Logger.getLogger(RaidOp.class.getName());
 
     private static final int BASE_POWER_SHIFT = 8;
     private static final int REL_DROP_ON_RAID = -15;
@@ -66,8 +65,8 @@ public class RaidOp extends IntrigueOp {
         if (initiator == null) return;
 
         // Checkout initiator to fleet (they're "away" during the op)
-        IntriguePeopleManager mgr = IntriguePeopleManager.get();
-        mgr.checkoutToMarket(initiator.getPersonId(), targetMarketId);
+        IntriguePeopleAccess people = IntrigueServices.people();
+        people.checkoutToMarket(initiator.getPersonId(), targetMarketId);
 
         log.info("RaidOp started: " + initiator.getPersonId() + " raiding " + targetMarketId);
     }
@@ -87,32 +86,32 @@ public class RaidOp extends IntrigueOp {
 
     @Override
     protected void applyOutcome() {
-        IntriguePeopleManager mgr = IntriguePeopleManager.get();
+        IntriguePeopleAccess people = IntrigueServices.people();
         IntriguePerson attacker = getInitiator();
         IntriguePerson defender = getTargetPerson();
 
         // Return the attacker home regardless of outcome
         if (attacker != null) {
-            mgr.returnHome(attacker.getPersonId());
-            attacker.setLastOpTimestamp(Global.getSector().getClock().getTimestamp());
+            people.returnHome(attacker.getPersonId());
+            attacker.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
         }
 
         OpOutcome result = getOutcome();
         log.info("RaidOp resolved: " + getOpId() + " → " + result);
 
         if (result == OpOutcome.SUCCESS) {
-            applySuccess(mgr, attacker, defender);
+            applySuccess(people, attacker, defender);
         } else if (result == OpOutcome.FAILURE) {
-            applyFailure(mgr, attacker, defender);
+            applyFailure(people, attacker, defender);
         }
         // ABORTED: no stat changes
 
         // Sync memory for both
-        if (attacker != null) mgr.syncMemory(attacker.getPersonId());
-        if (defender != null) mgr.syncMemory(defender.getPersonId());
+        if (attacker != null) people.syncMemory(attacker.getPersonId());
+        if (defender != null) people.syncMemory(defender.getPersonId());
     }
 
-    private void applySuccess(IntriguePeopleManager mgr, IntriguePerson attacker, IntriguePerson defender) {
+    private void applySuccess(IntriguePeopleAccess people, IntriguePerson attacker, IntriguePerson defender) {
         int powerGain = BASE_POWER_SHIFT;
 
         // Trait modifiers
@@ -129,7 +128,7 @@ public class RaidOp extends IntrigueOp {
 
         // Relationship between attacker and defender drops
         if (attacker != null && defender != null) {
-            mgr.setRelationship(attacker.getPersonId(), defender.getPersonId(),
+            people.setRelationship(attacker.getPersonId(), defender.getPersonId(),
                     getRelOrZero(attacker, defender.getPersonId()) + REL_DROP_ON_RAID);
         }
 
@@ -142,7 +141,7 @@ public class RaidOp extends IntrigueOp {
         log.info("  SUCCESS: attacker +" + powerGain + " power, defender -" + powerGain + " power");
     }
 
-    private void applyFailure(IntriguePeopleManager mgr, IntriguePerson attacker, IntriguePerson defender) {
+    private void applyFailure(IntriguePeopleAccess people, IntriguePerson attacker, IntriguePerson defender) {
         int powerLoss = BASE_POWER_SHIFT / 2; // fail is less costly than success is rewarding
 
         if (attacker != null) {
@@ -155,7 +154,7 @@ public class RaidOp extends IntrigueOp {
 
         // Relationship still drops (you tried to raid them!)
         if (attacker != null && defender != null) {
-            mgr.setRelationship(attacker.getPersonId(), defender.getPersonId(),
+            people.setRelationship(attacker.getPersonId(), defender.getPersonId(),
                     getRelOrZero(attacker, defender.getPersonId()) + REL_DROP_ON_RAID / 2);
         }
 

@@ -1,8 +1,9 @@
 package spinloki.Intrigue.campaign.ops;
 
-import com.fs.starfarer.api.Global;
 import spinloki.Intrigue.IntrigueTraits;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.util.*;
 
@@ -28,19 +29,19 @@ public final class OpEvaluator {
      *
      * @param person     the candidate initiator
      * @param allPeople  all intrigue people (for target selection)
-     * @param opsManager the ops manager (to check for existing ops)
+     * @param opsRunner  the ops runner (to check for existing ops)
      * @param opIdPrefix prefix for generating op IDs
      * @return an op to start, or null if the person shouldn't act
      */
     public static IntrigueOp evaluate(IntriguePerson person,
                                        Collection<IntriguePerson> allPeople,
-                                       IntrigueOpsManager opsManager,
+                                       IntrigueOpRunner opsRunner,
                                        String opIdPrefix) {
         if (person == null) return null;
 
         // Don't act if already checked out or busy with an op
         if (person.isCheckedOut()) return null;
-        if (opsManager.hasActiveOp(person.getPersonId())) return null;
+        if (opsRunner.hasActiveOp(person.getPersonId())) return null;
 
         // Power threshold
         if (person.getPower() < MIN_POWER_THRESHOLD) return null;
@@ -49,7 +50,7 @@ public final class OpEvaluator {
         if (isOnCooldown(person)) return null;
 
         // Find valid targets: other people, different faction, not already under attack
-        List<ScoredTarget> targets = scoreTargets(person, allPeople, opsManager);
+        List<ScoredTarget> targets = scoreTargets(person, allPeople, opsRunner);
         if (targets.isEmpty()) return null;
 
         // Pick the best-scoring target
@@ -60,16 +61,15 @@ public final class OpEvaluator {
         if (best.score < 10f) return null;
 
         // For now, only RaidOp exists. Future: pick op type based on traits.
-        String opId = opsManager.nextOpId(opIdPrefix);
-        return new RaidOp(opId, person.getPersonId(), best.target.getPersonId(),
-                          best.target.getHomeMarketId());
+        String opId = opsRunner.nextOpId(opIdPrefix);
+        return IntrigueServices.opFactory().createRaidOp(opId, person, best.target);
     }
 
     // ── Scoring ─────────────────────────────────────────────────────────
 
     private static List<ScoredTarget> scoreTargets(IntriguePerson person,
                                                     Collection<IntriguePerson> allPeople,
-                                                    IntrigueOpsManager opsManager) {
+                                                    IntrigueOpRunner opsRunner) {
         List<ScoredTarget> results = new ArrayList<>();
 
         for (IntriguePerson other : allPeople) {
@@ -81,7 +81,7 @@ public final class OpEvaluator {
             }
 
             // Don't target people who are already being targeted by an active op
-            if (opsManager.hasActiveOp(other.getPersonId())) continue;
+            if (opsRunner.hasActiveOp(other.getPersonId())) continue;
 
             float score = computeScore(person, other);
             if (score > 0) {
@@ -142,7 +142,7 @@ public final class OpEvaluator {
         long lastOp = person.getLastOpTimestamp();
         if (lastOp <= 0) return false;
 
-        float daysSinceLastOp = Global.getSector().getClock().getElapsedDaysSince(lastOp);
+        float daysSinceLastOp = IntrigueServices.clock().getElapsedDaysSince(lastOp);
         return daysSinceLastOp < COOLDOWN_DAYS;
     }
 

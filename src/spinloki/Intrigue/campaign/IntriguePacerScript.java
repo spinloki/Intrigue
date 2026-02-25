@@ -4,8 +4,10 @@ import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.util.IntervalUtil;
 import com.fs.starfarer.api.util.Misc;
 import spinloki.Intrigue.campaign.ops.IntrigueOp;
-import spinloki.Intrigue.campaign.ops.IntrigueOpsManager;
 import spinloki.Intrigue.campaign.ops.OpEvaluator;
+import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
+import spinloki.Intrigue.campaign.spi.IntriguePeopleAccess;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,19 +43,19 @@ public class IntriguePacerScript implements EveryFrameScript {
     }
 
     private String doOneTick(boolean verbose) {
-        IntriguePeopleManager mgr = IntriguePeopleManager.get();
-        List<IntriguePerson> all = new ArrayList<>(mgr.getAll());
+        IntriguePeopleAccess people = IntrigueServices.people();
+        List<IntriguePerson> all = new ArrayList<>(people.getAll());
         if (all.isEmpty()) return "Pacer tick: no intrigue people.";
 
         StringBuilder result = new StringBuilder();
 
         // ── Op evaluation: each idle person has a chance to start an operation ──
-        IntrigueOpsManager opsMgr = IntrigueOpsManager.get();
+        IntrigueOpRunner opsRunner = IntrigueServices.ops();
         for (IntriguePerson ip : all) {
             if (rng.nextFloat() > 0.20f) continue; // 20% chance per person per tick
-            IntrigueOp op = OpEvaluator.evaluate(ip, all, opsMgr, "raid");
+            IntrigueOp op = OpEvaluator.evaluate(ip, all, opsRunner, "raid");
             if (op != null) {
-                opsMgr.startOp(op);
+                opsRunner.startOp(op);
                 if (verbose) {
                     result.append("Op started: ").append(op.getOpTypeName())
                           .append(" by ").append(op.getInitiatorId())
@@ -83,7 +85,7 @@ public class IntriguePacerScript implements EveryFrameScript {
             int before = target.getPower();
             int after = clamp(before + delta, 0, 100);
             target.setPower(after);
-            mgr.syncMemory(id);
+            people.syncMemory(id);
             if (verbose) {
                 result.append("Pacer tick: ").append(id).append(" power ").append(before).append(" -> ").append(after);
             }
@@ -92,7 +94,7 @@ public class IntriguePacerScript implements EveryFrameScript {
             int before = target.getRelToPlayer();
             int after = clamp(before + delta, -100, 100);
             target.setRelToPlayer(after);
-            mgr.syncMemory(id);
+            people.syncMemory(id);
             if (verbose) {
                 result.append("Pacer tick: ").append(id).append(" relToPlayer ").append(before).append(" -> ").append(after);
             }
