@@ -175,6 +175,29 @@ public class IntriguePeopleManager implements Serializable {
         }
     }
 
+    private void refreshOne(IntriguePerson ip, Map<String, MarketAPI> marketsById) {
+        MarketAPI homeMarket = marketsById.get(ip.getHomeMarketId());
+        if (homeMarket == null) return;
+
+        PersonAPI p = Global.getSector().getImportantPeople().getPerson(ip.getPersonId());
+        if (p == null) {
+            p = recreatePerson(ip, homeMarket, new Random(getStableSeed()));
+            if (p == null) return;
+        }
+
+        Placement home = new MarketPlacement(homeMarket);
+
+        if (ip.isCheckedOut()) {
+            home.ensureAbsent(ip.getPersonId());   // enforce “not at home”
+            Placement cur = resolveCurrentPlacement(ip, marketsById);
+            if (cur != null) cur.ensurePresent(p); // place at destination
+        } else {
+            home.ensurePresent(p);                 // place/dedupe at home
+        }
+
+        syncToPersonMemory(p, ip);
+    }
+
     /**
      * Ensure we remove the person from their *current* known placement before changing location fields.
      * This prevents "ghost" presence in an old market when locationId is overwritten.
@@ -401,10 +424,8 @@ public class IntriguePeopleManager implements Serializable {
             return;
         }
 
-        // Exactly one and already canonical instance: good
         if (matches.size() == 1 && matches.get(0) == canonical) return;
 
-        // Otherwise: remove every matching instance, then add canonical once
         for (PersonAPI p : matches) {
             comm.removePerson(p);
         }
@@ -453,23 +474,21 @@ public class IntriguePeopleManager implements Serializable {
 
         ip.setOnFleet(fleetId);
 
-        refreshAll();
-        syncMemory(personId);
+        refreshOne(ip, marketsById);
     }
 
     public void returnHome(String personId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
 
+        Map<String, MarketAPI> marketsById = indexMarketsById();
         if (ip.isCheckedOut()) {
-            Map<String, MarketAPI> marketsById = indexMarketsById();
             unplaceFromCurrentLocation(ip, marketsById);
         }
 
         ip.returnHome();
 
-        refreshAll();
-        syncMemory(personId);
+        refreshOne(ip, marketsById);
     }
 
     public void checkoutToMarket(String personId, String marketId) {
@@ -481,7 +500,6 @@ public class IntriguePeopleManager implements Serializable {
 
         ip.setAtMarket(marketId);
 
-        refreshAll();
-        syncMemory(personId);
+        refreshOne(ip, marketsById);
     }
 }
