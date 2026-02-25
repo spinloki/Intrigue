@@ -31,6 +31,9 @@ public class IntriguePerson implements Serializable {
     private final Set<String> traits = new LinkedHashSet<>();
     private final Map<String, Integer> relToOthers = new HashMap<>();
 
+    // --- Operations state ---
+    private long lastOpTimestamp = 0;
+
     public IntriguePerson(String personId, String factionId, String homeMarketId) {
         this.personId = personId;
         this.factionId = factionId;
@@ -83,6 +86,9 @@ public class IntriguePerson implements Serializable {
     public Integer getRelTo(String otherPersonId) { return relToOthers.get(otherPersonId); }
     public Map<String, Integer> getRelToOthersView() { return Collections.unmodifiableMap(relToOthers); }
     void setRelToInternal(String otherPersonId, int value) { relToOthers.put(otherPersonId, value); }
+
+    public long getLastOpTimestamp() { return lastOpTimestamp; }
+    public void setLastOpTimestamp(long lastOpTimestamp) { this.lastOpTimestamp = lastOpTimestamp; }
 
     public PersonAPI resolvePerson() {
         return Global.getSector().getImportantPeople().getPerson(personId);

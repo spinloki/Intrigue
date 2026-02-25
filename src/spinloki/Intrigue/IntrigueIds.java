@@ -14,4 +14,5 @@ public final class IntrigueIds {
     public static final String DEFAULT_POST = "agent";
 
     public static final String PERSIST_PACER_SCRIPT_KEY = "spinloki_intrigue_pacer_script";
+    public static final String PERSIST_OPS_MANAGER_KEY = "spinloki_intrigue_ops_manager";
 }

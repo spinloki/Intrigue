@@ -5,6 +5,7 @@ import com.fs.starfarer.api.Global;
 import com.thoughtworks.xstream.XStream;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePeopleScript;
+import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.config.IntrigueSettings;
 
 import java.util.Map;
@@ -23,6 +24,12 @@ public class Intrigue extends BaseModPlugin {
         x.alias("IntriguePeopleManager", IntriguePeopleManager.class);
         x.alias("IntriguePerson", spinloki.Intrigue.campaign.IntriguePerson.class);
         x.alias("IntriguePeopleScript", IntriguePeopleScript.class);
+        x.alias("IntrigueOpsManager", IntrigueOpsManager.class);
+        x.alias("IntrigueOp", IntrigueOp.class);
+        x.alias("RaidOp", RaidOp.class);
+        x.alias("AssemblePhase", AssemblePhase.class);
+        x.alias("TravelAndFightPhase", TravelAndFightPhase.class);
+        x.alias("ReturnPhase", ReturnPhase.class);
     }
 
     @Override
@@ -43,6 +50,7 @@ public class Intrigue extends BaseModPlugin {
     private void ensureScripts() {
         ensurePacerScript();
         ensurePeopleScript();
+        ensureOpsManagerScript();
     }
 
     private void ensurePeopleScript() {
@@ -64,6 +72,19 @@ public class Intrigue extends BaseModPlugin {
             spinloki.Intrigue.campaign.IntriguePacerScript script = new spinloki.Intrigue.campaign.IntriguePacerScript();
             Global.getSector().addScript(script);
             data.put(IntrigueIds.PERSIST_PACER_SCRIPT_KEY, script);
+        }
+    }
+
+    private void ensureOpsManagerScript() {
+        Map<String, Object> data = Global.getSector().getPersistentData();
+        Object existing = data.get(IntrigueIds.PERSIST_OPS_MANAGER_KEY);
+
+        if (!(existing instanceof IntrigueOpsManager)) {
+            IntrigueOpsManager mgr = IntrigueOpsManager.get();
+            Global.getSector().addScript(mgr);
+        } else {
+            // Ensure the existing manager is registered as a script
+            Global.getSector().addScript((IntrigueOpsManager) existing);
         }
     }
 }

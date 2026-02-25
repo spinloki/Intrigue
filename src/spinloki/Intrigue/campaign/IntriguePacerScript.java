@@ -3,6 +3,9 @@ package spinloki.Intrigue.campaign;
 import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.util.IntervalUtil;
 import com.fs.starfarer.api.util.Misc;
+import spinloki.Intrigue.campaign.ops.IntrigueOp;
+import spinloki.Intrigue.campaign.ops.IntrigueOpsManager;
+import spinloki.Intrigue.campaign.ops.OpEvaluator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +45,24 @@ public class IntriguePacerScript implements EveryFrameScript {
         List<IntriguePerson> all = new ArrayList<>(mgr.getAll());
         if (all.isEmpty()) return "Pacer tick: no intrigue people.";
 
+        StringBuilder result = new StringBuilder();
+
+        // ── Op evaluation: each idle person has a chance to start an operation ──
+        IntrigueOpsManager opsMgr = IntrigueOpsManager.get();
+        for (IntriguePerson ip : all) {
+            if (rng.nextFloat() > 0.20f) continue; // 20% chance per person per tick
+            IntrigueOp op = OpEvaluator.evaluate(ip, all, opsMgr, "raid");
+            if (op != null) {
+                opsMgr.startOp(op);
+                if (verbose) {
+                    result.append("Op started: ").append(op.getOpTypeName())
+                          .append(" by ").append(op.getInitiatorId())
+                          .append(" targeting ").append(op.getTargetId()).append("\n");
+                }
+            }
+        }
+
+        // ── Stat nudges (original pacer behavior) ──
         // Prefer people who are "home" (not checked out), but fall back if all are checked out.
         List<IntriguePerson> candidates = new ArrayList<>();
         for (IntriguePerson ip : all) {
@@ -63,17 +84,19 @@ public class IntriguePacerScript implements EveryFrameScript {
             int after = clamp(before + delta, 0, 100);
             target.setPower(after);
             mgr.syncMemory(id);
-            return verbose
-                    ? ("Pacer tick: " + id + " power " + before + " -> " + after)
-                    : "";
+            if (verbose) {
+                result.append("Pacer tick: ").append(id).append(" power ").append(before).append(" -> ").append(after);
+            }
+            return result.toString();
         } else {
             int before = target.getRelToPlayer();
             int after = clamp(before + delta, -100, 100);
             target.setRelToPlayer(after);
             mgr.syncMemory(id);
-            return verbose
-                    ? ("Pacer tick: " + id + " relToPlayer " + before + " -> " + after)
-                    : "";
+            if (verbose) {
+                result.append("Pacer tick: ").append(id).append(" relToPlayer ").append(before).append(" -> ").append(after);
+            }
+            return result.toString();
         }
     }
 
