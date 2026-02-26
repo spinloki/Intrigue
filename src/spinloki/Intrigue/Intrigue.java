@@ -35,6 +35,8 @@ public class Intrigue extends BaseModPlugin {
         x.alias("AssemblePhase", AssemblePhase.class);
         x.alias("TravelAndFightPhase", TravelAndFightPhase.class);
         x.alias("ReturnPhase", ReturnPhase.class);
+        x.alias("FGIPhase", FGIPhase.class);
+        x.alias("IntrigueRaidIntel", IntrigueRaidIntel.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
     }

@@ -70,6 +70,39 @@ public final class OpEvaluator {
         return IntrigueServices.opFactory().createRaidOp(opId, subfaction, best.target);
     }
 
+    /**
+     * Diagnostic: returns a human-readable explanation of why evaluate() would
+     * return null for this subfaction, or "READY" with target info if it would act.
+     */
+    public static String diagnose(IntrigueSubfaction subfaction, IntrigueOpRunner opsRunner) {
+        if (subfaction == null) return "null subfaction";
+
+        String leaderId = subfaction.getLeaderId();
+        if (leaderId == null) return "no leader";
+
+        IntriguePerson leader = IntrigueServices.people().getById(leaderId);
+        if (leader == null) return "leader '" + leaderId + "' not found in people registry";
+
+        if (leader.isCheckedOut()) return "leader checked out";
+        if (opsRunner.hasActiveOp(leaderId)) return "leader has active op";
+
+        if (subfaction.getPower() < MIN_POWER_THRESHOLD)
+            return "power " + subfaction.getPower() + " < " + MIN_POWER_THRESHOLD;
+
+        if (isOnCooldown(subfaction)) return "on cooldown";
+
+        Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
+        List<ScoredTarget> targets = scoreTargets(subfaction, leader, allSubfactions, opsRunner);
+        if (targets.isEmpty()) return "no valid targets (hostility/availability)";
+
+        targets.sort((a, b) -> Float.compare(b.score, a.score));
+        ScoredTarget best = targets.get(0);
+
+        if (best.score < 10f) return "best score " + best.score + " < 10 (target: " + best.target.getSubfactionId() + ")";
+
+        return "READY → " + best.target.getSubfactionId() + " (score=" + best.score + ")";
+    }
+
     // ── Scoring ─────────────────────────────────────────────────────────
 
     private static List<ScoredTarget> scoreTargets(IntrigueSubfaction attacker,

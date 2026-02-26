@@ -10,17 +10,16 @@ import spinloki.Intrigue.campaign.spi.IntrigueSubfactionAccess;
 import java.util.logging.Logger;
 
 /**
- * "Send a fleet to raid another subfaction's home market."
+ * "Send a coordinated fleet group to raid another subfaction's home market."
  *
- * Phases:
- *   1. AssemblePhase  – timed delay scaling with subfaction power
- *   2. TravelAndFightPhase – spawn fleet, travel, fight
- *   3. ReturnPhase – cooldown before leader is available again
+ * Uses {@link FGIPhase} to create an {@link IntrigueRaidIntel} (extends
+ * GenericRaidFGI) which handles multi-fleet spawning, coordinated travel,
+ * Intel panel display, and automatic defense fleet spawning.
  *
  * Outcome effects:
  *   SUCCESS → attacker subfaction gains power, defender loses power, relationship drops
  *   FAILURE → attacker subfaction loses power, relationship still drops
- *   ABORTED → minimal effect
+ *   ABORTED → minimal effect (e.g. factions became non-hostile)
  */
 public class RaidOp extends IntrigueOp {
 
@@ -30,6 +29,7 @@ public class RaidOp extends IntrigueOp {
     private static final int REL_DROP_ON_RAID = -15;
 
     private final String targetMarketId;
+    private final FGIPhase fgiPhase;
 
     /**
      * @param opId                unique operation ID
@@ -49,14 +49,12 @@ public class RaidOp extends IntrigueOp {
         // Determine fleet strength from subfaction power: 30 FP at power 0, 150 FP at power 100
         int combatFP = 30 + (int) (power * 1.2f);
 
-        String factionId = attackerSubfaction.getFactionId();
-        String sourceMarketId = attackerSubfaction.getHomeMarketId();
-
-        // Build phases
-        phases.add(new AssemblePhase(power));
-        phases.add(new TravelAndFightPhase(factionId, sourceMarketId, targetMarketId, combatFP,
-                attackerSubfaction.getName()));
-        phases.add(new ReturnPhase(3f));
+        // Single phase: FGIPhase handles prep, travel, combat, and return
+        fgiPhase = new FGIPhase(
+                attackerSubfaction.getSubfactionId(),
+                targetSubfaction.getSubfactionId(),
+                combatFP);
+        phases.add(fgiPhase);
     }
 
     @Override
@@ -86,6 +84,8 @@ public class RaidOp extends IntrigueOp {
         if (!sameFaction && !IntrigueServices.hostility().areHostile(attacker.getFactionId(), defender.getFactionId())) {
             log.info("RaidOp " + getOpId() + " aborted: "
                     + attacker.getFactionId() + " and " + defender.getFactionId() + " are no longer hostile.");
+            // Abort the FGI so fleets return home
+            fgiPhase.abort();
             return true;
         }
 
@@ -94,14 +94,7 @@ public class RaidOp extends IntrigueOp {
 
     @Override
     protected OpOutcome determineOutcome() {
-        for (OpPhase phase : phases) {
-            if (phase instanceof TravelAndFightPhase) {
-                return ((TravelAndFightPhase) phase).didFleetWin()
-                        ? OpOutcome.SUCCESS
-                        : OpOutcome.FAILURE;
-            }
-        }
-        return OpOutcome.FAILURE;
+        return fgiPhase.didRaidSucceed() ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
     }
 
     @Override

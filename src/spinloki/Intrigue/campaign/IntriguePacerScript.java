@@ -55,9 +55,15 @@ public class IntriguePacerScript implements EveryFrameScript {
                 if (verbose) {
                     result.append("Op started: ").append(op.getOpTypeName())
                           .append(" by ").append(sf.getSubfactionId())
+                          .append(" (").append(sf.getName()).append(")")
                           .append(" (leader ").append(op.getInitiatorId()).append(")")
                           .append(" targeting ").append(op.getTargetSubfactionId()).append("\n");
                 }
+            } else if (verbose) {
+                String reason = OpEvaluator.diagnose(sf, opsRunner);
+                result.append("  ").append(sf.getSubfactionId())
+                      .append(" (").append(sf.getName()).append(")")
+                      .append(": ").append(reason).append("\n");
             }
         }
 
