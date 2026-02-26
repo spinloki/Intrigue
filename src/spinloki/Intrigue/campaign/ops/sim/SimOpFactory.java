@@ -2,6 +2,7 @@ package spinloki.Intrigue.campaign.ops.sim;
 
 import spinloki.Intrigue.IntrigueTraits;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
@@ -9,8 +10,7 @@ import java.util.Random;
 
 /**
  * Sim-side OpFactory that creates lightweight raid ops with no game dependencies.
- * Instead of TravelAndFightPhase (which spawns real fleets), this uses a
- * SimCombatPhase that resolves combat probabilistically.
+ * Uses a SimCombatPhase that resolves combat probabilistically.
  */
 public class SimOpFactory implements OpFactory {
 
@@ -23,8 +23,8 @@ public class SimOpFactory implements OpFactory {
     }
 
     @Override
-    public IntrigueOp createRaidOp(String opId, IntriguePerson initiator, IntriguePerson target) {
-        return new SimRaidOp(opId, initiator, target, rng, config);
+    public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
+        return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, rng, config);
     }
 
     /**
@@ -37,17 +37,23 @@ public class SimOpFactory implements OpFactory {
         private final boolean attackerMerciless;
         private final Random rng;
         private final SimConfig config;
-        private boolean combatResolved = false;
         private boolean attackerWon = false;
 
-        SimRaidOp(String opId, IntriguePerson initiator, IntriguePerson target,
+        SimRaidOp(String opId, IntrigueSubfaction attacker, IntrigueSubfaction target,
                   Random rng, SimConfig config) {
-            super(opId, initiator.getPersonId(), target.getPersonId());
-            this.attackerPower = initiator.getPower();
+            super(opId,
+                  attacker.getLeaderId(),
+                  target.getLeaderId(),
+                  attacker.getSubfactionId(),
+                  target.getSubfactionId());
+            this.attackerPower = attacker.getPower();
             this.defenderPower = target.getPower();
-            this.attackerMerciless = initiator.getTraits().contains(IntrigueTraits.MERCILESS);
             this.rng = rng;
             this.config = config;
+
+            // Check leader traits
+            IntriguePerson leader = IntrigueServices.people().getById(attacker.getLeaderId());
+            this.attackerMerciless = leader != null && leader.getTraits().contains(IntrigueTraits.MERCILESS);
 
             // Phases: assemble, simulated combat, return
             phases.add(new AssemblePhase(attackerPower));
@@ -62,10 +68,10 @@ public class SimOpFactory implements OpFactory {
 
         @Override
         protected void onStarted() {
-            IntrigueServices.people().checkoutToMarket(
-                    getInitiatorId(),
-                    IntrigueServices.people().getById(getTargetId()).getHomeMarketId()
-            );
+            IntrigueSubfaction target = getTargetSubfaction();
+            if (target != null && getInitiatorId() != null) {
+                IntrigueServices.people().checkoutToMarket(getInitiatorId(), target.getHomeMarketId());
+            }
         }
 
         @Override
@@ -76,11 +82,17 @@ public class SimOpFactory implements OpFactory {
         @Override
         protected void applyOutcome() {
             var people = IntrigueServices.people();
-            var attacker = people.getById(getInitiatorId());
-            var defender = people.getById(getTargetId());
+            var subfactions = IntrigueServices.subfactions();
+            var attacker = getInitiatorSubfaction();
+            var defender = getTargetSubfaction();
 
+            // Return leader home
+            if (getInitiatorId() != null) {
+                people.returnHome(getInitiatorId());
+            }
+
+            // Set cooldown on attacking subfaction
             if (attacker != null) {
-                people.returnHome(attacker.getPersonId());
                 attacker.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
 
@@ -92,17 +104,17 @@ public class SimOpFactory implements OpFactory {
                 if (attacker != null) {
                     float gainMult = 1f - (attacker.getPower() / 150f);
                     int actual = Math.max(1, Math.round(powerGain * Math.max(0.2f, gainMult)));
-                    attacker.setPower(clamp(attacker.getPower() + actual, 0, 100));
+                    attacker.setPower(attacker.getPower() + actual);
                 }
                 if (defender != null) {
                     float lossMult = defender.getPower() / 100f;
                     int actual = Math.max(1, Math.round(powerGain * Math.max(0.2f, lossMult)));
-                    defender.setPower(clamp(defender.getPower() - actual, 0, 100));
+                    defender.setPower(defender.getPower() - actual);
                 }
 
                 if (attacker != null && defender != null) {
-                    int rel = getRelOrZero(attacker, defender.getPersonId());
-                    people.setRelationship(attacker.getPersonId(), defender.getPersonId(),
+                    int rel = getSubfactionRelOrZero(attacker, defender.getSubfactionId());
+                    subfactions.setRelationship(attacker.getSubfactionId(), defender.getSubfactionId(),
                             rel + config.relDropOnRaid);
                 }
             } else {
@@ -110,32 +122,28 @@ public class SimOpFactory implements OpFactory {
                 if (attacker != null) {
                     float lossMult = attacker.getPower() / 100f;
                     int actual = Math.max(1, Math.round(powerLoss * Math.max(0.2f, lossMult)));
-                    attacker.setPower(clamp(attacker.getPower() - actual, 0, 100));
+                    attacker.setPower(attacker.getPower() - actual);
                 }
                 if (defender != null) {
                     float gainMult = 1f - (defender.getPower() / 150f);
                     int actual = Math.max(1, Math.round((powerLoss / 2) * Math.max(0.2f, gainMult)));
-                    defender.setPower(clamp(defender.getPower() + actual, 0, 100));
+                    defender.setPower(defender.getPower() + actual);
                 }
 
                 if (attacker != null && defender != null) {
-                    int rel = getRelOrZero(attacker, defender.getPersonId());
-                    people.setRelationship(attacker.getPersonId(), defender.getPersonId(),
+                    int rel = getSubfactionRelOrZero(attacker, defender.getSubfactionId());
+                    subfactions.setRelationship(attacker.getSubfactionId(), defender.getSubfactionId(),
                             rel + config.relDropOnRaid / 2);
                 }
             }
 
-            if (attacker != null) people.syncMemory(attacker.getPersonId());
-            if (defender != null) people.syncMemory(defender.getPersonId());
+            if (getInitiatorId() != null) people.syncMemory(getInitiatorId());
+            if (getTargetId() != null) people.syncMemory(getTargetId());
         }
 
-        private int getRelOrZero(IntriguePerson person, String otherId) {
-            Integer rel = person.getRelTo(otherId);
+        private int getSubfactionRelOrZero(IntrigueSubfaction sf, String otherId) {
+            Integer rel = sf.getRelTo(otherId);
             return rel != null ? rel : 0;
-        }
-
-        private int clamp(int v, int lo, int hi) {
-            return Math.max(lo, Math.min(hi, v));
         }
 
         /**
@@ -147,7 +155,6 @@ public class SimOpFactory implements OpFactory {
             @Override
             public void advance(float days) {
                 if (done) return;
-                // Resolve immediately on first advance
                 int attackerFP = config.baseFP + (int)(attackerPower * config.fpPerPower);
                 int defenderFP = config.defenderBaseFP + (int)(defenderPower * config.defenderFpPerPower);
 
@@ -160,7 +167,6 @@ public class SimOpFactory implements OpFactory {
                 double diff = attackerFP - defenderFP;
                 double prob = 1.0 / (1.0 + Math.exp(-config.combatSteepness * diff));
                 attackerWon = rng.nextDouble() < prob;
-                combatResolved = true;
                 done = true;
             }
 
@@ -177,4 +183,3 @@ public class SimOpFactory implements OpFactory {
         }
     }
 }
-

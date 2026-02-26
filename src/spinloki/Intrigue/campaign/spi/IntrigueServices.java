@@ -17,6 +17,7 @@ public final class IntrigueServices {
     private static IntriguePeopleAccess people;
     private static IntrigueOpRunner ops;
     private static OpFactory opFactory;
+    private static IntrigueSubfactionAccess subfactions;
 
     private IntrigueServices() {}
 
@@ -24,15 +25,18 @@ public final class IntrigueServices {
      * Wire up all services. Must be called before core logic executes.
      */
     public static void init(IntrigueClock clock, IntriguePeopleAccess people,
-                            IntrigueOpRunner ops, OpFactory opFactory) {
+                            IntrigueOpRunner ops, OpFactory opFactory,
+                            IntrigueSubfactionAccess subfactions) {
         IntrigueServices.clock = clock;
         IntrigueServices.people = people;
         IntrigueServices.ops = ops;
         IntrigueServices.opFactory = opFactory;
+        IntrigueServices.subfactions = subfactions;
         log.info("IntrigueServices initialized: clock=" + clock.getClass().getSimpleName()
                 + ", people=" + people.getClass().getSimpleName()
                 + ", ops=" + ops.getClass().getSimpleName()
-                + ", opFactory=" + opFactory.getClass().getSimpleName());
+                + ", opFactory=" + opFactory.getClass().getSimpleName()
+                + ", subfactions=" + subfactions.getClass().getSimpleName());
     }
 
     public static IntrigueClock clock() {
@@ -55,9 +59,14 @@ public final class IntrigueServices {
         return opFactory;
     }
 
+    public static IntrigueSubfactionAccess subfactions() {
+        if (subfactions == null) throw new IllegalStateException("IntrigueServices.subfactions not initialized. Call init() first.");
+        return subfactions;
+    }
+
     /** Returns true if all services have been initialized. */
     public static boolean isInitialized() {
-        return clock != null && people != null && ops != null && opFactory != null;
+        return clock != null && people != null && ops != null && opFactory != null && subfactions != null;
     }
 
     /** Reset for testing (allows re-init with different implementations). */
@@ -66,7 +75,6 @@ public final class IntrigueServices {
         people = null;
         ops = null;
         opFactory = null;
+        subfactions = null;
     }
 }
-
-

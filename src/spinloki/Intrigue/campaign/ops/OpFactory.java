@@ -1,6 +1,6 @@
 package spinloki.Intrigue.campaign.ops;
 
-import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
 
 /**
  * Factory for creating operations. Decouples OpEvaluator from concrete op types,
@@ -9,13 +9,12 @@ import spinloki.Intrigue.campaign.IntriguePerson;
 public interface OpFactory {
 
     /**
-     * Create a raid operation.
+     * Create a raid operation between two subfactions.
      *
-     * @param opId           unique operation ID
-     * @param initiator      the attacking person
-     * @param target         the defending person
+     * @param opId              unique operation ID
+     * @param attackerSubfaction the attacking subfaction
+     * @param targetSubfaction   the defending subfaction
      * @return an IntrigueOp, or null if the op cannot be created
      */
-    IntrigueOp createRaidOp(String opId, IntriguePerson initiator, IntriguePerson target);
+    IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction);
 }
-

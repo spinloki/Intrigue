@@ -1,6 +1,6 @@
 package spinloki.Intrigue.campaign.ops;
 
-import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
 
 /**
  * Game-side OpFactory that creates real RaidOps with TravelAndFightPhase.
@@ -8,9 +8,7 @@ import spinloki.Intrigue.campaign.IntriguePerson;
 public class GameOpFactory implements OpFactory {
 
     @Override
-    public IntrigueOp createRaidOp(String opId, IntriguePerson initiator, IntriguePerson target) {
-        return new RaidOp(opId, initiator.getPersonId(), target.getPersonId(),
-                          target.getHomeMarketId());
+    public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
+        return new RaidOp(opId, attackerSubfaction, targetSubfaction);
     }
 }
-

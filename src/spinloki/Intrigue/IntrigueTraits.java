@@ -10,8 +10,9 @@ public final class IntrigueTraits {
     public static final String PARANOID = "PARANOID";
     public static final String CHARISMATIC = "CHARISMATIC";
     public static final String MERCILESS = "MERCILESS";
+    public static final String PROMINENT = "PROMINENT";
 
     public static final List<String> ALL = List.of(
-            HONOR_BOUND, OPPORTUNIST, PARANOID, CHARISMATIC, MERCILESS
+            HONOR_BOUND, OPPORTUNIST, PARANOID, CHARISMATIC, MERCILESS, PROMINENT
     );
 }

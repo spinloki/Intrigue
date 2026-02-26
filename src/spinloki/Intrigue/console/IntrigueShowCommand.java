@@ -4,6 +4,9 @@ import org.lazywizard.console.BaseCommandWithSuggestion;
 import org.lazywizard.console.Console;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,11 +31,26 @@ public class IntrigueShowCommand implements BaseCommandWithSuggestion {
         Console.showMessage("ID: " + ip.getPersonId());
         Console.showMessage("Faction: " + ip.getFactionId());
         Console.showMessage("Home Market: " + ip.getHomeMarketId());
-        Console.showMessage("Power: " + ip.getPower());
+        Console.showMessage("Role: " + ip.getRole());
+        Console.showMessage("Subfaction: " + (ip.getSubfactionId() != null ? ip.getSubfactionId() : "none"));
+        Console.showMessage("Bonus: " + (ip.getBonus() != null ? ip.getBonus() : "none"));
         Console.showMessage("RelToPlayer: " + ip.getRelToPlayer());
         Console.showMessage("Traits: " + ip.getTraits());
 
-        Console.showMessage("RelToOthers:");
+        // Show subfaction details if available
+        if (ip.getSubfactionId() != null && IntrigueServices.isInitialized()) {
+            IntrigueSubfaction sf = IntrigueServices.subfactions().getById(ip.getSubfactionId());
+            if (sf != null) {
+                Console.showMessage("--- Subfaction Details ---");
+                Console.showMessage("  Name: " + sf.getName());
+                Console.showMessage("  Power: " + sf.getPower());
+                Console.showMessage("  Home Market: " + sf.getHomeMarketId());
+                Console.showMessage("  Leader: " + sf.getLeaderId());
+                Console.showMessage("  Members: " + sf.getMemberIds());
+            }
+        }
+
+        Console.showMessage("Personal RelToOthers:");
         for (Map.Entry<String, Integer> e : ip.getRelToOthersView().entrySet()) {
             Console.showMessage("  - " + e.getKey() + " = " + e.getValue());
         }

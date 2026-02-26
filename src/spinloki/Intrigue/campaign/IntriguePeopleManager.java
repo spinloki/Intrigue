@@ -122,24 +122,29 @@ public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess
 
     public void bootstrapIfNeeded() {
         if (bootstrapped) return;
-
-        // Minimal default: 2 per faction that actually has markets.
-        Map<String, List<MarketAPI>> marketsByFaction = getMarketsByFaction();
-        Random rng = new Random(getStableSeed());
-
-        for (Map.Entry<String, List<MarketAPI>> entry : marketsByFaction.entrySet()) {
-            String factionId = entry.getKey();
-            List<MarketAPI> markets = entry.getValue();
-            if (markets.isEmpty()) continue;
-
-            int count = 2;
-            for (int i = 0; i < count; i++) {
-                MarketAPI market = markets.get(i % markets.size());
-                createAndPlacePerson(factionId, market, rng);
-            }
-        }
-
+        // People creation is now driven by IntrigueSubfactionManager.bootstrapIfNeeded()
         bootstrapped = true;
+    }
+
+    /**
+     * Create and place a person at a market. Used by IntrigueSubfactionManager during bootstrap.
+     * Returns the IntriguePerson, or null on failure.
+     */
+    public IntriguePerson createPersonPublic(String factionId, MarketAPI market, Random rng) {
+        return createAndPlacePerson(factionId, market, rng);
+    }
+
+    /**
+     * Register an externally-created IntriguePerson and sync its memory.
+     * Used by config-driven bootstrap.
+     */
+    public void registerPerson(IntriguePerson ip) {
+        people.put(ip.getPersonId(), ip);
+
+        PersonAPI p = Global.getSector().getImportantPeople().getPerson(ip.getPersonId());
+        if (p != null) {
+            syncToPersonMemory(p, ip);
+        }
     }
 
     public void refreshAll() {
@@ -252,7 +257,6 @@ public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess
 
         IntriguePerson ip = new IntriguePerson(id, factionId, market.getId());
 
-        ip.setPower(40 + rng.nextInt(41)); // 40..80
         ip.setRelToPlayer(rng.nextInt(21) - 10); // -10..10
 
         // 0-2 random traits for now
@@ -319,20 +323,6 @@ public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess
         return Math.max(-100, Math.min(100, v));
     }
 
-    @Override
-    public void setRelationship(String aId, String bId, int value) {
-        if (aId == null || bId == null) return;
-        if (aId.equals(bId)) return;
-
-        IntriguePerson a = people.get(aId);
-        IntriguePerson b = people.get(bId);
-        if (a == null || b == null) return;
-
-        int v = clampRel(value);
-        a.setRelToInternal(bId, v);
-        b.setRelToInternal(aId, v);
-    }
-
     public void setRelToPlayer(String personId, int value) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
@@ -358,11 +348,13 @@ public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess
         p.getMemoryWithoutUpdate().set("$intrigue_id", ip.getPersonId());
         p.getMemoryWithoutUpdate().set("$intrigue_factionId", ip.getFactionId());
         p.getMemoryWithoutUpdate().set("$intrigue_homeMarketId", ip.getHomeMarketId());
+        p.getMemoryWithoutUpdate().set("$intrigue_subfactionId", ip.getSubfactionId());
+        p.getMemoryWithoutUpdate().set("$intrigue_role", ip.getRole().name());
+        p.getMemoryWithoutUpdate().set("$intrigue_bonus", ip.getBonus());
 
         p.getMemoryWithoutUpdate().set("$intrigue_locType", ip.getLocationType().name());
         p.getMemoryWithoutUpdate().set("$intrigue_locId", ip.getLocationId());
 
-        p.getMemoryWithoutUpdate().set("$intrigue_power", ip.getPower());
         p.getMemoryWithoutUpdate().set("$intrigue_relToPlayer", ip.getRelToPlayer());
 
         // Keep it easy for UI: one string for now

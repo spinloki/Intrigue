@@ -1,6 +1,7 @@
 package spinloki.Intrigue.campaign.ops;
 
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.io.Serializable;
@@ -11,28 +12,31 @@ import java.util.List;
 /**
  * Base class for all Intrigue operations.
  *
- * An operation is a multi-phase action initiated by one IntriguePerson,
- * typically targeting another person or a market. The lifecycle is:
+ * An operation is a multi-phase action initiated by one subfaction
+ * against another, with the subfaction's leader serving as the
+ * on-the-ground executor. The lifecycle is:
  *
  *   PROPOSED  →  ACTIVE  →  RESOLVED
  *
  * Subclasses populate {@link #phases} in their constructor and implement
- * {@link #applyOutcome()} to modify power/relationships/traits when done.
+ * {@link #applyOutcome()} to modify power/relationships when done.
  *
  * The op is advanced each frame by {@link IntrigueOpsManager}.
  */
 public abstract class IntrigueOp implements Serializable {
 
     public enum Stage {
-        PROPOSED,   // evaluated but not yet started
-        ACTIVE,     // phases are being advanced
-        RESOLVED    // all phases done (or aborted); outcome applied
+        PROPOSED,
+        ACTIVE,
+        RESOLVED
     }
 
     private final String opId;
-    private final String initiatorId;
-    private final String targetId;       // person ID or market ID depending on op type
-    private final List<String> participantIds = new ArrayList<>(); // future: coalition members
+    private final String initiatorId;            // leader person ID (for checkout/abort)
+    private final String targetId;               // target leader person ID
+    private final String initiatorSubfactionId;   // attacking subfaction
+    private final String targetSubfactionId;      // defending subfaction
+    private final List<String> participantIds = new ArrayList<>();
 
     private Stage stage = Stage.PROPOSED;
     private OpOutcome outcome = OpOutcome.PENDING;
@@ -40,10 +44,13 @@ public abstract class IntrigueOp implements Serializable {
     protected final List<OpPhase> phases = new ArrayList<>();
     private int currentPhaseIndex = 0;
 
-    protected IntrigueOp(String opId, String initiatorId, String targetId) {
+    protected IntrigueOp(String opId, String initiatorId, String targetId,
+                         String initiatorSubfactionId, String targetSubfactionId) {
         this.opId = opId;
         this.initiatorId = initiatorId;
         this.targetId = targetId;
+        this.initiatorSubfactionId = initiatorSubfactionId;
+        this.targetSubfactionId = targetSubfactionId;
     }
 
     // ── Identification ──────────────────────────────────────────────────
@@ -51,8 +58,28 @@ public abstract class IntrigueOp implements Serializable {
     public String getOpId() { return opId; }
     public String getInitiatorId() { return initiatorId; }
     public String getTargetId() { return targetId; }
+    public String getInitiatorSubfactionId() { return initiatorSubfactionId; }
+    public String getTargetSubfactionId() { return targetSubfactionId; }
     public List<String> getParticipantIds() { return Collections.unmodifiableList(participantIds); }
     protected void addParticipant(String personId) { participantIds.add(personId); }
+
+    // ── Convenience lookups ─────────────────────────────────────────────
+
+    protected IntriguePerson getInitiator() {
+        return IntrigueServices.people().getById(initiatorId);
+    }
+
+    protected IntriguePerson getTargetPerson() {
+        return IntrigueServices.people().getById(targetId);
+    }
+
+    protected IntrigueSubfaction getInitiatorSubfaction() {
+        return IntrigueServices.subfactions().getById(initiatorSubfactionId);
+    }
+
+    protected IntrigueSubfaction getTargetSubfaction() {
+        return IntrigueServices.subfactions().getById(targetSubfactionId);
+    }
 
     // ── Lifecycle ───────────────────────────────────────────────────────
 
@@ -117,16 +144,6 @@ public abstract class IntrigueOp implements Serializable {
         return phase != null ? phase.getStatus() : "Active";
     }
 
-    // ── Helpers for subclasses ──────────────────────────────────────────
-
-    protected IntriguePerson getInitiator() {
-        return IntrigueServices.people().getById(initiatorId);
-    }
-
-    protected IntriguePerson getTargetPerson() {
-        return IntrigueServices.people().getById(targetId);
-    }
-
     // ── Subclass hooks ──────────────────────────────────────────────────
 
     /** Called when the op transitions to ACTIVE. Good place to checkout people, etc. */
@@ -147,7 +164,6 @@ public abstract class IntrigueOp implements Serializable {
      */
     protected boolean shouldAbort() {
         return getInitiator() == null;
-        // Note: target may be null for some op types (market-targeted ops) — subclasses override.
     }
 
     /** Human-readable op type name for logs and UI. */
@@ -162,4 +178,3 @@ public abstract class IntrigueOp implements Serializable {
         applyOutcome();
     }
 }
-

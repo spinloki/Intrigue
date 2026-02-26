@@ -5,6 +5,8 @@ import com.fs.starfarer.api.Global;
 import com.thoughtworks.xstream.XStream;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePeopleScript;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
+import spinloki.Intrigue.campaign.IntrigueSubfactionManager;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.SectorClock;
@@ -32,12 +34,14 @@ public class Intrigue extends BaseModPlugin {
         x.alias("AssemblePhase", AssemblePhase.class);
         x.alias("TravelAndFightPhase", TravelAndFightPhase.class);
         x.alias("ReturnPhase", ReturnPhase.class);
+        x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
+        x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
     }
 
     @Override
     public void onNewGameAfterEconomyLoad() {
         initServices();
-        IntriguePeopleManager.get().bootstrapIfNeeded();
+        IntrigueSubfactionManager.get().bootstrapIfNeeded();
         IntriguePeopleManager.get().refreshAll();
         ensureScripts();
     }
@@ -54,7 +58,8 @@ public class Intrigue extends BaseModPlugin {
                 new SectorClock(),
                 IntriguePeopleManager.get(),
                 IntrigueOpsManager.get(),
-                new GameOpFactory()
+                new GameOpFactory(),
+                IntrigueSubfactionManager.get()
         );
     }
 

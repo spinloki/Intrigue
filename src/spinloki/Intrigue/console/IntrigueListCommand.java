@@ -26,7 +26,12 @@ public class IntrigueListCommand implements BaseCommand {
             PersonAPI person = Global.getSector().getImportantPeople().getPerson(ip.getPersonId());
             var name = person != null ? person.getName().getFullName() : ip.getPersonId();
             String marketName = (m != null) ? m.getName() : ip.getHomeMarketId();
-            Console.showMessage(" - " + ip.getPersonId() + " | " + name + " | " + ip.getFactionId() + " | " + marketName);
+            String sfId = ip.getSubfactionId() != null ? ip.getSubfactionId() : "none";
+            Console.showMessage(" - " + ip.getPersonId() + " | " + name
+                    + " | " + ip.getFactionId()
+                    + " | " + marketName
+                    + " | " + ip.getRole()
+                    + " | sf=" + sfId);
         }
 
         return CommandResult.SUCCESS;

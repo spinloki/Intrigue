@@ -21,9 +21,6 @@ public interface IntriguePeopleAccess {
     /** All managed people. */
     Collection<IntriguePerson> getAll();
 
-    /** Set a bidirectional relationship between two people. */
-    void setRelationship(String aId, String bId, int value);
-
     /** Mark a person as checked out to a market. */
     void checkoutToMarket(String personId, String marketId);
 
@@ -39,5 +36,3 @@ public interface IntriguePeopleAccess {
      */
     void syncMemory(String personId);
 }
-
-

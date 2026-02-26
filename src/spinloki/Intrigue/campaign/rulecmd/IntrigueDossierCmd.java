@@ -10,6 +10,8 @@ import com.fs.starfarer.api.campaign.rules.MemoryAPI;
 import spinloki.Intrigue.IntrigueIds;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePerson;
+import spinloki.Intrigue.campaign.IntrigueSubfaction;
+import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.util.*;
 
@@ -50,7 +52,21 @@ public class IntrigueDossierCmd extends BaseCommandPlugin {
             if (ip == null) return false;
 
             dialog.getTextPanel().addPara("— Intrigue Dossier —");
-            dialog.getTextPanel().addPara("Power: %s", Misc.getHighlightColor(), String.valueOf(ip.getPower()));
+            dialog.getTextPanel().addPara("Role: %s", Misc.getHighlightColor(), ip.getRole().name());
+
+            // Show subfaction info
+            if (ip.getSubfactionId() != null && IntrigueServices.isInitialized()) {
+                IntrigueSubfaction sf = IntrigueServices.subfactions().getById(ip.getSubfactionId());
+                if (sf != null) {
+                    dialog.getTextPanel().addPara("Subfaction: %s", Misc.getHighlightColor(), sf.getName());
+                    dialog.getTextPanel().addPara("Subfaction Power: %s", Misc.getHighlightColor(), String.valueOf(sf.getPower()));
+                }
+            }
+
+            if (ip.getBonus() != null) {
+                dialog.getTextPanel().addPara("Bonus: %s", Misc.getHighlightColor(), ip.getBonus());
+            }
+
             dialog.getTextPanel().addPara("Relationship to you: %s", Misc.getHighlightColor(), String.valueOf(ip.getRelToPlayer()));
 
             String traits = ip.getTraits().isEmpty() ? "(none)" : String.join(", ", ip.getTraits());

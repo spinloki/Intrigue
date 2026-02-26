@@ -44,6 +44,9 @@ public class SimConfig {
     public int pacerNudgeMax = 1;
     public float tickIntervalDays = 7f;
 
+    // ── Regions ──
+    public int prominencePowerThreshold = 75;
+
     public static SimConfig defaults() {
         return new SimConfig();
     }
@@ -78,6 +81,7 @@ public class SimConfig {
         c.pacerNudgeMin = pacerNudgeMin;
         c.pacerNudgeMax = pacerNudgeMax;
         c.tickIntervalDays = tickIntervalDays;
+        c.prominencePowerThreshold = prominencePowerThreshold;
         return c;
     }
 }

@@ -1,0 +1,407 @@
+{
+  "subfactions": [
+    {
+      "subfactionId": "hegemony_eventide_aristocracy",
+      "name": "Eventide Aristocracy",
+      "factionId": "hegemony",
+      "homeMarketId": "eventide",
+      "power": 60,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Daud",
+          "lastName": "Vasquez",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_hegemony01.png",
+          "rankId": "spaceAdmiral",
+          "postId": "fleetCommander",
+          "traits": ["MERCILESS", "OPPORTUNIST"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Mei",
+          "lastName": "Chen",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_hegemony02.png",
+          "rankId": "spaceCommander",
+          "postId": "patrolCommander",
+          "bonus": "Old-money connections and political favors",
+          "traits": ["HONOR_BOUND"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "hegemony_14th_detachment",
+      "name": "14th Battlegroup Detachment",
+      "factionId": "hegemony",
+      "homeMarketId": "chicomoztoc",
+      "power": 55,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Jin-soo",
+          "lastName": "Park",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_hegemony03.png",
+          "rankId": "groundGeneral",
+          "postId": "baseCommander",
+          "traits": ["PARANOID"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Wen",
+          "lastName": "Liu",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_hegemony04.png",
+          "rankId": "spaceCommander",
+          "postId": "patrolCommander",
+          "bonus": "Veteran officers and XIV Battlegroup doctrine",
+          "traits": ["OPPORTUNIST"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "tritachyon_capital_assurance",
+      "name": "Tri-Tachyon Capital Assurance",
+      "factionId": "tritachyon",
+      "homeMarketId": "eochu_bres",
+      "power": 65,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Seraphina",
+          "lastName": "Kohl",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_corporate01.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "traits": ["CHARISMATIC"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Alistair",
+          "lastName": "Novik",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_corporate02.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "bonus": "Private security fleets and asset protection contracts",
+          "traits": ["OPPORTUNIST"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "tritachyon_special_projects",
+      "name": "Tri-Tachyon Special Projects Division",
+      "factionId": "tritachyon",
+      "homeMarketId": "culann",
+      "power": 50,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Yuki",
+          "lastName": "Tanaka",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_corporate03.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "traits": ["PARANOID"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "persean_kazeron_coalition",
+      "name": "Kazeron Coalition",
+      "factionId": "persean",
+      "homeMarketId": "kazeron",
+      "power": 45,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Theron",
+          "lastName": "Graves",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait13.png",
+          "rankId": "spaceAdmiral",
+          "postId": "fleetCommander",
+          "traits": ["MERCILESS"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Ira",
+          "lastName": "Osei",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait14.png",
+          "rankId": "citizen",
+          "postId": "administrator",
+          "bonus": "Stability and governance expertise",
+          "traits": []
+        }
+      ]
+    },
+    {
+      "subfactionId": "persean_volturn_blue_claw",
+      "name": "Order of the Blue Claw",
+      "factionId": "persean",
+      "homeMarketId": "volturn",
+      "power": 40,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Callum",
+          "lastName": "Drenn",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait15.png",
+          "rankId": "spaceCommander",
+          "postId": "fleetCommander",
+          "traits": ["OPPORTUNIST"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Corva",
+          "lastName": "Shel",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait16.png",
+          "rankId": "citizen",
+          "postId": "administrator",
+          "bonus": "Volturnian lobster exports and aquaculture wealth",
+          "traits": ["CHARISMATIC"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "sindrian_inner_circle",
+      "name": "Sindria Inner Circle",
+      "factionId": "sindrian_diktat",
+      "homeMarketId": "sindria",
+      "power": 70,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Halim",
+          "lastName": "Razak",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_diktat01.png",
+          "rankId": "groundGeneral",
+          "postId": "baseCommander",
+          "traits": ["MERCILESS", "PARANOID"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "sindrian_cruor_garrison",
+      "name": "Cruor Garrison",
+      "factionId": "sindrian_diktat",
+      "homeMarketId": "cruor",
+      "power": 35,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Nadia",
+          "lastName": "Sorel",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_diktat02.png",
+          "rankId": "spaceCommander",
+          "postId": "patrolCommander",
+          "traits": ["HONOR_BOUND"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "church_knights_hesperus",
+      "name": "Knights of Ludd, Hesperus Chapter",
+      "factionId": "luddic_church",
+      "homeMarketId": "hesperus",
+      "power": 50,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Commander",
+          "lastName": "Mathis",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_luddic01.png",
+          "rankId": "groundMarshal",
+          "postId": "baseCommander",
+          "traits": ["MERCILESS", "HONOR_BOUND"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "church_gilead_mission",
+      "name": "Gilead Mission",
+      "factionId": "luddic_church",
+      "homeMarketId": "gilead",
+      "power": 40,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Sister",
+          "lastName": "Vael",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_luddic02.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "traits": ["CHARISMATIC"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "pirates_ungp_syndicate",
+      "name": "Ungp Syndicate",
+      "factionId": "pirates",
+      "homeMarketId": "ungp",
+      "power": 50,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Drace",
+          "lastName": "Morrow",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_pirate01.png",
+          "rankId": "spaceCommander",
+          "postId": "fleetCommander",
+          "traits": ["MERCILESS", "OPPORTUNIST"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Tal",
+          "lastName": "Gren",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_pirate02.png",
+          "rankId": "citizen",
+          "postId": "administrator",
+          "bonus": "Protection rackets and port authority bribes",
+          "traits": ["PARANOID"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "pirates_kantas_reavers",
+      "name": "Kanta's Reavers",
+      "factionId": "pirates",
+      "homeMarketId": "kantas_den",
+      "power": 45,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Reva",
+          "lastName": "Skorne",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_pirate03.png",
+          "rankId": "spaceCommander",
+          "postId": "fleetCommander",
+          "traits": ["MERCILESS"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Dodger",
+          "lastName": "Silt",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_pirate04.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "bonus": "Raider fleet crews and black market arms supply",
+          "traits": ["OPPORTUNIST"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "path_chalcedon_cell",
+      "name": "Chalcedon Purity Cell",
+      "factionId": "luddic_path",
+      "homeMarketId": "chalcedon",
+      "power": 45,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Elder",
+          "lastName": "Harrow",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_luddic03.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "traits": ["PARANOID", "HONOR_BOUND"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Penitent",
+          "lastName": "Surya",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait_luddic04.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "bonus": "Internal discipline and ideological enforcement",
+          "traits": ["MERCILESS"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "path_crusade_fleet",
+      "name": "Crusade of the Righteous Flame",
+      "factionId": "luddic_path",
+      "homeMarketId": "chalcedon",
+      "power": 40,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Zealot",
+          "lastName": "Kade",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait_luddic05.png",
+          "rankId": "spaceCommander",
+          "postId": "fleetCommander",
+          "traits": ["MERCILESS", "CHARISMATIC"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "independents_fia_compact",
+      "name": "Free Industry Association",
+      "factionId": "independent",
+      "homeMarketId": "eldfell",
+      "power": 40,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Magister",
+          "lastName": "Cade",
+          "gender": "MALE",
+          "portraitId": "graphics/portraits/portrait12.png",
+          "rankId": "citizen",
+          "postId": "administrator",
+          "traits": ["CHARISMATIC", "OPPORTUNIST"]
+        },
+        {
+          "role": "MEMBER",
+          "firstName": "Lira",
+          "lastName": "Voss",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait11.png",
+          "rankId": "citizen",
+          "postId": "agent",
+          "bonus": "Trade network arbitrage and tariff negotiation",
+          "traits": ["HONOR_BOUND"]
+        }
+      ]
+    },
+    {
+      "subfactionId": "independents_frontier_watch",
+      "name": "Frontier Watch",
+      "factionId": "independent",
+      "homeMarketId": "baetis",
+      "power": 35,
+      "members": [
+        {
+          "role": "LEADER",
+          "firstName": "Captain",
+          "lastName": "Renn",
+          "gender": "FEMALE",
+          "portraitId": "graphics/portraits/portrait10.png",
+          "rankId": "spaceCommander",
+          "postId": "patrolCommander",
+          "traits": ["HONOR_BOUND"]
+        }
+      ]
+    }
+  ]
+}

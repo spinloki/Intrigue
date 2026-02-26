@@ -28,17 +28,6 @@ public class SimPeopleAccess implements IntriguePeopleAccess {
     }
 
     @Override
-    public void setRelationship(String aId, String bId, int value) {
-        if (aId == null || bId == null || aId.equals(bId)) return;
-        IntriguePerson a = people.get(aId);
-        IntriguePerson b = people.get(bId);
-        if (a == null || b == null) return;
-        int v = Math.max(-100, Math.min(100, value));
-        a.setRelToInternal(bId, v);
-        b.setRelToInternal(aId, v);
-    }
-
-    @Override
     public void checkoutToMarket(String personId, String marketId) {
         IntriguePerson ip = people.get(personId);
         if (ip == null) return;
@@ -64,4 +53,3 @@ public class SimPeopleAccess implements IntriguePeopleAccess {
         // No-op in sim mode — no PersonAPI memory to sync.
     }
 }
-
