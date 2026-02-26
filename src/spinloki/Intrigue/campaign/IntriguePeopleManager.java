@@ -329,6 +329,19 @@ public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess
         ip.setRelToPlayer(clampRel(value));
     }
 
+    /**
+     * Set a bidirectional relationship between two people.
+     */
+    public void setRelationship(String personIdA, String personIdB, int value) {
+        if (personIdA == null || personIdB == null || personIdA.equals(personIdB)) return;
+        IntriguePerson a = people.get(personIdA);
+        IntriguePerson b = people.get(personIdB);
+        if (a == null || b == null) return;
+        int v = clampRel(value);
+        a.setRelToInternal(personIdB, v);
+        b.setRelToInternal(personIdA, v);
+    }
+
     public void addTrait(String personId, String trait) {
         IntriguePerson ip = people.get(personId);
         if (ip == null || trait == null) return;

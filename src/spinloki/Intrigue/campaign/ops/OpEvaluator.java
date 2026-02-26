@@ -85,6 +85,12 @@ public final class OpEvaluator {
             String otherLeaderId = other.getLeaderId();
             if (otherLeaderId != null && opsRunner.hasActiveOp(otherLeaderId)) continue;
 
+            // Cross-faction raids require parent factions to be hostile
+            boolean sameFaction = attacker.getFactionId().equals(other.getFactionId());
+            if (!sameFaction && !IntrigueServices.hostility().areHostile(attacker.getFactionId(), other.getFactionId())) {
+                continue;
+            }
+
             float score = computeScore(attacker, leader, other);
             if (score > 0) {
                 results.add(new ScoredTarget(other, score));

@@ -3,6 +3,7 @@ package spinloki.Intrigue;
 import com.fs.starfarer.api.BaseModPlugin;
 import com.fs.starfarer.api.Global;
 import com.thoughtworks.xstream.XStream;
+import spinloki.Intrigue.campaign.GameFactionHostilityChecker;
 import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePeopleScript;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
@@ -59,7 +60,8 @@ public class Intrigue extends BaseModPlugin {
                 IntriguePeopleManager.get(),
                 IntrigueOpsManager.get(),
                 new GameOpFactory(),
-                IntrigueSubfactionManager.get()
+                IntrigueSubfactionManager.get(),
+                new GameFactionHostilityChecker()
         );
     }
 

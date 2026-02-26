@@ -18,6 +18,7 @@ public final class IntrigueServices {
     private static IntrigueOpRunner ops;
     private static OpFactory opFactory;
     private static IntrigueSubfactionAccess subfactions;
+    private static FactionHostilityChecker hostility;
 
     private IntrigueServices() {}
 
@@ -26,17 +27,20 @@ public final class IntrigueServices {
      */
     public static void init(IntrigueClock clock, IntriguePeopleAccess people,
                             IntrigueOpRunner ops, OpFactory opFactory,
-                            IntrigueSubfactionAccess subfactions) {
+                            IntrigueSubfactionAccess subfactions,
+                            FactionHostilityChecker hostility) {
         IntrigueServices.clock = clock;
         IntrigueServices.people = people;
         IntrigueServices.ops = ops;
         IntrigueServices.opFactory = opFactory;
         IntrigueServices.subfactions = subfactions;
+        IntrigueServices.hostility = hostility;
         log.info("IntrigueServices initialized: clock=" + clock.getClass().getSimpleName()
                 + ", people=" + people.getClass().getSimpleName()
                 + ", ops=" + ops.getClass().getSimpleName()
                 + ", opFactory=" + opFactory.getClass().getSimpleName()
-                + ", subfactions=" + subfactions.getClass().getSimpleName());
+                + ", subfactions=" + subfactions.getClass().getSimpleName()
+                + ", hostility=" + hostility.getClass().getSimpleName());
     }
 
     public static IntrigueClock clock() {
@@ -64,9 +68,14 @@ public final class IntrigueServices {
         return subfactions;
     }
 
+    public static FactionHostilityChecker hostility() {
+        if (hostility == null) throw new IllegalStateException("IntrigueServices.hostility not initialized. Call init() first.");
+        return hostility;
+    }
+
     /** Returns true if all services have been initialized. */
     public static boolean isInitialized() {
-        return clock != null && people != null && ops != null && opFactory != null && subfactions != null;
+        return clock != null && people != null && ops != null && opFactory != null && subfactions != null && hostility != null;
     }
 
     /** Reset for testing (allows re-init with different implementations). */
@@ -76,5 +85,6 @@ public final class IntrigueServices {
         ops = null;
         opFactory = null;
         subfactions = null;
+        hostility = null;
     }
 }

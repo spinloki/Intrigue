@@ -142,7 +142,7 @@
     {
       "subfactionId": "persean_volturn_blue_claw",
       "name": "Order of the Blue Claw",
-      "factionId": "persean",
+      "factionId": "sindrian_diktat",
       "homeMarketId": "volturn",
       "power": 40,
       "members": [

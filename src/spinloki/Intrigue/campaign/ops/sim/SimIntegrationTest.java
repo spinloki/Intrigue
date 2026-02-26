@@ -40,6 +40,7 @@ public class SimIntegrationTest {
         testCooldownOnSubfaction();
         testPowerShiftsOnSubfactions();
         testSubfactionNameSurvivesOpLifecycle();
+        testPersonToPersonRelationships();
         testConfigJsonRoundTrip();
         testFullSimLoop();
 
@@ -112,7 +113,9 @@ public class SimIntegrationTest {
         subfactions.addSubfaction(sfHeg2);
         subfactions.addSubfaction(sfTri);
 
-        IntrigueServices.init(clock, people, ops, opFactory, subfactions);
+        IntrigueServices.init(clock, people, ops, opFactory, subfactions,
+                // Sim hostility: different factions are always hostile
+                (a, b) -> a != null && b != null && !a.equals(b));
         return clock;
     }
 
@@ -307,6 +310,35 @@ public class SimIntegrationTest {
             assertNotNull("Target subfaction exists", target);
             assertTrue("Target has a name",
                     target.getName() != null && !target.getName().isEmpty());
+        });
+    }
+    static void testPersonToPersonRelationships() {
+        test("Person-to-person relationships are bidirectional and clamped", () -> {
+            IntriguePerson a = new IntriguePerson("p_a", "hegemony", "market_1",
+                    "sf_1", IntriguePerson.Role.LEADER, null);
+            IntriguePerson b = new IntriguePerson("p_b", "hegemony", "market_1",
+                    "sf_1", IntriguePerson.Role.MEMBER, "Some bonus");
+            IntriguePerson c = new IntriguePerson("p_c", "tritachyon", "market_2",
+                    "sf_2", IntriguePerson.Role.LEADER, null);
+            // Initially null (no relationship)
+            assertTrue("No initial rel a->b", a.getRelTo("p_b") == null);
+            assertTrue("No initial rel b->a", b.getRelTo("p_a") == null);
+            // Set relationship between a and b
+            a.setRelToInternal("p_b", 50);
+            b.setRelToInternal("p_a", 50);
+            assertEquals("a->b is 50", Integer.valueOf(50), a.getRelTo("p_b"));
+            assertEquals("b->a is 50", Integer.valueOf(50), b.getRelTo("p_a"));
+            // Negative relationship
+            a.setRelToInternal("p_c", -30);
+            c.setRelToInternal("p_a", -30);
+            assertEquals("a->c is -30", Integer.valueOf(-30), a.getRelTo("p_c"));
+            assertEquals("c->a is -30", Integer.valueOf(-30), c.getRelTo("p_a"));
+            // b has no relationship with c
+            assertTrue("No rel b->c", b.getRelTo("p_c") == null);
+            // Relationships don't interfere with relToPlayer
+            a.setRelToPlayer(25);
+            assertEquals("relToPlayer is separate", 25, a.getRelToPlayer());
+            assertEquals("a->b unchanged", Integer.valueOf(50), a.getRelTo("p_b"));
         });
     }
     static void testConfigJsonRoundTrip() {

@@ -48,6 +48,7 @@ cd "$SRC_DIR"
   spinloki/Intrigue/campaign/spi/IntrigueSubfactionAccess.java \
   spinloki/Intrigue/campaign/spi/IntrigueOpRunner.java \
   spinloki/Intrigue/campaign/spi/IntrigueServices.java \
+  spinloki/Intrigue/campaign/spi/FactionHostilityChecker.java \
   spinloki/Intrigue/campaign/ops/OpPhase.java \
   spinloki/Intrigue/campaign/ops/OpOutcome.java \
   spinloki/Intrigue/campaign/ops/IntrigueOp.java \

@@ -26,6 +26,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
     private final Map<String, IntrigueSubfaction> subfactions = new LinkedHashMap<>();
     private boolean bootstrapped = false;
+    private int nextPersonId = 1;
 
     // ── Singleton via persistent data ───────────────────────────────────
 
@@ -165,6 +166,10 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
                                           FactionAPI faction, MarketAPI market) {
         try {
             PersonAPI person = faction.createRandomPerson();
+
+            // Assign a unique intrigue ID
+            String personId = IntrigueIds.PERSON_ID_PREFIX + (nextPersonId++);
+            person.setId(personId);
 
             // Override name and appearance from config
             FullName.Gender gender = FullName.Gender.valueOf(mDef.gender);

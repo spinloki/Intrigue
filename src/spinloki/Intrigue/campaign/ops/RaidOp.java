@@ -54,7 +54,8 @@ public class RaidOp extends IntrigueOp {
 
         // Build phases
         phases.add(new AssemblePhase(power));
-        phases.add(new TravelAndFightPhase(factionId, sourceMarketId, targetMarketId, combatFP));
+        phases.add(new TravelAndFightPhase(factionId, sourceMarketId, targetMarketId, combatFP,
+                attackerSubfaction.getName()));
         phases.add(new ReturnPhase(3f));
     }
 
@@ -68,12 +69,27 @@ public class RaidOp extends IntrigueOp {
         IntriguePerson leader = getInitiator();
         if (leader == null) return;
 
-        // Checkout leader to the target market (they're "away" during the op)
-        IntriguePeopleAccess people = IntrigueServices.people();
-        people.checkoutToMarket(leader.getPersonId(), targetMarketId);
-
         log.info("RaidOp started: " + getInitiatorSubfactionId()
                 + " (leader " + leader.getPersonId() + ") raiding " + targetMarketId);
+    }
+
+    @Override
+    protected boolean shouldAbort() {
+        if (super.shouldAbort()) return true;
+
+        // Cancel cross-faction raids if parent factions are no longer hostile
+        IntrigueSubfaction attacker = getInitiatorSubfaction();
+        IntrigueSubfaction defender = getTargetSubfaction();
+        if (attacker == null || defender == null) return true;
+
+        boolean sameFaction = attacker.getFactionId().equals(defender.getFactionId());
+        if (!sameFaction && !IntrigueServices.hostility().areHostile(attacker.getFactionId(), defender.getFactionId())) {
+            log.info("RaidOp " + getOpId() + " aborted: "
+                    + attacker.getFactionId() + " and " + defender.getFactionId() + " are no longer hostile.");
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -96,10 +112,6 @@ public class RaidOp extends IntrigueOp {
         IntrigueSubfaction defender = getTargetSubfaction();
         IntriguePerson leader = getInitiator();
 
-        // Return the leader home regardless of outcome
-        if (leader != null) {
-            people.returnHome(leader.getPersonId());
-        }
 
         // Set cooldown on the attacking subfaction
         if (attacker != null) {

@@ -10,3 +10,4 @@ intrigue_return_home,spinloki.Intrigue.console.IntrigueReturnHomeCommand,"campai
 intrigue_tick,spinloki.Intrigue.console.IntrigueTickCommand,"cheat,campaign",,
 intrigue_list_fleets,spinloki.Intrigue.console.IntrigueListFleetsCommand,"campaign",,
 intrigue_list_subfactions,spinloki.Intrigue.console.IntrigueListSubfactionsCommand,"campaign",,
+intrigue_validate,spinloki.Intrigue.console.IntrigueValidateCommand,"campaign",,
