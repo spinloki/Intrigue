@@ -37,8 +37,8 @@ public class SimOpFactory implements OpFactory {
      */
     static class SimRaidOp extends IntrigueOp {
 
-        private final int attackerPower;
-        private final int defenderPower;
+        private final int attackerCohesion;
+        private final int defenderCohesion;
         private final boolean attackerMerciless;
         private final Random rng;
         private final SimConfig config;
@@ -51,8 +51,8 @@ public class SimOpFactory implements OpFactory {
                   target.getLeaderId(),
                   attacker.getSubfactionId(),
                   target.getSubfactionId());
-            this.attackerPower = attacker.getPower();
-            this.defenderPower = target.getPower();
+            this.attackerCohesion = attacker.getCohesion();
+            this.defenderCohesion = target.getCohesion();
             this.rng = rng;
             this.config = config;
 
@@ -61,7 +61,7 @@ public class SimOpFactory implements OpFactory {
             this.attackerMerciless = leader != null && leader.getTraits().contains(IntrigueTraits.MERCILESS);
 
             // Phases: assemble, simulated combat, return
-            phases.add(new AssemblePhase(attackerPower));
+            phases.add(new AssemblePhase(attackerCohesion));
             phases.add(new SimCombatPhase());
             phases.add(new ReturnPhase(3f));
         }
@@ -102,19 +102,26 @@ public class SimOpFactory implements OpFactory {
             }
 
             if (getOutcome() == OpOutcome.SUCCESS) {
-                int powerGain = config.basePowerShift;
-                if (attackerMerciless) powerGain += config.mercilessBonusPower;
-
-                // Diminishing returns
-                if (attacker != null) {
-                    float gainMult = 1f - (attacker.getPower() / 150f);
-                    int actual = Math.max(1, Math.round(powerGain * Math.max(0.2f, gainMult)));
-                    attacker.setPower(attacker.getPower() + actual);
+                int cohesionGain = config.basePowerShift;
+                int legitimacyShift = config.basePowerShift * 3 / 4;
+                if (attackerMerciless) {
+                    cohesionGain += config.mercilessBonusPower;
+                    legitimacyShift += config.mercilessBonusPower / 2;
                 }
+
+                // Attacker gains cohesion, some legitimacy (diminishing returns)
+                if (attacker != null) {
+                    float gainMult = 1f - (attacker.getCohesion() / 150f);
+                    int actualCoh = Math.max(1, Math.round(cohesionGain * Math.max(0.2f, gainMult)));
+                    attacker.setCohesion(attacker.getCohesion() + actualCoh);
+                    attacker.setLegitimacy(attacker.getLegitimacy() + legitimacyShift / 2);
+                }
+                // Defender loses legitimacy primarily, some cohesion
                 if (defender != null) {
-                    float lossMult = defender.getPower() / 100f;
-                    int actual = Math.max(1, Math.round(powerGain * Math.max(0.2f, lossMult)));
-                    defender.setPower(defender.getPower() - actual);
+                    float lossMult = defender.getLegitimacy() / 100f;
+                    int actualLeg = Math.max(1, Math.round(legitimacyShift * Math.max(0.2f, lossMult)));
+                    defender.setLegitimacy(defender.getLegitimacy() - actualLeg);
+                    defender.setCohesion(defender.getCohesion() - cohesionGain / 2);
                 }
 
                 if (attacker != null && defender != null) {
@@ -123,16 +130,20 @@ public class SimOpFactory implements OpFactory {
                             rel + config.relDropOnRaid);
                 }
             } else {
-                int powerLoss = config.basePowerShift / 2;
+                int cohesionLoss = config.basePowerShift / 2;
+                int legitimacyGain = config.basePowerShift / 3;
+
+                // Attacker loses cohesion (failed operation)
                 if (attacker != null) {
-                    float lossMult = attacker.getPower() / 100f;
-                    int actual = Math.max(1, Math.round(powerLoss * Math.max(0.2f, lossMult)));
-                    attacker.setPower(attacker.getPower() - actual);
+                    float lossMult = attacker.getCohesion() / 100f;
+                    int actual = Math.max(1, Math.round(cohesionLoss * Math.max(0.2f, lossMult)));
+                    attacker.setCohesion(attacker.getCohesion() - actual);
                 }
+                // Defender gains legitimacy (repelled attack)
                 if (defender != null) {
-                    float gainMult = 1f - (defender.getPower() / 150f);
-                    int actual = Math.max(1, Math.round((powerLoss / 2) * Math.max(0.2f, gainMult)));
-                    defender.setPower(defender.getPower() + actual);
+                    float gainMult = 1f - (defender.getLegitimacy() / 150f);
+                    int actual = Math.max(1, Math.round(legitimacyGain * Math.max(0.2f, gainMult)));
+                    defender.setLegitimacy(defender.getLegitimacy() + actual);
                 }
 
                 if (attacker != null && defender != null) {
@@ -160,8 +171,8 @@ public class SimOpFactory implements OpFactory {
             @Override
             public void advance(float days) {
                 if (done) return;
-                int attackerFP = config.baseFP + (int)(attackerPower * config.fpPerPower);
-                int defenderFP = config.defenderBaseFP + (int)(defenderPower * config.defenderFpPerPower);
+                int attackerFP = config.baseFP + (int)(attackerCohesion * config.fpPerPower);
+                int defenderFP = config.defenderBaseFP + (int)(defenderCohesion * config.defenderFpPerPower);
 
                 // Underdog bonus
                 int fpGap = attackerFP - defenderFP;
@@ -236,7 +247,8 @@ public class SimOpFactory implements OpFactory {
             if (sf != null && getOutcome() == OpOutcome.SUCCESS) {
                 String fakeMarketId = "sim_base_" + subfactionId;
                 sf.setHomeMarketId(fakeMarketId);
-                sf.setPower(sf.getPower() + 10);
+                sf.setCohesion(sf.getCohesion() + 10);
+                sf.setLegitimacy(sf.getLegitimacy() + 5);
                 sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
         }

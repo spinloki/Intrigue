@@ -96,16 +96,25 @@ public class SimIntegrationTest {
 
         // ── Subfactions ──
         IntrigueSubfaction sfHeg1 = new IntrigueSubfaction("sf_heg1", "Eventide Aristocracy", "hegemony", "heg_market_1");
-        sfHeg1.setPower(60);
+        sfHeg1.setCohesion(55);
+        sfHeg1.setLegitimacy(65);
+        sfHeg1.setCohesionLabel("Discipline");
+        sfHeg1.setLegitimacyLabel("Authority");
         sfHeg1.setLeaderId("leader1");
         sfHeg1.getMemberIds().add("member1");
 
         IntrigueSubfaction sfHeg2 = new IntrigueSubfaction("sf_heg2", "14th Battlegroup Detachment", "hegemony", "heg_market_2");
-        sfHeg2.setPower(45);
+        sfHeg2.setCohesion(50);
+        sfHeg2.setLegitimacy(40);
+        sfHeg2.setCohesionLabel("Discipline");
+        sfHeg2.setLegitimacyLabel("Authority");
         sfHeg2.setLeaderId("leader2");
 
         IntrigueSubfaction sfTri = new IntrigueSubfaction("sf_tri", "Tri-Tachyon Capital Assurance", "tritachyon", "tri_market");
-        sfTri.setPower(50);
+        sfTri.setCohesion(55);
+        sfTri.setLegitimacy(45);
+        sfTri.setCohesionLabel("Synergy");
+        sfTri.setLegitimacyLabel("Mandate");
         sfTri.setLeaderId("leader3");
         sfTri.getMemberIds().add("member2");
 
@@ -257,12 +266,13 @@ public class SimIntegrationTest {
     }
 
     static void testPowerShiftsOnSubfactions() {
-        test("Power shifts apply to subfactions, not people", () -> {
+        test("Cohesion/legitimacy shifts apply to subfactions after ops", () -> {
             SimClock clock = setupSim();
             SimOpRunner ops = (SimOpRunner) IntrigueServices.ops();
             IntrigueSubfaction sfHeg1 = IntrigueServices.subfactions().getById("sf_heg1");
 
-            int powerBefore = sfHeg1.getPower();
+            int cohesionBefore = sfHeg1.getCohesion();
+            int legitimacyBefore = sfHeg1.getLegitimacy();
 
             IntrigueOp op = OpEvaluator.evaluate(sfHeg1, ops, "test");
             assertNotNull("Should create an op", op);
@@ -277,9 +287,10 @@ public class SimIntegrationTest {
 
             assertTrue("Op resolved", op.isResolved());
 
-            // Subfaction power should have changed
-            int powerAfter = sfHeg1.getPower();
-            assertTrue("Subfaction power changed after op", powerAfter != powerBefore);
+            // At least one of cohesion or legitimacy should have changed
+            boolean changed = sfHeg1.getCohesion() != cohesionBefore
+                    || sfHeg1.getLegitimacy() != legitimacyBefore;
+            assertTrue("Subfaction stats changed after op", changed);
 
             // Cooldown should be set on the subfaction
             assertTrue("Cooldown set", sfHeg1.getLastOpTimestamp() > 0);

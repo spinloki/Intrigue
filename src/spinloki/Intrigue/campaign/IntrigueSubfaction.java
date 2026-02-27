@@ -35,7 +35,10 @@ public class IntrigueSubfaction implements Serializable {
      */
     private boolean hidden = false;
 
-    private int power = 50;
+    private int cohesion = 50;
+    private int legitimacy = 50;
+    private String cohesionLabel = "Cohesion";
+    private String legitimacyLabel = "Legitimacy";
     private String leaderId;
     private final List<String> memberIds = new ArrayList<>();
 
@@ -83,10 +86,30 @@ public class IntrigueSubfaction implements Serializable {
     /** Returns true if the subfaction has a home market. A homeless subfaction is dormant. */
     public boolean hasHomeMarket() { return homeMarketId != null && !homeMarketId.isEmpty(); }
 
-    // ── Power ───────────────────────────────────────────────────────────
+    // ── Cohesion & Legitimacy ─────────────────────────────────────────
 
-    public int getPower() { return power; }
-    public void setPower(int power) { this.power = Math.max(0, Math.min(100, power)); }
+    public int getCohesion() { return cohesion; }
+    public void setCohesion(int cohesion) { this.cohesion = Math.max(0, Math.min(100, cohesion)); }
+
+    public int getLegitimacy() { return legitimacy; }
+    public void setLegitimacy(int legitimacy) { this.legitimacy = Math.max(0, Math.min(100, legitimacy)); }
+
+    /** Derived power: average of cohesion and legitimacy (read-only). */
+    public int getPower() { return (cohesion + legitimacy) / 2; }
+
+    /** @deprecated Use setCohesion / setLegitimacy instead. Sets both stats equally. */
+    @Deprecated
+    public void setPower(int power) {
+        int clamped = Math.max(0, Math.min(100, power));
+        this.cohesion = clamped;
+        this.legitimacy = clamped;
+    }
+
+    public String getCohesionLabel() { return cohesionLabel; }
+    public void setCohesionLabel(String label) { this.cohesionLabel = label != null ? label : "Cohesion"; }
+
+    public String getLegitimacyLabel() { return legitimacyLabel; }
+    public void setLegitimacyLabel(String label) { this.legitimacyLabel = label != null ? label : "Legitimacy"; }
 
     // ── Leadership ──────────────────────────────────────────────────────
 

@@ -4,8 +4,8 @@ package spinloki.Intrigue.campaign.ops;
  * Phase 1 of a RaidOp: the initiator musters forces.
  *
  * This is a simple timed delay representing the time it takes to assemble
- * a raiding fleet. Duration scales inversely with power (more powerful people
- * can mobilise faster).
+ * a raiding fleet. Duration scales inversely with cohesion (more cohesive
+ * subfactions can mobilise faster).
  */
 public class AssemblePhase implements OpPhase {
 
@@ -13,11 +13,11 @@ public class AssemblePhase implements OpPhase {
     private float elapsed = 0f;
 
     /**
-     * @param initiatorPower the initiator's power (0–100); higher = shorter delay
+     * @param initiatorCohesion the initiator's cohesion (0–100); higher = shorter delay
      */
-    public AssemblePhase(int initiatorPower) {
-        // 3-7 days: powerful people assemble faster
-        float t = 1f - (initiatorPower / 100f); // 0 at 100 power, 1 at 0 power
+    public AssemblePhase(int initiatorCohesion) {
+        // 3-7 days: cohesive subfactions assemble faster
+        float t = 1f - (initiatorCohesion / 100f); // 0 at 100 cohesion, 1 at 0 cohesion
         this.durationDays = 3f + t * 4f;
     }
 

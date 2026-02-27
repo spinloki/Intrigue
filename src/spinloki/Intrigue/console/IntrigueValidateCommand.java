@@ -105,8 +105,11 @@ public class IntrigueValidateCommand implements BaseCommand {
                 Console.showMessage("  Market: " + market.getName() + " (" + sf.getHomeMarketId() + ") OK");
             }
 
-            // 4. Check power
-            Console.showMessage("  Power: " + sf.getPower() + " (config=" + def.power + ")");
+            // 4. Check cohesion/legitimacy
+            Console.showMessage("  " + sf.getCohesionLabel() + ": " + sf.getCohesion()
+                    + " (config=" + def.cohesion + ")");
+            Console.showMessage("  " + sf.getLegitimacyLabel() + ": " + sf.getLegitimacy()
+                    + " (config=" + def.legitimacy + ")");
 
             // 5. Validate each member from config
             for (SubfactionConfig.MemberDef mDef : def.members) {

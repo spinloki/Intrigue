@@ -17,24 +17,31 @@ public class SubfactionConfig {
         public String factionId;
         public String homeMarketId;
         public String type; // "POLITICAL" or "CRIMINAL"; defaults to "POLITICAL"
-        public int power;
+        public int cohesion;
+        public int legitimacy;
+        public String cohesionLabel;
+        public String legitimacyLabel;
         public List<MemberDef> members;
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof SubfactionDef)) return false;
             SubfactionDef d = (SubfactionDef) o;
-            return power == d.power
+            return cohesion == d.cohesion
+                    && legitimacy == d.legitimacy
                     && Objects.equals(subfactionId, d.subfactionId)
                     && Objects.equals(name, d.name)
                     && Objects.equals(factionId, d.factionId)
                     && Objects.equals(homeMarketId, d.homeMarketId)
                     && Objects.equals(type, d.type)
+                    && Objects.equals(cohesionLabel, d.cohesionLabel)
+                    && Objects.equals(legitimacyLabel, d.legitimacyLabel)
                     && Objects.equals(members, d.members);
         }
         @Override
         public int hashCode() {
-            return Objects.hash(subfactionId, name, factionId, homeMarketId, type, power, members);
+            return Objects.hash(subfactionId, name, factionId, homeMarketId, type,
+                    cohesion, legitimacy, cohesionLabel, legitimacyLabel, members);
         }
         @Override
         public String toString() {
@@ -97,7 +104,14 @@ public class SubfactionConfig {
         if (def.type != null && !"POLITICAL".equals(def.type)) {
             sb.append(indent).append("  \"type\": ").append(jsonStr(def.type)).append(",\n");
         }
-        sb.append(indent).append("  \"power\": ").append(def.power).append(",\n");
+        sb.append(indent).append("  \"cohesion\": ").append(def.cohesion).append(",\n");
+        sb.append(indent).append("  \"legitimacy\": ").append(def.legitimacy).append(",\n");
+        if (def.cohesionLabel != null) {
+            sb.append(indent).append("  \"cohesionLabel\": ").append(jsonStr(def.cohesionLabel)).append(",\n");
+        }
+        if (def.legitimacyLabel != null) {
+            sb.append(indent).append("  \"legitimacyLabel\": ").append(jsonStr(def.legitimacyLabel)).append(",\n");
+        }
         sb.append(indent).append("  \"members\": [\n");
         for (int i = 0; i < def.members.size(); i++) {
             if (i > 0) sb.append(",\n");
@@ -159,7 +173,12 @@ public class SubfactionConfig {
         def.factionId = extractString(json, "factionId");
         def.homeMarketId = extractStringOrNull(json, "homeMarketId");
         def.type = extractStringOrDefault(json, "type", "POLITICAL");
-        def.power = extractInt(json, "power", 50);
+        // New fields: cohesion/legitimacy with backward-compat fallback from power
+        int legacyPower = extractInt(json, "power", -1);
+        def.cohesion = extractInt(json, "cohesion", legacyPower >= 0 ? legacyPower : 50);
+        def.legitimacy = extractInt(json, "legitimacy", legacyPower >= 0 ? legacyPower : 50);
+        def.cohesionLabel = extractStringOrNull(json, "cohesionLabel");
+        def.legitimacyLabel = extractStringOrNull(json, "legitimacyLabel");
         def.members = new ArrayList<>();
         int idx = json.indexOf("\"members\"");
         if (idx >= 0) {

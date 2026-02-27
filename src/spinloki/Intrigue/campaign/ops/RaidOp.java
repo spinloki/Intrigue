@@ -25,7 +25,8 @@ public class RaidOp extends IntrigueOp {
 
     private static final Logger log = Logger.getLogger(RaidOp.class.getName());
 
-    private static final int BASE_POWER_SHIFT = 8;
+    private static final int BASE_COHESION_SHIFT = 8;
+    private static final int BASE_LEGITIMACY_SHIFT = 6;
     private static final int REL_DROP_ON_RAID = -15;
 
     private final String targetMarketId;
@@ -44,10 +45,10 @@ public class RaidOp extends IntrigueOp {
               targetSubfaction.getSubfactionId());
         this.targetMarketId = targetSubfaction.getHomeMarketId();
 
-        int power = attackerSubfaction.getPower();
+        int cohesion = attackerSubfaction.getCohesion();
 
-        // Determine fleet strength from subfaction power: 30 FP at power 0, 150 FP at power 100
-        int combatFP = 30 + (int) (power * 1.2f);
+        // Determine fleet strength from subfaction cohesion: 30 FP at 0, 150 FP at 100
+        int combatFP = 30 + (int) (cohesion * 1.2f);
 
         // Single phase: FGIPhase handles prep, travel, combat, and return
         fgiPhase = new FGIPhase(
@@ -129,18 +130,24 @@ public class RaidOp extends IntrigueOp {
     private void applySuccess(IntrigueSubfactionAccess subfactions,
                                IntrigueSubfaction attacker, IntrigueSubfaction defender,
                                IntriguePerson leader) {
-        int powerGain = BASE_POWER_SHIFT;
+        int cohesionGain = BASE_COHESION_SHIFT;
+        int legitimacyShift = BASE_LEGITIMACY_SHIFT;
 
         // Leader trait modifiers
         if (leader != null && leader.getTraits().contains(IntrigueTraits.MERCILESS)) {
-            powerGain += 4;
+            cohesionGain += 4;
+            legitimacyShift += 2;
         }
 
         if (attacker != null) {
-            attacker.setPower(attacker.getPower() + powerGain);
+            // Attacker gains cohesion (operational success) and some legitimacy (proved their strength)
+            attacker.setCohesion(attacker.getCohesion() + cohesionGain);
+            attacker.setLegitimacy(attacker.getLegitimacy() + legitimacyShift / 2);
         }
         if (defender != null) {
-            defender.setPower(defender.getPower() - powerGain);
+            // Defender loses legitimacy primarily (they looked weak) and some cohesion (damaged infrastructure)
+            defender.setLegitimacy(defender.getLegitimacy() - legitimacyShift);
+            defender.setCohesion(defender.getCohesion() - cohesionGain / 2);
         }
 
         // Subfaction relationship drops
@@ -155,18 +162,21 @@ public class RaidOp extends IntrigueOp {
             attacker.setRelToPlayer(attacker.getRelToPlayer() - 2);
         }
 
-        log.info("  SUCCESS: attacker +" + powerGain + " power, defender -" + powerGain + " power");
+        log.info("  SUCCESS: attacker +" + cohesionGain + " cohesion, defender -" + legitimacyShift + " legitimacy");
     }
 
     private void applyFailure(IntrigueSubfactionAccess subfactions,
                                IntrigueSubfaction attacker, IntrigueSubfaction defender) {
-        int powerLoss = BASE_POWER_SHIFT / 2;
+        int cohesionLoss = BASE_COHESION_SHIFT / 2;
+        int legitimacyGain = BASE_LEGITIMACY_SHIFT / 2;
 
         if (attacker != null) {
-            attacker.setPower(attacker.getPower() - powerLoss);
+            // Attacker loses cohesion (failed operation, troops spent)
+            attacker.setCohesion(attacker.getCohesion() - cohesionLoss);
         }
         if (defender != null) {
-            defender.setPower(defender.getPower() + powerLoss / 2);
+            // Defender gains legitimacy (they repelled an attack, looking strong)
+            defender.setLegitimacy(defender.getLegitimacy() + legitimacyGain);
         }
 
         // Relationship still drops (you tried to raid them!)
@@ -176,7 +186,7 @@ public class RaidOp extends IntrigueOp {
                     rel + REL_DROP_ON_RAID / 2);
         }
 
-        log.info("  FAILURE: attacker -" + powerLoss + " power");
+        log.info("  FAILURE: attacker -" + cohesionLoss + " cohesion, defender +" + legitimacyGain + " legitimacy");
     }
 
     private int getSubfactionRelOrZero(IntrigueSubfaction sf, String otherId) {

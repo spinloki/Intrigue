@@ -19,8 +19,8 @@ import java.util.*;
 public final class OpEvaluator {
     private OpEvaluator() {}
 
-    /** Minimum subfaction power required to initiate any operation. */
-    public static final int MIN_POWER_THRESHOLD = 35;
+    /** Minimum subfaction cohesion required to initiate any operation. */
+    public static final int MIN_COHESION_THRESHOLD = 35;
 
     /** Minimum days between operations for the same subfaction. */
     public static final float COOLDOWN_DAYS = 30f;
@@ -58,8 +58,8 @@ public final class OpEvaluator {
         if (leader.isCheckedOut()) return null;
         if (opsRunner.hasActiveOp(leaderId)) return null;
 
-        // Subfaction power threshold
-        if (subfaction.getPower() < MIN_POWER_THRESHOLD) return null;
+        // Subfaction cohesion threshold
+        if (subfaction.getCohesion() < MIN_COHESION_THRESHOLD) return null;
 
         // Cooldown on the subfaction
         if (isOnCooldown(subfaction)) return null;
@@ -103,8 +103,8 @@ public final class OpEvaluator {
         if (leader.isCheckedOut()) return "leader checked out";
         if (opsRunner.hasActiveOp(leaderId)) return "leader has active op";
 
-        if (subfaction.getPower() < MIN_POWER_THRESHOLD)
-            return "power " + subfaction.getPower() + " < " + MIN_POWER_THRESHOLD;
+        if (subfaction.getCohesion() < MIN_COHESION_THRESHOLD)
+            return "cohesion " + subfaction.getCohesion() + " < " + MIN_COHESION_THRESHOLD;
 
         if (isOnCooldown(subfaction)) return "on cooldown";
 
@@ -168,9 +168,11 @@ public final class OpEvaluator {
         int relationship = rel != null ? rel : 0;
         score += -relationship * 0.5f;
 
-        // Power differential: prefer weaker targets
-        int powerDiff = attacker.getPower() - target.getPower();
-        score += powerDiff * 0.3f;
+        // Low legitimacy targets are more attractive (they look weak/vulnerable)
+        score += (50 - target.getLegitimacy()) * 0.3f;
+
+        // High attacker cohesion gives confidence to act
+        score += (attacker.getCohesion() - 50) * 0.2f;
 
         // Cross-faction hostility base
         score += 12f;
@@ -184,8 +186,8 @@ public final class OpEvaluator {
         }
 
         if (traits.contains(IntrigueTraits.OPPORTUNIST)) {
-            // Opportunists love hitting weaker subfactions
-            if (powerDiff > 15) score += 10f;
+            // Opportunists love hitting low-cohesion targets
+            if (attacker.getCohesion() - target.getCohesion() > 15) score += 10f;
         }
 
         if (traits.contains(IntrigueTraits.PARANOID)) {
@@ -217,8 +219,8 @@ public final class OpEvaluator {
         if (leader.isCheckedOut()) return null;
         if (opsRunner.hasActiveOp(leaderId)) return null;
 
-        // Lower power threshold for establishing a base — desperate factions act sooner
-        if (subfaction.getPower() < MIN_POWER_THRESHOLD / 2) return null;
+        // Lower cohesion threshold for establishing a base — desperate factions act sooner
+        if (subfaction.getCohesion() < MIN_COHESION_THRESHOLD / 2) return null;
 
         if (isOnCooldown(subfaction)) return null;
 
@@ -235,8 +237,8 @@ public final class OpEvaluator {
         if (leader == null) return "CRIMINAL homeless, leader not found";
         if (leader.isCheckedOut()) return "CRIMINAL homeless, leader checked out";
         if (opsRunner.hasActiveOp(leaderId)) return "CRIMINAL homeless, leader has active op";
-        if (subfaction.getPower() < MIN_POWER_THRESHOLD / 2)
-            return "CRIMINAL homeless, power " + subfaction.getPower() + " < " + (MIN_POWER_THRESHOLD / 2);
+        if (subfaction.getCohesion() < MIN_COHESION_THRESHOLD / 2)
+            return "CRIMINAL homeless, cohesion " + subfaction.getCohesion() + " < " + (MIN_COHESION_THRESHOLD / 2);
         if (isOnCooldown(subfaction)) return "CRIMINAL homeless, on cooldown";
 
         return "CRIMINAL homeless → READY to establish base";

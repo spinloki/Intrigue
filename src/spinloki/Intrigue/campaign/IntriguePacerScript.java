@@ -73,18 +73,29 @@ public class IntriguePacerScript implements EveryFrameScript {
             }
         }
 
-        // ── Power nudges: nudge a random subfaction's power ──
+        // ── Stat nudges: nudge a random subfaction's cohesion or legitimacy ──
         IntrigueSubfaction target = allSubfactions.get(rng.nextInt(allSubfactions.size()));
 
         int delta = rng.nextInt(3) - 1; // -1,0,+1
         if (delta == 0) delta = (rng.nextBoolean() ? 1 : -1);
 
-        int before = target.getPower();
-        int after = clamp(before + delta, 0, 100);
-        target.setPower(after);
-        if (verbose) {
-            result.append("Pacer tick: ").append(target.getSubfactionId())
-                  .append(" power ").append(before).append(" -> ").append(after);
+        boolean nudgeCohesion = rng.nextBoolean();
+        if (nudgeCohesion) {
+            int before = target.getCohesion();
+            target.setCohesion(before + delta);
+            if (verbose) {
+                result.append("Pacer tick: ").append(target.getSubfactionId())
+                      .append(" ").append(target.getCohesionLabel())
+                      .append(" ").append(before).append(" -> ").append(target.getCohesion());
+            }
+        } else {
+            int before = target.getLegitimacy();
+            target.setLegitimacy(before + delta);
+            if (verbose) {
+                result.append("Pacer tick: ").append(target.getSubfactionId())
+                      .append(" ").append(target.getLegitimacyLabel())
+                      .append(" ").append(before).append(" -> ").append(target.getLegitimacy());
+            }
         }
 
         return result.toString();

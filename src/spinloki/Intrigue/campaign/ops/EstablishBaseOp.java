@@ -105,17 +105,18 @@ public class EstablishBaseOp extends IntrigueOp {
                     peopleMgr.syncMemory(personId);
                 }
 
-                // Power boost for successfully establishing a base
-                subfaction.setPower(subfaction.getPower() + POWER_GAIN_ON_SUCCESS);
+                // Cohesion boost for successfully establishing a base
+                subfaction.setCohesion(subfaction.getCohesion() + POWER_GAIN_ON_SUCCESS);
+                subfaction.setLegitimacy(subfaction.getLegitimacy() + POWER_GAIN_ON_SUCCESS / 2);
 
                 log.info("  SUCCESS: " + subfaction.getName() + " established base at " + marketId
-                        + ", power +" + POWER_GAIN_ON_SUCCESS);
+                        + ", cohesion +" + POWER_GAIN_ON_SUCCESS);
             }
         } else if (result == OpOutcome.FAILURE && subfaction != null) {
-            // Minor power loss for failed scouting
-            subfaction.setPower(subfaction.getPower() - POWER_LOSS_ON_FAILURE);
+            // Minor cohesion loss for failed scouting
+            subfaction.setCohesion(subfaction.getCohesion() - POWER_LOSS_ON_FAILURE);
             log.info("  FAILURE: " + subfaction.getName() + " failed to find a base location"
-                    + ", power -" + POWER_LOSS_ON_FAILURE);
+                    + ", cohesion -" + POWER_LOSS_ON_FAILURE);
         }
 
         // Sync leader memory

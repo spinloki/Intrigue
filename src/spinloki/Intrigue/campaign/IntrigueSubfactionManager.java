@@ -184,7 +184,10 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
             }
 
             IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, homeMarketId, sfType);
-            sf.setPower(def.power);
+            sf.setCohesion(def.cohesion);
+            sf.setLegitimacy(def.legitimacy);
+            if (def.cohesionLabel != null) sf.setCohesionLabel(def.cohesionLabel);
+            if (def.legitimacyLabel != null) sf.setLegitimacyLabel(def.legitimacyLabel);
 
             for (SubfactionConfig.MemberDef mDef : def.members) {
                 PersonAPI person = createPersonFromDef(mDef, faction, market);

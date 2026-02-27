@@ -53,7 +53,13 @@ public class SubfactionConfigLoader {
         def.name = json.getString("name");
         def.factionId = json.getString("factionId");
         def.homeMarketId = json.optString("homeMarketId", null);
-        def.power = json.optInt("power", 50);
+        def.type = json.optString("type", "POLITICAL");
+        // New fields with backward-compat fallback from legacy "power"
+        int legacyPower = json.optInt("power", -1);
+        def.cohesion = json.optInt("cohesion", legacyPower >= 0 ? legacyPower : 50);
+        def.legitimacy = json.optInt("legitimacy", legacyPower >= 0 ? legacyPower : 50);
+        def.cohesionLabel = json.optString("cohesionLabel", null);
+        def.legitimacyLabel = json.optString("legitimacyLabel", null);
         def.members = new ArrayList<>();
 
         JSONArray membersArr = json.getJSONArray("members");
