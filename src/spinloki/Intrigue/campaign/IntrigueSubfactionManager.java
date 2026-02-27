@@ -3,11 +3,13 @@ package spinloki.Intrigue.campaign;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.campaign.LocationAPI;
+import com.fs.starfarer.api.campaign.SectorEntityToken;
 import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.characters.FullName;
 import com.fs.starfarer.api.characters.PersonAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Tags;
+import com.fs.starfarer.api.util.Misc;
 import spinloki.Intrigue.IntrigueIds;
 import spinloki.Intrigue.config.SubfactionConfig;
 import spinloki.Intrigue.config.SubfactionConfigLoader;
@@ -176,7 +178,12 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
                 claimedMarketIds.add(homeMarketId);
             }
 
-            IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, homeMarketId);
+            IntrigueSubfaction.SubfactionType sfType = IntrigueSubfaction.SubfactionType.POLITICAL;
+            if ("CRIMINAL".equalsIgnoreCase(def.type)) {
+                sfType = IntrigueSubfaction.SubfactionType.CRIMINAL;
+            }
+
+            IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, homeMarketId, sfType);
             sf.setPower(def.power);
 
             for (SubfactionConfig.MemberDef mDef : def.members) {
@@ -267,6 +274,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
         return null;
     }
+
 
     /**
      * Attempt to find homes for any homeless subfactions.

@@ -37,6 +37,8 @@ public class Intrigue extends BaseModPlugin {
         x.alias("ReturnPhase", ReturnPhase.class);
         x.alias("FGIPhase", FGIPhase.class);
         x.alias("IntrigueRaidIntel", IntrigueRaidIntel.class);
+        x.alias("EstablishBaseOp", EstablishBaseOp.class);
+        x.alias("EstablishBasePhase", EstablishBasePhase.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
     }
@@ -107,4 +109,5 @@ public class Intrigue extends BaseModPlugin {
             Global.getSector().addScript((IntrigueOpsManager) existing);
         }
     }
+
 }

@@ -160,7 +160,7 @@ public abstract class IntrigueOp implements Serializable {
 
     /**
      * Check whether the op should be aborted (e.g. initiator no longer exists).
-     * Default checks that initiator and target still exist.
+     * Default checks that the initiator still exists. Subclasses may add additional checks.
      */
     protected boolean shouldAbort() {
         return getInitiator() == null;

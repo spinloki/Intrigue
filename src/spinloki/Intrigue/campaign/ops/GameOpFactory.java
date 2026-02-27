@@ -11,4 +11,9 @@ public class GameOpFactory implements OpFactory {
     public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
         return new RaidOp(opId, attackerSubfaction, targetSubfaction);
     }
+
+    @Override
+    public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
+        return new EstablishBaseOp(opId, subfaction);
+    }
 }

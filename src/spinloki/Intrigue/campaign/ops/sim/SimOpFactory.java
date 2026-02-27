@@ -27,6 +27,11 @@ public class SimOpFactory implements OpFactory {
         return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, rng, config);
     }
 
+    @Override
+    public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
+        return new SimEstablishBaseOp(opId, subfaction);
+    }
+
     /**
      * A lightweight RaidOp that uses abstract combat resolution.
      */
@@ -179,6 +184,80 @@ public class SimOpFactory implements OpFactory {
             public String getStatus() {
                 if (!done) return "Engaging";
                 return attackerWon ? "Victory" : "Defeat";
+            }
+        }
+    }
+
+    /**
+     * Lightweight EstablishBaseOp for sim mode — auto-succeeds after a short delay,
+     * assigns a synthetic market ID as the subfaction's home.
+     */
+    static class SimEstablishBaseOp extends IntrigueOp {
+
+        private final String subfactionId;
+
+        SimEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
+            super(opId,
+                  subfaction.getLeaderId(),
+                  null,
+                  subfaction.getSubfactionId(),
+                  null);
+            this.subfactionId = subfaction.getSubfactionId();
+
+            // Single timed phase representing scouting
+            phases.add(new SimScoutPhase());
+        }
+
+        @Override
+        public String getOpTypeName() {
+            return "Establish Base";
+        }
+
+        @Override
+        protected void onStarted() {
+            // nothing needed in sim
+        }
+
+        @Override
+        protected boolean shouldAbort() {
+            if (getInitiator() == null) return true;
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            return sf != null && sf.hasHomeMarket();
+        }
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return OpOutcome.SUCCESS;
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null && getOutcome() == OpOutcome.SUCCESS) {
+                String fakeMarketId = "sim_base_" + subfactionId;
+                sf.setHomeMarketId(fakeMarketId);
+                sf.setPower(sf.getPower() + 10);
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+
+        class SimScoutPhase implements OpPhase {
+            private boolean done = false;
+
+            @Override
+            public void advance(float days) {
+                // Completes instantly in sim
+                done = true;
+            }
+
+            @Override
+            public boolean isDone() {
+                return done;
+            }
+
+            @Override
+            public String getStatus() {
+                return done ? "Base established" : "Scouting";
             }
         }
     }

@@ -15,10 +15,25 @@ import java.util.*;
  */
 public class IntrigueSubfaction implements Serializable {
 
+    /** The kind of subfaction — controls which operations it can run. */
+    public enum SubfactionType {
+        /** Standard political subfaction: raids, diplomacy, etc. */
+        POLITICAL,
+        /** Criminal subfaction (pirates, pathers): can establish hidden bases outside core worlds. */
+        CRIMINAL
+    }
+
     private final String subfactionId;
     private final String name;       // display name (e.g. "Eventide Admiralty")
     private final String factionId;
     private String homeMarketId;
+    private SubfactionType type = SubfactionType.POLITICAL;
+
+    /**
+     * When true, the subfaction's home market is not a valid raid target.
+     * Defaults to true for CRIMINAL subfactions.
+     */
+    private boolean hidden = false;
 
     private int power = 50;
     private String leaderId;
@@ -29,17 +44,25 @@ public class IntrigueSubfaction implements Serializable {
 
     private long lastOpTimestamp = 0;
 
-    /** Convenience constructor — uses subfactionId as name. */
+    /** Convenience constructor — uses subfactionId as name, defaults to POLITICAL. */
     public IntrigueSubfaction(String subfactionId, String factionId, String homeMarketId) {
-        this(subfactionId, subfactionId, factionId, homeMarketId);
+        this(subfactionId, subfactionId, factionId, homeMarketId, SubfactionType.POLITICAL);
     }
 
-    /** Full constructor with display name. */
+    /** Constructor with display name, defaults to POLITICAL. */
     public IntrigueSubfaction(String subfactionId, String name, String factionId, String homeMarketId) {
+        this(subfactionId, name, factionId, homeMarketId, SubfactionType.POLITICAL);
+    }
+
+    /** Full constructor with display name and type. */
+    public IntrigueSubfaction(String subfactionId, String name, String factionId,
+                              String homeMarketId, SubfactionType type) {
         this.subfactionId = subfactionId;
         this.name = name;
         this.factionId = factionId;
         this.homeMarketId = homeMarketId;
+        this.type = type != null ? type : SubfactionType.POLITICAL;
+        this.hidden = (this.type == SubfactionType.CRIMINAL);
     }
 
     // ── Identity ────────────────────────────────────────────────────────
@@ -47,6 +70,12 @@ public class IntrigueSubfaction implements Serializable {
     public String getSubfactionId() { return subfactionId; }
     public String getName() { return name; }
     public String getFactionId() { return factionId; }
+
+    public SubfactionType getType() { return type; }
+    public void setType(SubfactionType type) { this.type = type; }
+
+    public boolean isHidden() { return hidden; }
+    public void setHidden(boolean hidden) { this.hidden = hidden; }
 
     public String getHomeMarketId() { return homeMarketId; }
     public void setHomeMarketId(String homeMarketId) { this.homeMarketId = homeMarketId; }

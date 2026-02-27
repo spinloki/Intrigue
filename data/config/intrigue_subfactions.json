@@ -140,7 +140,7 @@
       ]
     },
     {
-      "subfactionId": "persean_volturn_blue_claw",
+      "subfactionId": "sindrian_volturn_blue_claw",
       "name": "Order of the Blue Claw",
       "factionId": "sindrian_diktat",
       "homeMarketId": "volturn",
@@ -230,6 +230,7 @@
       "subfactionId": "pirates_kantas_reavers",
       "name": "Kanta's Reavers",
       "factionId": "pirates",
+      "type": "CRIMINAL",
       "power": 75,
       "members": [
         {
@@ -259,6 +260,7 @@
       "subfactionId": "path_chalcedon_cell",
       "name": "Chalcedon Purity Cell",
       "factionId": "luddic_path",
+      "type": "CRIMINAL",
       "power": 50,
       "members": [
         {
@@ -288,6 +290,7 @@
       "subfactionId": "path_crusade_fleet",
       "name": "Crusade of the Righteous Flame",
       "factionId": "luddic_path",
+      "type": "CRIMINAL",
       "power": 50,
       "members": [
         {

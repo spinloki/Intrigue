@@ -32,7 +32,9 @@ public class IntrigueListSubfactionsCommand implements BaseCommand {
             Console.showMessage(sf.getName() + " [" + sf.getSubfactionId() + "]"
                     + " | " + sf.getFactionId()
                     + " | " + marketName
-                    + " | power=" + sf.getPower());
+                    + " | power=" + sf.getPower()
+                    + " | type=" + sf.getType()
+                    + (sf.isHidden() ? " | HIDDEN" : ""));
 
             // Leader
             String leaderId = sf.getLeaderId();

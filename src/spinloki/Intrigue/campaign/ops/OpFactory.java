@@ -17,4 +17,14 @@ public interface OpFactory {
      * @return an IntrigueOp, or null if the op cannot be created
      */
     IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction);
+
+    /**
+     * Create an operation to establish a base for a homeless subfaction.
+     * Uses a default system picker appropriate for the subfaction type.
+     *
+     * @param opId       unique operation ID
+     * @param subfaction the subfaction establishing a base
+     * @return an IntrigueOp, or null if the op cannot be created
+     */
+    IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction);
 }

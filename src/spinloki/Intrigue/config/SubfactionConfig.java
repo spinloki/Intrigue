@@ -16,6 +16,7 @@ public class SubfactionConfig {
         public String name;
         public String factionId;
         public String homeMarketId;
+        public String type; // "POLITICAL" or "CRIMINAL"; defaults to "POLITICAL"
         public int power;
         public List<MemberDef> members;
         @Override
@@ -28,11 +29,12 @@ public class SubfactionConfig {
                     && Objects.equals(name, d.name)
                     && Objects.equals(factionId, d.factionId)
                     && Objects.equals(homeMarketId, d.homeMarketId)
+                    && Objects.equals(type, d.type)
                     && Objects.equals(members, d.members);
         }
         @Override
         public int hashCode() {
-            return Objects.hash(subfactionId, name, factionId, homeMarketId, power, members);
+            return Objects.hash(subfactionId, name, factionId, homeMarketId, type, power, members);
         }
         @Override
         public String toString() {
@@ -91,6 +93,9 @@ public class SubfactionConfig {
         sb.append(indent).append("  \"factionId\": ").append(jsonStr(def.factionId)).append(",\n");
         if (def.homeMarketId != null) {
             sb.append(indent).append("  \"homeMarketId\": ").append(jsonStr(def.homeMarketId)).append(",\n");
+        }
+        if (def.type != null && !"POLITICAL".equals(def.type)) {
+            sb.append(indent).append("  \"type\": ").append(jsonStr(def.type)).append(",\n");
         }
         sb.append(indent).append("  \"power\": ").append(def.power).append(",\n");
         sb.append(indent).append("  \"members\": [\n");
@@ -153,6 +158,7 @@ public class SubfactionConfig {
         def.name = extractString(json, "name");
         def.factionId = extractString(json, "factionId");
         def.homeMarketId = extractStringOrNull(json, "homeMarketId");
+        def.type = extractStringOrDefault(json, "type", "POLITICAL");
         def.power = extractInt(json, "power", 50);
         def.members = new ArrayList<>();
         int idx = json.indexOf("\"members\"");

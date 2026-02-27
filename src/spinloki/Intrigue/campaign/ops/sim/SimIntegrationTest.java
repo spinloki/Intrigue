@@ -223,20 +223,18 @@ public class SimIntegrationTest {
     }
 
     static void testSameFactionTargeting() {
-        test("Same-faction subfactions can target each other", () -> {
+        test("Same-faction subfactions cannot target each other", () -> {
             setupSim();
             SimOpRunner ops = (SimOpRunner) IntrigueServices.ops();
             IntrigueSubfaction sfHeg1 = IntrigueServices.subfactions().getById("sf_heg1");
-            IntrigueSubfaction sfHeg2 = IntrigueServices.subfactions().getById("sf_heg2");
 
-            // sf_heg1 (hegemony, MERCILESS, power 60) should be able to target sf_heg2 (hegemony, power 45)
+            // sf_heg1 (hegemony, MERCILESS, power 60) should NOT target sf_heg2 (hegemony)
+            // The only valid target is sf_tri (tritachyon, cross-faction hostile)
             IntrigueOp op = OpEvaluator.evaluate(sfHeg1, ops, "test");
             assertNotNull("Should create an op", op);
 
-            // The target could be sf_heg2 or sf_tri — both are valid
             String targetSfId = op.getTargetSubfactionId();
-            assertTrue("Target should be sf_heg2 or sf_tri",
-                    "sf_heg2".equals(targetSfId) || "sf_tri".equals(targetSfId));
+            assertEquals("Target must be cross-faction", "sf_tri", targetSfId);
         });
     }
 

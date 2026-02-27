@@ -3,6 +3,7 @@ package spinloki.Intrigue.campaign.ops;
 import spinloki.Intrigue.IntrigueTraits;
 import spinloki.Intrigue.campaign.IntriguePerson;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
+import spinloki.Intrigue.campaign.IntrigueSubfaction.SubfactionType;
 import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
@@ -37,8 +38,14 @@ public final class OpEvaluator {
                                        String opIdPrefix) {
         if (subfaction == null) return null;
 
-        // Homeless subfactions are dormant — can't initiate ops without a base
-        if (!subfaction.hasHomeMarket()) return null;
+        // Homeless CRIMINAL subfactions can establish a base instead of raiding
+        if (!subfaction.hasHomeMarket()) {
+            if (subfaction.getType() == SubfactionType.CRIMINAL) {
+                return evaluateEstablishBase(subfaction, opsRunner, opIdPrefix);
+            }
+            // Political subfactions are dormant without a base
+            return null;
+        }
 
         // Need a leader to execute the op
         String leaderId = subfaction.getLeaderId();
@@ -80,7 +87,12 @@ public final class OpEvaluator {
     public static String diagnose(IntrigueSubfaction subfaction, IntrigueOpRunner opsRunner) {
         if (subfaction == null) return "null subfaction";
 
-        if (!subfaction.hasHomeMarket()) return "homeless (dormant) — waiting for a base";
+        if (!subfaction.hasHomeMarket()) {
+            if (subfaction.getType() == SubfactionType.CRIMINAL) {
+                return diagnoseEstablishBase(subfaction, opsRunner);
+            }
+            return "homeless (dormant) — waiting for a base";
+        }
 
         String leaderId = subfaction.getLeaderId();
         if (leaderId == null) return "no leader";
@@ -122,13 +134,18 @@ public final class OpEvaluator {
             // Can't raid a subfaction with no market
             if (!other.hasHomeMarket()) continue;
 
+            // Hidden subfactions (e.g. criminal bases) are not valid raid targets
+            if (other.isHidden()) continue;
+
             // Don't target subfactions whose leader is already busy
             String otherLeaderId = other.getLeaderId();
             if (otherLeaderId != null && opsRunner.hasActiveOp(otherLeaderId)) continue;
 
+            // Same-faction subfactions don't raid each other
+            if (attacker.getFactionId().equals(other.getFactionId())) continue;
+
             // Cross-faction raids require parent factions to be hostile
-            boolean sameFaction = attacker.getFactionId().equals(other.getFactionId());
-            if (!sameFaction && !IntrigueServices.hostility().areHostile(attacker.getFactionId(), other.getFactionId())) {
+            if (!IntrigueServices.hostility().areHostile(attacker.getFactionId(), other.getFactionId())) {
                 continue;
             }
 
@@ -155,14 +172,8 @@ public final class OpEvaluator {
         int powerDiff = attacker.getPower() - target.getPower();
         score += powerDiff * 0.3f;
 
-        // Same-faction targeting: internal power struggles get a base score boost
-        // (these are interesting conflicts), but also a slight dampener
-        boolean sameFaction = attacker.getFactionId().equals(target.getFactionId());
-        if (sameFaction) {
-            score += 5f; // internal rivalries are always simmering
-        } else {
-            score += 12f; // cross-faction hostility base
-        }
+        // Cross-faction hostility base
+        score += 12f;
 
         // ── Leader trait modifiers ──────────────────────────────────
 
@@ -184,8 +195,6 @@ public final class OpEvaluator {
         if (traits.contains(IntrigueTraits.HONOR_BOUND)) {
             score -= 15f;
             if (relationship < -50) score += 20f;
-            // Honor-bound leaders strongly prefer cross-faction targets
-            if (sameFaction) score -= 10f;
         }
 
         if (traits.contains(IntrigueTraits.CHARISMATIC)) {
@@ -193,6 +202,44 @@ public final class OpEvaluator {
         }
 
         return score;
+    }
+
+    // ── Establish Base evaluation (for homeless CRIMINAL subfactions) ──
+
+    private static IntrigueOp evaluateEstablishBase(IntrigueSubfaction subfaction,
+                                                     IntrigueOpRunner opsRunner,
+                                                     String opIdPrefix) {
+        String leaderId = subfaction.getLeaderId();
+        if (leaderId == null) return null;
+
+        IntriguePerson leader = IntrigueServices.people().getById(leaderId);
+        if (leader == null) return null;
+        if (leader.isCheckedOut()) return null;
+        if (opsRunner.hasActiveOp(leaderId)) return null;
+
+        // Lower power threshold for establishing a base — desperate factions act sooner
+        if (subfaction.getPower() < MIN_POWER_THRESHOLD / 2) return null;
+
+        if (isOnCooldown(subfaction)) return null;
+
+        String opId = opsRunner.nextOpId(opIdPrefix);
+        return IntrigueServices.opFactory().createEstablishBaseOp(opId, subfaction);
+    }
+
+    private static String diagnoseEstablishBase(IntrigueSubfaction subfaction,
+                                                 IntrigueOpRunner opsRunner) {
+        String leaderId = subfaction.getLeaderId();
+        if (leaderId == null) return "CRIMINAL homeless, no leader";
+
+        IntriguePerson leader = IntrigueServices.people().getById(leaderId);
+        if (leader == null) return "CRIMINAL homeless, leader not found";
+        if (leader.isCheckedOut()) return "CRIMINAL homeless, leader checked out";
+        if (opsRunner.hasActiveOp(leaderId)) return "CRIMINAL homeless, leader has active op";
+        if (subfaction.getPower() < MIN_POWER_THRESHOLD / 2)
+            return "CRIMINAL homeless, power " + subfaction.getPower() + " < " + (MIN_POWER_THRESHOLD / 2);
+        if (isOnCooldown(subfaction)) return "CRIMINAL homeless, on cooldown";
+
+        return "CRIMINAL homeless → READY to establish base";
     }
 
     // ── Cooldown ────────────────────────────────────────────────────────
