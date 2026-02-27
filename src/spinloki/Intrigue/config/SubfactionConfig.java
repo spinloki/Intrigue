@@ -89,7 +89,9 @@ public class SubfactionConfig {
         sb.append(indent).append("  \"subfactionId\": ").append(jsonStr(def.subfactionId)).append(",\n");
         sb.append(indent).append("  \"name\": ").append(jsonStr(def.name)).append(",\n");
         sb.append(indent).append("  \"factionId\": ").append(jsonStr(def.factionId)).append(",\n");
-        sb.append(indent).append("  \"homeMarketId\": ").append(jsonStr(def.homeMarketId)).append(",\n");
+        if (def.homeMarketId != null) {
+            sb.append(indent).append("  \"homeMarketId\": ").append(jsonStr(def.homeMarketId)).append(",\n");
+        }
         sb.append(indent).append("  \"power\": ").append(def.power).append(",\n");
         sb.append(indent).append("  \"members\": [\n");
         for (int i = 0; i < def.members.size(); i++) {
@@ -150,7 +152,7 @@ public class SubfactionConfig {
         def.subfactionId = extractString(json, "subfactionId");
         def.name = extractString(json, "name");
         def.factionId = extractString(json, "factionId");
-        def.homeMarketId = extractString(json, "homeMarketId");
+        def.homeMarketId = extractStringOrNull(json, "homeMarketId");
         def.power = extractInt(json, "power", 50);
         def.members = new ArrayList<>();
         int idx = json.indexOf("\"members\"");

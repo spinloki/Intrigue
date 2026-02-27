@@ -360,7 +360,7 @@ public class SimIntegrationTest {
             SubfactionConfig config1 = SubfactionConfig.parseFromJson(originalJson);
             assertTrue("Parsed subfactions not empty", config1.subfactions != null && !config1.subfactions.isEmpty());
             // Verify we got the expected count (10 subfactions in the config)
-            assertEquals("Subfaction count", 16, config1.subfactions.size());
+            assertEquals("Subfaction count", 14, config1.subfactions.size());
             // Serialize back to JSON
             String serialized = config1.toJson();
             assertTrue("Serialized JSON not empty", serialized != null && !serialized.isEmpty());

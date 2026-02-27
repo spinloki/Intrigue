@@ -37,6 +37,9 @@ public final class OpEvaluator {
                                        String opIdPrefix) {
         if (subfaction == null) return null;
 
+        // Homeless subfactions are dormant — can't initiate ops without a base
+        if (!subfaction.hasHomeMarket()) return null;
+
         // Need a leader to execute the op
         String leaderId = subfaction.getLeaderId();
         if (leaderId == null) return null;
@@ -77,6 +80,8 @@ public final class OpEvaluator {
     public static String diagnose(IntrigueSubfaction subfaction, IntrigueOpRunner opsRunner) {
         if (subfaction == null) return "null subfaction";
 
+        if (!subfaction.hasHomeMarket()) return "homeless (dormant) — waiting for a base";
+
         String leaderId = subfaction.getLeaderId();
         if (leaderId == null) return "no leader";
 
@@ -113,6 +118,9 @@ public final class OpEvaluator {
 
         for (IntrigueSubfaction other : allSubfactions) {
             if (other.getSubfactionId().equals(attacker.getSubfactionId())) continue;
+
+            // Can't raid a subfaction with no market
+            if (!other.hasHomeMarket()) continue;
 
             // Don't target subfactions whose leader is already busy
             String otherLeaderId = other.getLeaderId();

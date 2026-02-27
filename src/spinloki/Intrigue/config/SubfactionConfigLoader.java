@@ -52,7 +52,7 @@ public class SubfactionConfigLoader {
         def.subfactionId = json.getString("subfactionId");
         def.name = json.getString("name");
         def.factionId = json.getString("factionId");
-        def.homeMarketId = json.getString("homeMarketId");
+        def.homeMarketId = json.optString("homeMarketId", null);
         def.power = json.optInt("power", 50);
         def.members = new ArrayList<>();
 

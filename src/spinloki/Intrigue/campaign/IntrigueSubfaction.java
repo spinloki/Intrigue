@@ -51,6 +51,9 @@ public class IntrigueSubfaction implements Serializable {
     public String getHomeMarketId() { return homeMarketId; }
     public void setHomeMarketId(String homeMarketId) { this.homeMarketId = homeMarketId; }
 
+    /** Returns true if the subfaction has a home market. A homeless subfaction is dormant. */
+    public boolean hasHomeMarket() { return homeMarketId != null && !homeMarketId.isEmpty(); }
+
     // ── Power ───────────────────────────────────────────────────────────
 
     public int getPower() { return power; }

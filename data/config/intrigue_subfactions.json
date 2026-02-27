@@ -31,11 +31,11 @@
       ]
     },
     {
-      "subfactionId": "hegemony_14th_detachment",
-      "name": "14th Battlegroup Detachment",
+      "subfactionId": "hegemony_xiv_detachment",
+      "name": "XIV Battlegroup Detachment",
       "factionId": "hegemony",
       "homeMarketId": "chicomoztoc",
-      "power": 55,
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -62,7 +62,7 @@
     },
     {
       "subfactionId": "tritachyon_capital_assurance",
-      "name": "Tri-Tachyon Capital Assurance",
+      "name": "Capital Assurance",
       "factionId": "tritachyon",
       "homeMarketId": "eochu_bres",
       "power": 65,
@@ -92,7 +92,7 @@
     },
     {
       "subfactionId": "tritachyon_special_projects",
-      "name": "Tri-Tachyon Special Projects Division",
+      "name": "Special Projects Division",
       "factionId": "tritachyon",
       "homeMarketId": "culann",
       "power": 50,
@@ -114,7 +114,7 @@
       "name": "Kazeron Coalition",
       "factionId": "persean",
       "homeMarketId": "kazeron",
-      "power": 45,
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -144,7 +144,7 @@
       "name": "Order of the Blue Claw",
       "factionId": "sindrian_diktat",
       "homeMarketId": "volturn",
-      "power": 40,
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -171,7 +171,7 @@
     },
     {
       "subfactionId": "sindrian_inner_circle",
-      "name": "Sindria Inner Circle",
+      "name": "Inner Circle",
       "factionId": "sindrian_diktat",
       "homeMarketId": "sindria",
       "power": 70,
@@ -189,30 +189,11 @@
       ]
     },
     {
-      "subfactionId": "sindrian_cruor_garrison",
-      "name": "Cruor Garrison",
-      "factionId": "sindrian_diktat",
-      "homeMarketId": "cruor",
-      "power": 35,
-      "members": [
-        {
-          "role": "LEADER",
-          "firstName": "Nadia",
-          "lastName": "Sorel",
-          "gender": "FEMALE",
-          "portraitId": "graphics/portraits/portrait_diktat02.png",
-          "rankId": "spaceCommander",
-          "postId": "patrolCommander",
-          "traits": ["HONOR_BOUND"]
-        }
-      ]
-    },
-    {
       "subfactionId": "church_knights_hesperus",
-      "name": "Knights of Ludd, Hesperus Chapter",
+      "name": "Hesperus Chapter",
       "factionId": "luddic_church",
       "homeMarketId": "hesperus",
-      "power": 50,
+      "power": 70,
       "members": [
         {
           "role": "LEADER",
@@ -231,7 +212,7 @@
       "name": "Gilead Mission",
       "factionId": "luddic_church",
       "homeMarketId": "gilead",
-      "power": 40,
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -246,41 +227,10 @@
       ]
     },
     {
-      "subfactionId": "pirates_ungp_syndicate",
-      "name": "Ungp Syndicate",
-      "factionId": "pirates",
-      "homeMarketId": "ungp",
-      "power": 50,
-      "members": [
-        {
-          "role": "LEADER",
-          "firstName": "Drace",
-          "lastName": "Morrow",
-          "gender": "MALE",
-          "portraitId": "graphics/portraits/portrait_pirate01.png",
-          "rankId": "spaceCommander",
-          "postId": "fleetCommander",
-          "traits": ["MERCILESS", "OPPORTUNIST"]
-        },
-        {
-          "role": "MEMBER",
-          "firstName": "Tal",
-          "lastName": "Gren",
-          "gender": "MALE",
-          "portraitId": "graphics/portraits/portrait_pirate02.png",
-          "rankId": "citizen",
-          "postId": "administrator",
-          "bonus": "Protection rackets and port authority bribes",
-          "traits": ["PARANOID"]
-        }
-      ]
-    },
-    {
       "subfactionId": "pirates_kantas_reavers",
       "name": "Kanta's Reavers",
       "factionId": "pirates",
-      "homeMarketId": "kantas_den",
-      "power": 45,
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -309,8 +259,7 @@
       "subfactionId": "path_chalcedon_cell",
       "name": "Chalcedon Purity Cell",
       "factionId": "luddic_path",
-      "homeMarketId": "chalcedon",
-      "power": 45,
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -339,8 +288,7 @@
       "subfactionId": "path_crusade_fleet",
       "name": "Crusade of the Righteous Flame",
       "factionId": "luddic_path",
-      "homeMarketId": "chalcedon",
-      "power": 40,
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -359,7 +307,7 @@
       "name": "Free Industry Association",
       "factionId": "independent",
       "homeMarketId": "eldfell",
-      "power": 40,
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -389,7 +337,7 @@
       "name": "Frontier Watch",
       "factionId": "independent",
       "homeMarketId": "baetis",
-      "power": 35,
+      "power": 60,
       "members": [
         {
           "role": "LEADER",

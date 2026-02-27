@@ -15,6 +15,7 @@ import java.util.Random;
 
 public class IntriguePacerScript implements EveryFrameScript {
     private final IntervalUtil interval = new IntervalUtil(6.99f, 7.01f);
+    private final IntervalUtil homelessCheckInterval = new IntervalUtil(14f, 16f);
     private final Random rng = new Random();
 
     @Override
@@ -27,9 +28,14 @@ public class IntriguePacerScript implements EveryFrameScript {
     public void advance(float amount) {
         float days = Misc.getDays(amount);
         interval.advance(days);
+        homelessCheckInterval.advance(days);
 
         if (interval.intervalElapsed()) {
             doOneTick(false);
+        }
+
+        if (homelessCheckInterval.intervalElapsed()) {
+            IntrigueSubfactionManager.get().resolveHomelessSubfactions();
         }
     }
 

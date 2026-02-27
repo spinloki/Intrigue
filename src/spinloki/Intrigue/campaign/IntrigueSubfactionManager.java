@@ -2,9 +2,12 @@ package spinloki.Intrigue.campaign;
 
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.FactionAPI;
+import com.fs.starfarer.api.campaign.LocationAPI;
+import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.characters.FullName;
 import com.fs.starfarer.api.characters.PersonAPI;
+import com.fs.starfarer.api.impl.campaign.ids.Tags;
 import spinloki.Intrigue.IntrigueIds;
 import spinloki.Intrigue.config.SubfactionConfig;
 import spinloki.Intrigue.config.SubfactionConfigLoader;
@@ -27,6 +30,23 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
     private final Map<String, IntrigueSubfaction> subfactions = new LinkedHashMap<>();
     private boolean bootstrapped = false;
     private int nextPersonId = 1;
+
+    /** Rolling log of homelessness-check events (bootstrap + periodic resolution). */
+    private final List<String> homelessLog = new ArrayList<>();
+    private static final int MAX_HOMELESS_LOG = 200;
+
+    private void addHomelessLog(String entry) {
+        String timestamp = String.valueOf(Global.getSector().getClock().getTimestamp());
+        homelessLog.add("[" + timestamp + "] " + entry);
+        while (homelessLog.size() > MAX_HOMELESS_LOG) {
+            homelessLog.remove(0);
+        }
+    }
+
+    /** Returns an unmodifiable view of the homelessness audit log. */
+    public List<String> getHomelessLog() {
+        return Collections.unmodifiableList(homelessLog);
+    }
 
     // ── Singleton via persistent data ───────────────────────────────────
 
@@ -104,6 +124,17 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
         IntriguePeopleManager peopleMgr = IntriguePeopleManager.get();
 
+        // Track which markets have been claimed by a subfaction during bootstrap,
+        // so that dynamic resolution doesn't assign the same market twice.
+        Set<String> claimedMarketIds = new HashSet<>();
+
+        // First pass: collect all statically-assigned market IDs
+        for (SubfactionConfig.SubfactionDef def : config.subfactions) {
+            if (def.homeMarketId != null && !def.homeMarketId.isEmpty()) {
+                claimedMarketIds.add(def.homeMarketId);
+            }
+        }
+
         for (SubfactionConfig.SubfactionDef def : config.subfactions) {
             // Validate faction exists
             FactionAPI faction = Global.getSector().getFaction(def.factionId);
@@ -112,14 +143,40 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
                 continue;
             }
 
-            // Validate home market exists
-            MarketAPI market = Global.getSector().getEconomy().getMarket(def.homeMarketId);
-            if (market == null) {
-                log.warning("Skipping subfaction " + def.subfactionId + ": market '" + def.homeMarketId + "' not found.");
-                continue;
+            // Resolve home market: use configured value, or find the best unclaimed market
+            String homeMarketId = def.homeMarketId;
+            if (homeMarketId == null || homeMarketId.isEmpty()) {
+                homeMarketId = resolveHomeMarket(def.factionId, claimedMarketIds);
+                if (homeMarketId != null) {
+                    String msg = "Bootstrap: dynamically assigned market '" + homeMarketId
+                            + "' to " + def.subfactionId + " (" + def.name + ", faction=" + def.factionId + ")";
+                    log.info(msg);
+                    addHomelessLog(msg);
+                } else {
+                    String msg = "Bootstrap: no market available for " + def.subfactionId
+                            + " (" + def.name + ", faction=" + def.factionId + ") — homeless (dormant)";
+                    log.info(msg);
+                    addHomelessLog(msg);
+                }
             }
 
-            IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, def.homeMarketId);
+            MarketAPI market = null;
+            if (homeMarketId != null) {
+                market = Global.getSector().getEconomy().getMarket(homeMarketId);
+                if (market == null) {
+                    log.warning("Configured market '" + homeMarketId + "' not found for subfaction "
+                            + def.subfactionId + " — bootstrapping as homeless.");
+                    addHomelessLog("Bootstrap: configured market '" + homeMarketId
+                            + "' not found for " + def.subfactionId + " — homeless");
+                    homeMarketId = null;
+                }
+            }
+
+            if (homeMarketId != null) {
+                claimedMarketIds.add(homeMarketId);
+            }
+
+            IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, homeMarketId);
             sf.setPower(def.power);
 
             for (SubfactionConfig.MemberDef mDef : def.members) {
@@ -128,7 +185,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
                 IntriguePerson.Role role = IntriguePerson.Role.valueOf(mDef.role);
                 IntriguePerson ip = new IntriguePerson(
-                        person.getId(), def.factionId, def.homeMarketId,
+                        person.getId(), def.factionId, homeMarketId,
                         def.subfactionId, role, mDef.bonus);
 
                 if (mDef.traits != null) {
@@ -152,12 +209,129 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
             subfactions.put(sf.getSubfactionId(), sf);
             log.info("Bootstrapped subfaction: " + def.name + " [" + def.subfactionId + "]"
-                     + " faction=" + def.factionId + " market=" + def.homeMarketId
+                     + " faction=" + def.factionId + " market=" + homeMarketId
                      + " power=" + sf.getPower() + " members=" + sf.getMemberIds().size());
         }
 
         bootstrapped = true;
         log.info("Subfaction bootstrap complete. Total: " + subfactions.size());
+    }
+
+    // ── Dynamic home market resolution ────────────────────────────────
+
+    /**
+     * Find the best unclaimed market for a faction outside core worlds.
+     *
+     * Only considers markets in procedurally generated (non-core) star systems.
+     * Core-world markets are never selected — factions like pirates and pathers
+     * should operate from fringe bases, not established core worlds.
+     *
+     * Within the eligible pool, selects the largest market (highest
+     * {@code getSize()}).  Market size directly affects fleet production
+     * capacity, so bigger bases produce stronger defense fleets.
+     *
+     * @param factionId        the faction to find markets for
+     * @param claimedMarketIds markets already assigned to another subfaction
+     * @return the market ID of the best candidate, or null if none found
+     */
+    private String resolveHomeMarket(String factionId, Set<String> claimedMarketIds) {
+        MarketAPI best = null;
+
+        for (MarketAPI m : Global.getSector().getEconomy().getMarketsCopy()) {
+            if (m == null) continue;
+            if (!factionId.equals(m.getFactionId())) continue;
+            if (claimedMarketIds.contains(m.getId())) continue;
+            if (m.isHidden()) continue;
+
+            // Skip core-world markets entirely
+            LocationAPI loc = m.getContainingLocation();
+            if (loc instanceof StarSystemAPI) {
+                StarSystemAPI sys = (StarSystemAPI) loc;
+                if (sys.hasTag(Tags.THEME_CORE)
+                        || sys.hasTag(Tags.THEME_CORE_POPULATED)
+                        || sys.hasTag(Tags.THEME_CORE_UNPOPULATED)) {
+                    continue;
+                }
+            }
+
+            if (best == null || m.getSize() > best.getSize()) {
+                best = m;
+            }
+        }
+
+        if (best != null) {
+            log.info("resolveHomeMarket(" + factionId + "): selected " + best.getId()
+                    + " '" + best.getName() + "' size=" + best.getSize());
+            return best.getId();
+        }
+
+        return null;
+    }
+
+    /**
+     * Attempt to find homes for any homeless subfactions.
+     *
+     * Called periodically (e.g. monthly) by the pacer script. When a market is
+     * found, the subfaction's homeMarketId is set and its members are placed
+     * at the market.
+     *
+     * @return a human-readable summary of any changes, or null if nothing happened
+     */
+    public String resolveHomelessSubfactions() {
+        Set<String> claimedMarketIds = new HashSet<>();
+        for (IntrigueSubfaction sf : subfactions.values()) {
+            if (sf.hasHomeMarket()) {
+                claimedMarketIds.add(sf.getHomeMarketId());
+            }
+        }
+
+        StringBuilder result = new StringBuilder();
+        IntriguePeopleManager peopleMgr = IntriguePeopleManager.get();
+
+        for (IntrigueSubfaction sf : subfactions.values()) {
+            if (sf.hasHomeMarket()) continue;
+
+            String marketId = resolveHomeMarket(sf.getFactionId(), claimedMarketIds);
+            if (marketId == null) {
+                String msg = "Resolve: still homeless — " + sf.getName()
+                        + " [" + sf.getSubfactionId() + "] (faction=" + sf.getFactionId() + ")";
+                log.info(msg);
+                addHomelessLog(msg);
+                continue;
+            }
+
+            MarketAPI market = Global.getSector().getEconomy().getMarket(marketId);
+            if (market == null) continue;
+
+            sf.setHomeMarketId(marketId);
+            claimedMarketIds.add(marketId);
+
+            // Place all members at the new home market
+            for (String personId : sf.getAllPersonIds()) {
+                PersonAPI person = Global.getSector().getImportantPeople().getPerson(personId);
+                if (person != null) {
+                    person.setMarket(market);
+                    market.addPerson(person);
+                    if (market.getCommDirectory() != null) {
+                        market.getCommDirectory().addPerson(person);
+                    }
+                }
+
+                IntriguePerson ip = peopleMgr.getById(personId);
+                if (ip != null) {
+                    ip.setHomeMarketId(marketId);
+                }
+            }
+
+            String msg = "Resolve: " + sf.getName() + " [" + sf.getSubfactionId() + "]"
+                    + " found home at " + market.getName() + " (" + marketId + ")"
+                    + " size=" + market.getSize() + " faction=" + sf.getFactionId();
+            log.info(msg);
+            addHomelessLog(msg);
+            result.append(msg).append("\n");
+        }
+
+        return result.length() > 0 ? result.toString() : null;
     }
 
     // ── Person creation from config ─────────────────────────────────────
@@ -189,15 +363,17 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
             person.addTag(IntrigueIds.PERSON_TAG);
             person.setFaction(faction.getId());
-            person.setMarket(market);
+            person.setMarket(market); // null is OK — homeless subfaction members
 
             // Register with sector important people
             Global.getSector().getImportantPeople().addPerson(person);
 
-            // Place at market
-            market.addPerson(person);
-            if (market.getCommDirectory() != null) {
-                market.getCommDirectory().addPerson(person);
+            // Place at market (only if one exists)
+            if (market != null) {
+                market.addPerson(person);
+                if (market.getCommDirectory() != null) {
+                    market.getCommDirectory().addPerson(person);
+                }
             }
 
             return person;
