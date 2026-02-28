@@ -38,12 +38,25 @@ public class RaidOp extends IntrigueOp {
      * @param targetSubfaction    the defending subfaction
      */
     public RaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
+        this(opId, attackerSubfaction, targetSubfaction, null);
+    }
+
+    /**
+     * @param opId                unique operation ID
+     * @param attackerSubfaction  the attacking subfaction
+     * @param targetSubfaction    the defending subfaction
+     * @param overrideMarketId    specific market to raid (e.g. territory base), or null for home market
+     */
+    public RaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction,
+                  String overrideMarketId) {
         super(opId,
               attackerSubfaction.getLeaderId(),
               targetSubfaction.getLeaderId(),
               attackerSubfaction.getSubfactionId(),
               targetSubfaction.getSubfactionId());
-        this.targetMarketId = targetSubfaction.getHomeMarketId();
+        this.targetMarketId = (overrideMarketId != null && !overrideMarketId.isEmpty())
+                ? overrideMarketId
+                : targetSubfaction.getHomeMarketId();
 
         int cohesion = attackerSubfaction.getHomeCohesion();
 

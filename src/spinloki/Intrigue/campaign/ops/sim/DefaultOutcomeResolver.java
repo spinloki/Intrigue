@@ -97,6 +97,11 @@ public class DefaultOutcomeResolver implements OpOutcomeResolver {
         return resolveFlat("Rally", subfaction, config.rallySuccessProb);
     }
 
+    @Override
+    public OpOutcome resolveMischief(IntrigueSubfaction initiator, IntrigueSubfaction victim) {
+        return resolveFlat("Mischief", initiator, config.mischiefSuccessProb);
+    }
+
     // ── Shared helper ──
 
     /**

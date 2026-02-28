@@ -138,6 +138,12 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
             territory.setPresence(subfactionId, IntrigueTerritory.Presence.ESTABLISHED);
             territory.setCohesion(subfactionId, INITIAL_TERRITORY_COHESION);
 
+            // Record the base market ID on the territory so friction raids can target it
+            String baseMarketId = basePhase.getCreatedMarketId();
+            if (baseMarketId != null) {
+                territory.setBaseMarketId(subfactionId, baseMarketId);
+            }
+
             if (subfaction != null) {
                 // Establishing a base costs home cohesion but builds legitimacy
                 subfaction.setHomeCohesion(subfaction.getHomeCohesion() - HOME_COHESION_COST);

@@ -47,6 +47,13 @@ public class SimOpFactory implements OpFactory {
     }
 
     @Override
+    public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction,
+                                   IntrigueSubfaction targetSubfaction, String targetMarketId) {
+        // In sim mode, target market doesn't affect outcome resolution — same SimRaidOp
+        return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, resolver, config);
+    }
+
+    @Override
     public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
         return new SimEstablishBaseOp(opId, subfaction, resolver);
     }
@@ -89,6 +96,14 @@ public class SimOpFactory implements OpFactory {
     @Override
     public IntrigueOp createCivilWarOp(String opId, IntrigueSubfaction subfaction) {
         return new SimCivilWarOp(opId, subfaction);
+    }
+
+    @Override
+    public IntrigueOp createMischiefOp(String opId, IntrigueSubfaction initiator,
+                                       IntrigueSubfaction victim, String territoryId,
+                                       IntrigueOp targetOp) {
+        return new SimMischiefOp(opId, initiator, victim, territoryId,
+                targetOp != null ? targetOp.getOpId() : null, resolver, config);
     }
 
     /**
@@ -418,6 +433,8 @@ public class SimOpFactory implements OpFactory {
                     if (t != null) {
                         t.setPresence(subfactionId, IntrigueTerritory.Presence.ESTABLISHED);
                         t.setCohesion(subfactionId, 50);
+                        // Assign a synthetic base market ID so friction raids can target it
+                        t.setBaseMarketId(subfactionId, "sim_terrbase_" + subfactionId + "_" + tId);
                     }
                 }
                 if (sf != null) {
@@ -655,6 +672,68 @@ public class SimOpFactory implements OpFactory {
                 sf.resetLowHomeCohesionTicks();
                 sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
+        }
+    }
+
+    /**
+     * Sim-side MischiefOp: sabotage another subfaction's op in a shared territory.
+     * Success penalizes the victim's territory cohesion and legitimacy.
+     */
+    static class SimMischiefOp extends IntrigueOp {
+
+        private final String victimSubfactionId;
+        private final String tId;
+        private final String targetOpId;
+        private final OpOutcomeResolver resolver;
+        private final SimConfig config;
+
+        SimMischiefOp(String opId, IntrigueSubfaction initiator, IntrigueSubfaction victim,
+                      String territoryId, String targetOpId,
+                      OpOutcomeResolver resolver, SimConfig config) {
+            super(opId, initiator.getLeaderId(), victim.getLeaderId(),
+                  initiator.getSubfactionId(), victim.getSubfactionId());
+            this.victimSubfactionId = victim.getSubfactionId();
+            this.tId = territoryId;
+            this.targetOpId = targetOpId;
+            this.resolver = resolver;
+            this.config = config;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Mischief"));
+        }
+
+        @Override public String getOpTypeName() { return "Mischief"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            IntrigueSubfaction initiator = getInitiatorSubfaction();
+            IntrigueSubfaction victim = IntrigueServices.subfactions().getById(victimSubfactionId);
+            return resolver.resolveMischief(initiator, victim);
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+
+            if (getOutcome() == OpOutcome.SUCCESS) {
+                // Penalize the victim's territory cohesion and legitimacy
+                IntrigueSubfaction victim = IntrigueServices.subfactions().getById(victimSubfactionId);
+                if (victim != null) {
+                    victim.setLegitimacy(victim.getLegitimacy() - config.mischiefLegitimacyPenalty);
+                }
+                IntrigueTerritoryAccess territories = IntrigueServices.territories();
+                if (territories != null) {
+                    IntrigueTerritory t = territories.getById(tId);
+                    if (t != null) {
+                        int current = t.getCohesion(victimSubfactionId);
+                        t.setCohesion(victimSubfactionId, current - config.mischiefCohesionPenalty);
+                    }
+                }
+            }
+            // On failure: no effect — mischief fizzled
         }
     }
 

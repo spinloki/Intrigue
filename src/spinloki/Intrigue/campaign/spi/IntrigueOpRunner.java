@@ -27,5 +27,8 @@ public interface IntrigueOpRunner {
 
     /** Get all active ops where the given person is the initiator. */
     List<IntrigueOp> getOpsInitiatedBy(String personId);
+
+    /** Get all currently active (unresolved) ops. */
+    List<IntrigueOp> getActiveOps();
 }
 

@@ -44,17 +44,19 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
             "rally",
             "infighting",
             "expulsion",
-            "civil_war"
+            "civil_war",
+            "mischief"
     );
 
     /** Op types that require a target subfaction argument. */
-    private static final Set<String> NEEDS_TARGET_SUBFACTION = Set.of("raid");
+    private static final Set<String> NEEDS_TARGET_SUBFACTION = Set.of("raid", "mischief");
 
     /** Op types that require a territory argument. */
     private static final Set<String> NEEDS_TERRITORY = Set.of(
             "scout_territory", "establish_territory_base",
             "patrol", "send_supplies",
-            "infighting", "expulsion"
+            "infighting", "expulsion",
+            "mischief"
     );
 
     // ── Command execution ───────────────────────────────────────────────
@@ -93,8 +95,16 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
 
         // ── Resolve third argument (target subfaction or territory) ────
         String thirdArg = parts.length >= 3 ? parts[2] : null;
+        String fourthArg = parts.length >= 4 ? parts[3] : null;
 
-        if (NEEDS_TARGET_SUBFACTION.contains(opType)) {
+        if (NEEDS_TARGET_SUBFACTION.contains(opType) && NEEDS_TERRITORY.contains(opType)) {
+            // Needs both: e.g. mischief <target_subfaction> <territory>
+            if (thirdArg == null || fourthArg == null) {
+                Console.showMessage("Op type '" + opType + "' requires a target subfaction ID AND a territory ID.");
+                Console.showMessage("Usage: intrigue_start_op <subfaction> " + opType + " <target_subfaction> <territory>");
+                return CommandResult.BAD_SYNTAX;
+            }
+        } else if (NEEDS_TARGET_SUBFACTION.contains(opType)) {
             if (thirdArg == null) {
                 Console.showMessage("Op type '" + opType + "' requires a target subfaction ID.");
                 return CommandResult.BAD_SYNTAX;
@@ -112,7 +122,7 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
         IntrigueOp op;
 
         try {
-            op = createOp(opType, opId, subfaction, thirdArg);
+            op = createOp(opType, opId, subfaction, thirdArg, fourthArg);
         } catch (IllegalArgumentException e) {
             Console.showMessage("Error: " + e.getMessage());
             return CommandResult.ERROR;
@@ -136,7 +146,7 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
     // ── Op creation ─────────────────────────────────────────────────────
 
     private IntrigueOp createOp(String opType, String opId,
-                                IntrigueSubfaction subfaction, String thirdArg) {
+                                IntrigueSubfaction subfaction, String thirdArg, String fourthArg) {
         switch (opType) {
             case "raid": {
                 IntrigueSubfaction target = IntrigueServices.subfactions().getById(thirdArg);
@@ -176,6 +186,15 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
             }
             case "civil_war":
                 return IntrigueServices.opFactory().createCivilWarOp(opId, subfaction);
+            case "mischief": {
+                IntrigueSubfaction victim = IntrigueServices.subfactions().getById(thirdArg);
+                if (victim == null) {
+                    throw new IllegalArgumentException("Unknown target subfaction: " + thirdArg
+                            + ". Available: " + allSubfactionIds());
+                }
+                validateTerritory(fourthArg);
+                return IntrigueServices.opFactory().createMischiefOp(opId, subfaction, victim, fourthArg, null);
+            }
             default:
                 throw new IllegalArgumentException("Unhandled op type: " + opType);
         }

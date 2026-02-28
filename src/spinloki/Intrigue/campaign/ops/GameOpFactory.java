@@ -13,6 +13,12 @@ public class GameOpFactory implements OpFactory {
     }
 
     @Override
+    public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction,
+                                   IntrigueSubfaction targetSubfaction, String targetMarketId) {
+        return new RaidOp(opId, attackerSubfaction, targetSubfaction, targetMarketId);
+    }
+
+    @Override
     public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
         return new EstablishBaseOp(opId, subfaction);
     }
@@ -55,5 +61,12 @@ public class GameOpFactory implements OpFactory {
     @Override
     public IntrigueOp createCivilWarOp(String opId, IntrigueSubfaction subfaction) {
         return new CivilWarOp(opId, subfaction);
+    }
+
+    @Override
+    public IntrigueOp createMischiefOp(String opId, IntrigueSubfaction initiator,
+                                       IntrigueSubfaction victim, String territoryId,
+                                       IntrigueOp targetOp) {
+        return new MischiefOp(opId, initiator, victim, territoryId, targetOp);
     }
 }

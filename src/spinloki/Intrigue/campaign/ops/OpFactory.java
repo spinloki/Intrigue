@@ -19,6 +19,19 @@ public interface OpFactory {
     IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction);
 
     /**
+     * Create a raid operation targeting a specific market (e.g. a territory base).
+     * If targetMarketId is null or empty, falls back to the target subfaction's home market.
+     *
+     * @param opId               unique operation ID
+     * @param attackerSubfaction  the attacking subfaction
+     * @param targetSubfaction    the defending subfaction
+     * @param targetMarketId      the specific market to raid (territory base), or null for home market
+     * @return an IntrigueOp, or null if the op cannot be created
+     */
+    IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction,
+                            IntrigueSubfaction targetSubfaction, String targetMarketId);
+
+    /**
      * Create an operation to establish a base for a homeless subfaction.
      *
      * @param opId       unique operation ID
@@ -98,4 +111,20 @@ public interface OpFactory {
      * Subfaction fleets fight en-masse; afterwards cohesion and legitimacy reset to 50.
      */
     IntrigueOp createCivilWarOp(String opId, IntrigueSubfaction subfaction);
+
+    /**
+     * Create a mischief op triggered by territory friction.
+     * The initiator sabotages the victim's active op in a shared territory.
+     * Success penalizes the victim's cohesion and/or legitimacy.
+     *
+     * @param opId        unique operation ID
+     * @param initiator   the subfaction causing mischief
+     * @param victim      the subfaction being targeted
+     * @param territoryId the territory where friction triggered this
+     * @param targetOp    the victim's active op being sabotaged (may be null)
+     * @return an IntrigueOp, or null if the op cannot be created
+     */
+    IntrigueOp createMischiefOp(String opId, IntrigueSubfaction initiator,
+                                IntrigueSubfaction victim, String territoryId,
+                                IntrigueOp targetOp);
 }

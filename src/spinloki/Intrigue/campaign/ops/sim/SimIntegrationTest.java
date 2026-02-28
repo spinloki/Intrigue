@@ -680,6 +680,12 @@ public class SimIntegrationTest {
         System.out.printf("    Player action interval:       every %d ticks%n", config.playerActionInterval);
         System.out.printf("    Player favor bonus:           %+.0f%%%n", config.playerFavorBonus * 100);
         System.out.printf("    Player disfavor penalty:      %+.0f%%%n", config.playerDisfavorPenalty * 100);
+        System.out.printf("    Friction/tick (cross-faction): %d%n", config.frictionPerTick);
+        System.out.printf("    Friction/tick (same-faction):  %d%n", config.sameFactionFrictionPerTick);
+        System.out.printf("    Friction threshold (mischief): %d%n", config.frictionThreshold);
+        System.out.printf("    Mischief success:              %.0f%%%n", config.mischiefSuccessProb * 100);
+        System.out.printf("    Mischief cohesion penalty:     %d%n", config.mischiefCohesionPenalty);
+        System.out.printf("    Mischief legitimacy penalty:   %d%n", config.mischiefLegitimacyPenalty);
         System.out.println();
 
         SimClock clock;
@@ -718,18 +724,37 @@ public class SimIntegrationTest {
             startTerritoryCohesion.put(sf.getSubfactionId(), perTerritory);
         }
 
+
+        // Per-tick tracking: sfId -> [minCoh, maxCoh, sumCoh, minLeg, maxLeg, sumLeg, samples]
+        Map<String, int[]> statTracking = new LinkedHashMap<>();
+        for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+            int c = sf.getHomeCohesion();
+            int l = sf.getLegitimacy();
+            statTracking.put(sf.getSubfactionId(), new int[]{c, c, c, l, l, l, 1});
+        }
+
+        // Territory cohesion tracking: sfId -> { territoryId -> [min, max, sum, samples] }
+        Map<String, Map<String, int[]>> terrStatTracking = new LinkedHashMap<>();
+        for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+            Map<String, int[]> perTerr = new LinkedHashMap<>();
+            for (IntrigueTerritory t : IntrigueServices.territories().getAll()) {
+                int c = t.getCohesion(sf.getSubfactionId());
+                perTerr.put(t.getTerritoryId(), new int[]{c, c, c, 1});
+            }
+            terrStatTracking.put(sf.getSubfactionId(), perTerr);
+        }
         // Op counters: sfId -> { opType -> count }
         Map<String, Map<String, Integer>> opCounts = new LinkedHashMap<>();
         // Outcome counters: sfId -> { opType -> [successes, failures] }
         Map<String, Map<String, int[]>> outcomeCounts = new LinkedHashMap<>();
-        // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars]
+        // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars, mischiefs]
         Map<String, int[]> dysfunctionCounts = new LinkedHashMap<>();
         // Vulnerability raid counters: sfId -> [raids_launched, raids_suffered]
         Map<String, int[]> vulnRaidCounts = new LinkedHashMap<>();
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             opCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
             outcomeCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
-            dysfunctionCounts.put(sf.getSubfactionId(), new int[3]);
+            dysfunctionCounts.put(sf.getSubfactionId(), new int[4]);
             vulnRaidCounts.put(sf.getSubfactionId(), new int[2]);
         }
 
@@ -848,6 +873,29 @@ public class SimIntegrationTest {
                             defSf != null ? defSf.getName() : defId);
                 }
             }
+            // ── Friction-triggered ops: mischief or raids depending on hostility ──
+            List<IntrigueOp> frictionOps = OpEvaluator.evaluateMischiefOps(ops, "sim", config.frictionThreshold);
+            for (IntrigueOp fo : frictionOps) {
+                ops.startOp(fo);
+                String atkId = fo.getInitiatorSubfactionId();
+                String defId = fo.getTargetSubfactionId();
+                boolean isMischief = "Mischief".equals(fo.getOpTypeName());
+                String label = isMischief ? "Mischief" : fo.getOpTypeName() + " (friction)";
+                opCounts.get(atkId).merge(label, 1, Integer::sum);
+                pendingOps.add(fo);
+                opToSubfaction.put(fo.getOpId(), atkId);
+                if (verbose) {
+                    IntrigueSubfaction atkSf = IntrigueServices.subfactions().getById(atkId);
+                    IntrigueSubfaction defSf = IntrigueServices.subfactions().getById(defId);
+                    String symbol = isMischief ? "~~" : "!!";
+                    String tag = isMischief ? "MISCHIEF" : "FRICTION RAID";
+                    System.out.printf("  [t=%3d] %s %-35s \u2192 %s vs %-20s (friction triggered)%n",
+                            t, symbol,
+                            atkSf != null ? atkSf.getName() : atkId,
+                            tag,
+                            defSf != null ? defSf.getName() : defId);
+                }
+            }
             clock.advanceDays(daysPerTick);
             ops.advance(daysPerTick);
 
@@ -867,6 +915,18 @@ public class SimIntegrationTest {
                             territory.resetLowCohesionTicks(sfId);
                         }
                     }
+                }
+
+                // ── Friction accumulation: each pair of ESTABLISHED subfactions ──
+                for (String[] pair : territory.getEstablishedPairs()) {
+                    IntrigueSubfaction sfA = IntrigueServices.subfactions().getById(pair[0]);
+                    IntrigueSubfaction sfB = IntrigueServices.subfactions().getById(pair[1]);
+                    if (sfA == null || sfB == null) continue;
+
+                    boolean sameFaction = sfA.getFactionId().equals(sfB.getFactionId());
+                    int gain = sameFaction ? config.sameFactionFrictionPerTick : config.frictionPerTick;
+                    int current = territory.getFriction(pair[0], pair[1]);
+                    territory.setFriction(pair[0], pair[1], current + gain);
                 }
             }
 
@@ -914,6 +974,31 @@ public class SimIntegrationTest {
                 }
             }
 
+            // ── Sample stats for min/max/avg tracking ──
+            for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+                String sfId = sf.getSubfactionId();
+                int c = sf.getHomeCohesion();
+                int l = sf.getLegitimacy();
+                int[] st = statTracking.get(sfId);
+                st[0] = Math.min(st[0], c);
+                st[1] = Math.max(st[1], c);
+                st[2] += c;
+                st[3] = Math.min(st[3], l);
+                st[4] = Math.max(st[4], l);
+                st[5] += l;
+                st[6]++;
+
+                Map<String, int[]> perTerr = terrStatTracking.get(sfId);
+                for (IntrigueTerritory terr : IntrigueServices.territories().getAll()) {
+                    int tc = terr.getCohesion(sfId);
+                    int[] ts = perTerr.get(terr.getTerritoryId());
+                    ts[0] = Math.min(ts[0], tc);
+                    ts[1] = Math.max(ts[1], tc);
+                    ts[2] += tc;
+                    ts[3]++;
+                }
+            }
+
             // Check for resolved ops and track outcomes
             Iterator<IntrigueOp> it = pendingOps.iterator();
             while (it.hasNext()) {
@@ -934,6 +1019,7 @@ public class SimIntegrationTest {
                             case "Infighting": dys[0]++; break;
                             case "Expulsion":  dys[1]++; break;
                             case "Civil War":  dys[2]++; break;
+                            case "Mischief":   dys[3]++; break;
                         }
                     }
                     if (verbose) {
@@ -958,22 +1044,30 @@ public class SimIntegrationTest {
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             String id = sf.getSubfactionId();
             int[] start = startStats.get(id);
+            int[] st = statTracking.get(id);
+            int samples = st[6];
             System.out.printf("  %-35s [%s]%n", sf.getName(), sf.getFactionId());
-            System.out.printf("    Home Cohesion:  %3d → %3d  (%+d)%n",
-                    start[0], sf.getHomeCohesion(), sf.getHomeCohesion() - start[0]);
-            System.out.printf("    Legitimacy:     %3d → %3d  (%+d)%n",
-                    start[1], sf.getLegitimacy(), sf.getLegitimacy() - start[1]);
+            System.out.printf("    Home Cohesion:  %3d \u2192 %3d  (%+d)    min=%d  avg=%d  max=%d%n",
+                    start[0], sf.getHomeCohesion(), sf.getHomeCohesion() - start[0],
+                    st[0], st[2] / samples, st[1]);
+            System.out.printf("    Legitimacy:     %3d \u2192 %3d  (%+d)    min=%d  avg=%d  max=%d%n",
+                    start[1], sf.getLegitimacy(), sf.getLegitimacy() - start[1],
+                    st[3], st[5] / samples, st[4]);
 
             // Territory presence & cohesion
             Map<String, int[]> startTerr = startTerritoryCohesion.get(id);
+            Map<String, int[]> terrStats = terrStatTracking.get(id);
             for (IntrigueTerritory t : IntrigueServices.territories().getAll()) {
                 int[] ts = startTerr.get(t.getTerritoryId());
                 IntrigueTerritory.Presence startP = IntrigueTerritory.Presence.values()[ts[1]];
                 IntrigueTerritory.Presence endP = t.getPresence(id);
                 int startCoh = ts[0];
                 int endCoh = t.getCohesion(id);
-                System.out.printf("    Territory %-22s  presence: %-11s → %-11s  cohesion: %3d → %3d  (%+d)%n",
-                        t.getName(), startP, endP, startCoh, endCoh, endCoh - startCoh);
+                int[] tst = terrStats.get(t.getTerritoryId());
+                int tSamples = tst[3];
+                System.out.printf("    Territory %-22s  presence: %-11s \u2192 %-11s  cohesion: %3d \u2192 %3d  (%+d)  min=%d avg=%d max=%d%n",
+                        t.getName(), startP, endP, startCoh, endCoh, endCoh - startCoh,
+                        tst[0], tst[2] / tSamples, tst[1]);
             }
 
             // Op breakdown
@@ -1000,13 +1094,13 @@ public class SimIntegrationTest {
             // Dysfunction events
             int[] dys = dysfunctionCounts.get(id);
             int[] vr = vulnRaidCounts.get(id);
-            boolean hasDys = dys[0] > 0 || dys[1] > 0 || dys[2] > 0;
+            boolean hasDys = dys[0] > 0 || dys[1] > 0 || dys[2] > 0 || dys[3] > 0;
             boolean hasVuln = vr[0] > 0 || vr[1] > 0;
             if (hasDys || hasVuln) {
                 StringBuilder ev = new StringBuilder("    Events:");
                 if (hasDys) {
-                    ev.append(String.format(" %d infighting, %d expulsions, %d civil wars",
-                            dys[0], dys[1], dys[2]));
+                    ev.append(String.format(" %d infighting, %d expulsions, %d civil wars, %d mischief",
+                            dys[0], dys[1], dys[2], dys[3]));
                 }
                 if (hasVuln) {
                     if (hasDys) ev.append(" |");

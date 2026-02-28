@@ -34,6 +34,9 @@ public interface OpOutcomeResolver {
     /** Resolve a rally op (consolidate home base). */
     OpOutcome resolveRally(IntrigueSubfaction subfaction);
 
+    /** Resolve a mischief op (sabotage another subfaction's op in a shared territory). */
+    OpOutcome resolveMischief(IntrigueSubfaction initiator, IntrigueSubfaction victim);
+
     /**
      * Set a probability modifier for a subfaction (e.g. from player intervention).
      * Positive = favor (higher success), negative = disfavor (lower success).

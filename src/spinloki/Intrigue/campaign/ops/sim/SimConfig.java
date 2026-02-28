@@ -105,6 +105,20 @@ public class SimConfig {
     /** Success probability penalty when the player disfavors a subfaction. */
     public float playerDisfavorPenalty = -0.30f;
 
+    // ── Territory friction ──
+    /** Friction gained per tick between cross-faction subfactions sharing a territory. */
+    public int frictionPerTick = 3;
+    /** Friction gained per tick between same-faction subfactions sharing a territory. */
+    public int sameFactionFrictionPerTick = 1;
+    /** Friction threshold at which a mischief op is triggered. */
+    public int frictionThreshold = 60;
+    /** Probability that a mischief op succeeds. */
+    public float mischiefSuccessProb = 0.6f;
+    /** Territory cohesion penalty inflicted on victim when mischief succeeds. */
+    public int mischiefCohesionPenalty = 5;
+    /** Legitimacy penalty inflicted on victim when mischief succeeds. */
+    public int mischiefLegitimacyPenalty = 3;
+
     public static SimConfig defaults() {
         return new SimConfig();
     }
@@ -165,6 +179,12 @@ public class SimConfig {
         c.playerActionInterval = playerActionInterval;
         c.playerFavorBonus = playerFavorBonus;
         c.playerDisfavorPenalty = playerDisfavorPenalty;
+        c.frictionPerTick = frictionPerTick;
+        c.sameFactionFrictionPerTick = sameFactionFrictionPerTick;
+        c.frictionThreshold = frictionThreshold;
+        c.mischiefSuccessProb = mischiefSuccessProb;
+        c.mischiefCohesionPenalty = mischiefCohesionPenalty;
+        c.mischiefLegitimacyPenalty = mischiefLegitimacyPenalty;
         return c;
     }
 }

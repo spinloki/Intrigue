@@ -47,6 +47,13 @@ public class IntrigueTerritory implements Serializable {
     private final Map<String, Integer> subfactionCohesion = new LinkedHashMap<>();
 
     /**
+     * Per-subfaction base market ID in this territory.
+     * Key = subfactionId, Value = market ID of the base established by that subfaction.
+     * Only set when presence = ESTABLISHED and a base has been created.
+     */
+    private final Map<String, String> subfactionBaseMarketId = new LinkedHashMap<>();
+
+    /**
      * Per-subfaction presence level in this territory.
      * Key = subfactionId, Value = Presence enum.
      * A subfaction not in this map has Presence.NONE.
@@ -59,6 +66,12 @@ public class IntrigueTerritory implements Serializable {
      * Used to trigger expulsion after a sustained period of neglect.
      */
     private final Map<String, Integer> lowCohesionTicks = new LinkedHashMap<>();
+
+    /**
+     * Pairwise friction between subfactions sharing this territory (0–100).
+     * Key = canonical pair key (sorted IDs joined by "|"), Value = friction level.
+     */
+    private final Map<String, Integer> pairFriction = new LinkedHashMap<>();
 
     public IntrigueTerritory(String territoryId, String name, TerritoryConfig.Tier tier, String plotHook) {
         this.territoryId = territoryId;
@@ -142,11 +155,94 @@ public class IntrigueTerritory implements Serializable {
         return p != null && p != Presence.NONE;
     }
 
-    /** Remove a subfaction from this territory entirely (cohesion, presence, and low-cohesion counter). */
+    // ── Per-subfaction base market ──────────────────────────────────────
+
+    /**
+     * Get the market ID of the base a subfaction has established in this territory.
+     * Returns null if no base has been set.
+     */
+    public String getBaseMarketId(String subfactionId) {
+        return subfactionBaseMarketId.get(subfactionId);
+    }
+
+    /**
+     * Set (or clear) the market ID of a subfaction's base in this territory.
+     * @param subfactionId the subfaction
+     * @param marketId     the base market ID, or null to clear
+     */
+    public void setBaseMarketId(String subfactionId, String marketId) {
+        if (marketId == null || marketId.isEmpty()) {
+            subfactionBaseMarketId.remove(subfactionId);
+        } else {
+            subfactionBaseMarketId.put(subfactionId, marketId);
+        }
+    }
+
+    /** Remove a subfaction from this territory entirely (cohesion, presence, base, low-cohesion counter, and friction). */
     public void removeSubfaction(String subfactionId) {
         subfactionCohesion.remove(subfactionId);
         subfactionPresence.remove(subfactionId);
+        subfactionBaseMarketId.remove(subfactionId);
         lowCohesionTicks.remove(subfactionId);
+        // Remove all friction pairs involving this subfaction
+        pairFriction.entrySet().removeIf(e -> {
+            String[] parts = e.getKey().split("\\|");
+            return parts[0].equals(subfactionId) || parts[1].equals(subfactionId);
+        });
+    }
+
+    // ── Pairwise friction ───────────────────────────────────────────────
+
+    /** Get friction between two subfactions in this territory (0–100). Returns 0 if no entry. */
+    public int getFriction(String sfA, String sfB) {
+        Integer val = pairFriction.get(pairKey(sfA, sfB));
+        return val != null ? val : 0;
+    }
+
+    /** Set friction between two subfactions (clamped 0–100). Setting to 0 removes the entry. */
+    public void setFriction(String sfA, String sfB, int value) {
+        int clamped = Math.max(0, Math.min(100, value));
+        String key = pairKey(sfA, sfB);
+        if (clamped <= 0) {
+            pairFriction.remove(key);
+        } else {
+            pairFriction.put(key, clamped);
+        }
+    }
+
+    /** Reset friction between two subfactions to 0. */
+    public void resetFriction(String sfA, String sfB) {
+        pairFriction.remove(pairKey(sfA, sfB));
+    }
+
+    /**
+     * Get all pairs of ESTABLISHED subfaction IDs in this territory.
+     * Each pair is returned as a 2-element array [sfA, sfB] where sfA &lt; sfB lexicographically.
+     */
+    public List<String[]> getEstablishedPairs() {
+        List<String> established = new ArrayList<>();
+        for (Map.Entry<String, Presence> e : subfactionPresence.entrySet()) {
+            if (e.getValue() == Presence.ESTABLISHED) {
+                established.add(e.getKey());
+            }
+        }
+        Collections.sort(established);
+        List<String[]> pairs = new ArrayList<>();
+        for (int i = 0; i < established.size(); i++) {
+            for (int j = i + 1; j < established.size(); j++) {
+                pairs.add(new String[]{established.get(i), established.get(j)});
+            }
+        }
+        return pairs;
+    }
+
+    /** Unmodifiable view of all pairwise friction values. */
+    public Map<String, Integer> getPairFrictionView() {
+        return Collections.unmodifiableMap(pairFriction);
+    }
+
+    private static String pairKey(String sfA, String sfB) {
+        return sfA.compareTo(sfB) <= 0 ? sfA + "|" + sfB : sfB + "|" + sfA;
     }
 
     /** Get the number of consecutive ticks a subfaction's cohesion has been critically low. */
