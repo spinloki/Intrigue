@@ -69,6 +69,9 @@ public class RaidOp extends IntrigueOp {
                 targetSubfaction.getSubfactionId(),
                 combatFP);
         phases.add(fgiPhase);
+
+        // RaidOp uses IntrigueRaidIntel (via FGIPhase) for its intel display
+        setSkipIntel(true);
     }
 
     @Override

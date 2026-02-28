@@ -39,6 +39,7 @@ public class Intrigue extends BaseModPlugin {
         x.alias("ReturnPhase", ReturnPhase.class);
         x.alias("FGIPhase", FGIPhase.class);
         x.alias("IntrigueRaidIntel", IntrigueRaidIntel.class);
+        x.alias("IntrigueOpIntel", IntrigueOpIntel.class);
         x.alias("EstablishBaseOp", EstablishBaseOp.class);
         x.alias("EstablishBasePhase", EstablishBasePhase.class);
         x.alias("ScoutTerritoryOp", ScoutTerritoryOp.class);
@@ -49,9 +50,12 @@ public class Intrigue extends BaseModPlugin {
         x.alias("SendSuppliesOp", SendSuppliesOp.class);
         x.alias("SendSuppliesPhase", SendSuppliesPhase.class);
         x.alias("InfightingOp", InfightingOp.class);
+        x.alias("InfightingPhase", InfightingPhase.class);
+        x.alias("TimedPhase", TimedPhase.class);
         x.alias("ExpulsionOp", ExpulsionOp.class);
         x.alias("CivilWarOp", CivilWarOp.class);
         x.alias("RallyOp", RallyOp.class);
+        x.alias("RallyPhase", RallyPhase.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
         x.alias("IntrigueTerritory", IntrigueTerritory.class);

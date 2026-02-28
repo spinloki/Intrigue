@@ -45,11 +45,27 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable, Intri
 
     /**
      * Register and start an op. The op transitions from PROPOSED → ACTIVE.
+     * If the op doesn't skip intel and the player meets the visibility
+     * condition, an {@link IntrigueOpIntel} is created and registered.
      */
     @Override
     public void startOp(IntrigueOp op) {
         activeOps.add(op);
         op.start();
+        registerIntelForOp(op);
+    }
+
+    /**
+     * Create and register an IntrigueOpIntel for the given op, if applicable.
+     */
+    private void registerIntelForOp(IntrigueOp op) {
+        if (op.isSkipIntel()) return;
+        if (!IntrigueOpIntel.shouldRevealToPlayer(op)) return;
+
+        IntrigueOpIntel intel = new IntrigueOpIntel(op);
+        intel.setPlayerVisibleTimestamp(Global.getSector().getClock().getTimestamp());
+        Global.getSector().getIntelManager().addIntel(intel, false);
+        op.setIntel(intel);
     }
 
     /** All currently active (non-resolved) ops. */
@@ -123,9 +139,13 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable, Intri
             IntrigueOp op = it.next();
             op.advance(days);
             if (op.isResolved()) {
+                // Notify attached intel that the op has resolved
+                Object intelObj = op.getIntel();
+                if (intelObj instanceof IntrigueOpIntel) {
+                    ((IntrigueOpIntel) intelObj).notifyOpResolved();
+                }
                 it.remove();
             }
         }
     }
 }
-

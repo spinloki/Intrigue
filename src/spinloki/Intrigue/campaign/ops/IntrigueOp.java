@@ -63,6 +63,15 @@ public abstract class IntrigueOp implements Serializable {
     protected final List<OpPhase> phases = new ArrayList<>();
     private int currentPhaseIndex = 0;
 
+    /**
+     * When true, the ops manager will NOT create an IntrigueOpIntel for this op.
+     * Set by subclasses that manage their own intel (e.g. RaidOp via IntrigueRaidIntel).
+     */
+    private boolean skipIntel = false;
+
+    /** Transient intel reference — set by IntrigueOpsManager, not serialized. */
+    private transient Object intel;
+
     protected IntrigueOp(String opId, String initiatorId, String targetId,
                          String initiatorSubfactionId, String targetSubfactionId) {
         this.opId = opId;
@@ -89,6 +98,15 @@ public abstract class IntrigueOp implements Serializable {
     /** Whether this op is free (no cooldown, no failure costs). */
     public boolean isNoCost() { return noCost; }
     public void setNoCost(boolean noCost) { this.noCost = noCost; }
+
+    /** Whether to skip creating an IntrigueOpIntel for this op. */
+    public boolean isSkipIntel() { return skipIntel; }
+    public void setSkipIntel(boolean skipIntel) { this.skipIntel = skipIntel; }
+
+    /** Get the transient intel reference (set by IntrigueOpsManager). */
+    public Object getIntel() { return intel; }
+    /** Set the transient intel reference (called by IntrigueOpsManager). */
+    public void setIntel(Object intel) { this.intel = intel; }
 
     /**
      * Success chance penalty applied by active mischief ops targeting this op.
