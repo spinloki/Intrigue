@@ -11,6 +11,7 @@ import com.fs.starfarer.api.characters.PersonAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Tags;
 import com.fs.starfarer.api.util.Misc;
 import spinloki.Intrigue.IntrigueIds;
+import spinloki.Intrigue.campaign.ops.DissidentFactions;
 import spinloki.Intrigue.config.SubfactionConfig;
 import spinloki.Intrigue.config.SubfactionConfigLoader;
 import spinloki.Intrigue.campaign.spi.IntrigueSubfactionAccess;
@@ -134,6 +135,21 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
         for (SubfactionConfig.SubfactionDef def : config.subfactions) {
             if (def.homeMarketId != null && !def.homeMarketId.isEmpty()) {
                 claimedMarketIds.add(def.homeMarketId);
+            }
+        }
+
+        // Validate that every parent faction has a corresponding dissident faction
+        Set<String> checkedFactions = new HashSet<>();
+        for (SubfactionConfig.SubfactionDef def : config.subfactions) {
+            if (checkedFactions.add(def.factionId)) {
+                String dissidentId = DissidentFactions.getDissidentFactionId(def.factionId);
+                FactionAPI dissidentFac = Global.getSector().getFaction(dissidentId);
+                if (dissidentFac == null) {
+                    log.severe("Missing dissident faction '" + dissidentId
+                            + "' for parent faction '" + def.factionId
+                            + "'. Infighting ops will not work correctly for this faction. "
+                            + "Add a .faction file: data/world/factions/" + dissidentId + ".faction");
+                }
             }
         }
 

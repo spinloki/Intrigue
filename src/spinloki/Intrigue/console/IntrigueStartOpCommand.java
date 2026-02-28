@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  *   patrol                 &lt;territory_id&gt;
  *   send_supplies          &lt;territory_id&gt;
  *   rally                  (none)
- *   infighting             &lt;territory_id&gt;
+ *   infighting             &lt;territory_id|home&gt;
  *   expulsion              &lt;territory_id&gt;
  *   civil_war              (none)
  * </pre>
@@ -177,8 +177,9 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
             case "rally":
                 return IntrigueServices.opFactory().createRallyOp(opId, subfaction);
             case "infighting": {
-                validateTerritory(thirdArg);
-                return IntrigueServices.opFactory().createInfightingOp(opId, subfaction, thirdArg);
+                String territory = "home".equalsIgnoreCase(thirdArg) ? null : thirdArg;
+                if (territory != null) validateTerritory(territory);
+                return IntrigueServices.opFactory().createInfightingOp(opId, subfaction, territory);
             }
             case "expulsion": {
                 validateTerritory(thirdArg);
@@ -240,7 +241,12 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
             return allSubfactionIdList();
         }
         if (NEEDS_TERRITORY.contains(opType)) {
-            return allTerritoryIdList();
+            List<String> suggestions = allTerritoryIdList();
+            if ("infighting".equals(opType)) {
+                suggestions = new ArrayList<>(suggestions);
+                suggestions.add(0, "home");
+            }
+            return suggestions;
         }
         // No third argument needed
         return Collections.emptyList();
@@ -289,7 +295,7 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
         Console.showMessage("  patrol <territory>           - Patrol an established territory");
         Console.showMessage("  send_supplies <territory>    - Send a supply convoy to a territory");
         Console.showMessage("  rally                        - Rally home base cohesion");
-        Console.showMessage("  infighting <territory>       - Trigger infighting in a territory");
+        Console.showMessage("  infighting <territory|home>  - Trigger infighting in a territory or at home");
         Console.showMessage("  expulsion <territory>        - Expel the subfaction from a territory");
         Console.showMessage("  civil_war                    - Trigger a civil war in the subfaction");
     }

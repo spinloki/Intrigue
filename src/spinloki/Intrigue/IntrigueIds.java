@@ -21,4 +21,7 @@ public final class IntrigueIds {
 
     /** Custom intel tag - groups all Intrigue intel items under one tab. */
     public static final String INTEL_TAG_INTRIGUE = "Intrigue";
+
+    /** Custom intel tag - groups Intrigue territory intel items under a separate tab. */
+    public static final String INTEL_TAG_INTRIGUE_TERRITORIES = "Intrigue Territories";
 }

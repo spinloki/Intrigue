@@ -5,6 +5,7 @@ import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Tags;
 import com.fs.starfarer.api.impl.campaign.procgen.Constellation;
 import spinloki.Intrigue.IntrigueIds;
+import spinloki.Intrigue.campaign.intel.IntrigueTerritoryIntel;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 import spinloki.Intrigue.config.TerritoryConfig;
 import spinloki.Intrigue.config.TerritoryConfigLoader;
@@ -89,6 +90,8 @@ public class IntrigueTerritoryManager implements Serializable, IntrigueTerritory
      * Collects all non-core constellations from the sector, then randomly
      * assigns them to territory definitions. Each territory gets
      * numConstellations constellations from the pool.
+     *
+     * Also creates intel items for each territory.
      */
     public void bootstrapIfNeeded() {
         if (bootstrapped) return;
@@ -137,6 +140,15 @@ public class IntrigueTerritoryManager implements Serializable, IntrigueTerritory
 
             territories.put(territory.getTerritoryId(), territory);
             log.info("Bootstrapped territory: " + territory);
+
+            // Create and register intel item for this territory
+            try {
+                IntrigueTerritoryIntel intel = new IntrigueTerritoryIntel(territory);
+                Global.getSector().getIntelManager().addIntel(intel, false);
+                log.info("Created intel for territory: " + territory.getName());
+            } catch (Exception e) {
+                log.warning("Failed to create intel for territory '" + territory.getName() + "': " + e.getMessage());
+            }
         }
 
         bootstrapped = true;

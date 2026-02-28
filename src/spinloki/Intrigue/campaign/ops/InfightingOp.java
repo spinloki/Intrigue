@@ -26,9 +26,13 @@ public class InfightingOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
-        // Intel arrow: home market -> territory
+        // Intel arrow: home market -> territory (or home itself if null)
         setIntelSourceMarketId(subfaction.getHomeMarketId());
-        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
+        if (territoryId != null) {
+            setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
+        } else {
+            setIntelDestinationMarketId(subfaction.getHomeMarketId());
+        }
 
         // Each dissident fleet gets roughly half the subfaction's strength
         int fleetFP = 15 + (int) (subfaction.getHomeCohesion() * 0.3f);
@@ -44,7 +48,8 @@ public class InfightingOp extends IntrigueOp {
     @Override public String getOpTypeName() { return "Infighting"; }
 
     @Override protected void onStarted() {
-        log.info("Infighting erupted for " + subfactionId + " in territory " + getTerritoryId());
+        String location = getTerritoryId() != null ? "territory " + getTerritoryId() : "home";
+        log.info("Infighting erupted for " + subfactionId + " in " + location);
     }
 
     @Override protected OpOutcome determineOutcome() {

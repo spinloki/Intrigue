@@ -1,0 +1,23 @@
+{
+	"id":"intrigue_dissidents_luddic_church",
+	"displayName":"Luddic Church",
+	"displayNameWithArticle":"the Luddic Church",
+	"displayNameIsOrAre":"are",
+	"logo":"graphics/factions/neutral.png",
+	"crest":"graphics/factions/crest_neutral.png",
+	"color":[5, 115, 10, 255],
+	"showInIntelTab":false,
+	"shipNamePrefix":"ISS",
+	"shipNameSources":{
+		"GENERAL":1,
+	},
+	"names":{
+		"modern":1,
+	},
+	"portraits":{
+	},
+	"custom":{
+		"offersCommissions":false,
+		"engagesInHostilities":true,
+	},
+}

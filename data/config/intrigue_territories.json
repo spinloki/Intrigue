@@ -7,7 +7,7 @@
       "tier": "HIGH",
       "plotHook": "Remnant activity has spiked in this region. The Hegemony is mobilizing to contain the threat before it spreads.",
       "numConstellations": 2,
-      "interestedFactions": ["hegemony", "tritachyon,", "pirates"]
+      "interestedFactions": ["hegemony", "tritachyon", "pirates"]
     },
     {
       "territoryId": "territory_luddic_shrine",

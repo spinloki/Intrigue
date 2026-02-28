@@ -45,6 +45,15 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
     private static final float TRAVEL_DAYS = 30f;
     private static final float FIGHT_DAYS = 10f;
 
+    /** How many ticks (advance calls where a new wave can spawn). */
+    private static final int MIN_TICKS = 3;
+    private static final int MAX_TICKS = 5;
+    /** How many pairs per tick. */
+    private static final int MIN_PAIRS_PER_TICK = 2;
+    private static final int MAX_PAIRS_PER_TICK = 4;
+    /** Days between spawning new waves. */
+    private static final float TICK_INTERVAL_DAYS = 5f;
+
     private final String factionId;
     private final String sourceMarketId;
     private final String territoryId;
@@ -53,22 +62,28 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     // State
     private boolean done = false;
-    private boolean routesStarted = false;
+    private boolean initialized = false;
 
-    // Two route sources - one per fleet
-    private String routeSourceA;
-    private String routeSourceB;
+    // Multi-wave tracking
+    private int totalTicks;
+    private int ticksCompleted = 0;
+    private float daysSinceLastTick = 0f;
 
-    // Spawned fleet references (transient - lost on save/load)
-    private transient CampaignFleetAPI fleetA;
-    private transient CampaignFleetAPI fleetB;
+    // All active fleet pairs
+    private final List<FleetPair> activePairs = new ArrayList<>();
 
-    // Tracking engagement at POI
-    private boolean fleetsEngaged = false;
-
-    // The target entity in the territory system where fleets will meet
-    private transient SectorEntityToken meetingPoint;
-    private String meetingSystemId;
+    /** Tracks a single pair of opposing fleets. */
+    private static class FleetPair implements Serializable {
+        String routeSourceA;
+        String routeSourceB;
+        transient CampaignFleetAPI fleetA;
+        transient CampaignFleetAPI fleetB;
+        boolean engaged = false;
+        boolean resolved = false;
+        // Each pair has its own meeting point
+        transient SectorEntityToken meetingPoint;
+        String meetingSystemId;
+    }
 
     public InfightingPhase(String factionId, String sourceMarketId,
                            String territoryId, int fleetFP, String subfactionName) {
@@ -77,6 +92,9 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
         this.territoryId = territoryId;
         this.fleetFP = fleetFP;
         this.subfactionName = subfactionName != null ? subfactionName : "Intrigue";
+
+        Random rng = new Random();
+        this.totalTicks = MIN_TICKS + rng.nextInt(MAX_TICKS - MIN_TICKS + 1);
     }
 
     @Override
@@ -84,133 +102,243 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
         if (done) return;
 
         if (!PhaseUtil.isSectorAvailable()) {
-            if (!routesStarted) {
+            if (!initialized) {
                 log.info("InfightingPhase: no sector (sim mode); auto-completing.");
                 done = true;
             }
             return;
         }
 
-        if (!routesStarted) {
-            startRoutes();
+        // First tick: spawn initial wave
+        if (!initialized) {
+            spawnWave();
+            initialized = true;
             return;
         }
 
-        // Check if both routes have expired (abstract completion)
-        RouteData routeA = findRoute(routeSourceA);
-        RouteData routeB = findRoute(routeSourceB);
-        if (routeA == null && routeB == null && !done) {
-            log.info("InfightingPhase: both routes expired (abstract infighting). Done.");
-            done = true;
-            return;
+        // Spawn additional waves on a timer
+        daysSinceLastTick += days;
+        if (ticksCompleted < totalTicks && daysSinceLastTick >= TICK_INTERVAL_DAYS) {
+            daysSinceLastTick = 0f;
+            spawnWave();
         }
 
-        // If fleets are spawned and haven't engaged yet, check for arrival
-        if (fleetA != null && fleetB != null && !fleetsEngaged) {
-            checkForArrivalAndEngage();
+        // Update all active pairs
+        for (FleetPair pair : activePairs) {
+            if (pair.resolved) continue;
+            advancePair(pair);
         }
 
-        // If one fleet is destroyed or despawned, we're done
-        if (fleetsEngaged) {
-            boolean aGone = fleetA == null || !fleetA.isAlive();
-            boolean bGone = fleetB == null || !fleetB.isAlive();
-            if (aGone || bGone) {
+        // Keep transponders on for all active fleets
+        for (FleetPair pair : activePairs) {
+            if (pair.fleetA != null && pair.fleetA.isAlive()) pair.fleetA.setTransponderOn(true);
+            if (pair.fleetB != null && pair.fleetB.isAlive()) pair.fleetB.setTransponderOn(true);
+        }
+
+        // Check if everything is done: all ticks spent and all pairs resolved
+        if (ticksCompleted >= totalTicks) {
+            boolean allResolved = true;
+            for (FleetPair pair : activePairs) {
+                if (!pair.resolved) {
+                    // Check if routes expired abstractly
+                    RouteData rA = findRoute(pair.routeSourceA);
+                    RouteData rB = findRoute(pair.routeSourceB);
+                    if (rA == null && rB == null && !pair.engaged) {
+                        pair.resolved = true;
+                    } else {
+                        allResolved = false;
+                    }
+                }
+            }
+            if (allResolved) {
                 done = true;
-                cleanupSurvivor();
-                log.info("InfightingPhase: infighting concluded (one side defeated).");
+                log.info("InfightingPhase: all waves resolved. Done.");
             }
         }
     }
 
-    private void startRoutes() {
+    private void advancePair(FleetPair pair) {
+        // Restore meeting point if needed (after save/load)
+        if (pair.meetingPoint == null && pair.meetingSystemId != null) {
+            pair.meetingPoint = restoreMeetingPoint(pair.meetingSystemId);
+        }
+
+        // Check for arrival and engage
+        if (pair.fleetA != null && pair.fleetB != null && !pair.engaged) {
+            if (pair.meetingPoint != null) {
+                float distA = com.fs.starfarer.api.util.Misc.getDistance(
+                        pair.fleetA.getLocation(), pair.meetingPoint.getLocation());
+                float distB = com.fs.starfarer.api.util.Misc.getDistance(
+                        pair.fleetB.getLocation(), pair.meetingPoint.getLocation());
+                if (distA < 500f && distB < 500f) {
+                    engagePair(pair);
+                }
+            }
+        }
+
+        // Check if fight is over
+        if (pair.engaged && !pair.resolved) {
+            boolean aGone = pair.fleetA == null || !pair.fleetA.isAlive();
+            boolean bGone = pair.fleetB == null || !pair.fleetB.isAlive();
+            if (aGone || bGone) {
+                pair.resolved = true;
+                cleanupPairSurvivor(pair);
+                log.info("InfightingPhase: pair resolved (one side defeated).");
+            }
+        }
+    }
+
+    private SectorEntityToken restoreMeetingPoint(String systemId) {
+        if (systemId == null) return null;
+        for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+            if (sys.getId().equals(systemId)) {
+                return sys.getCenter();
+            }
+        }
+        return null;
+    }
+
+    private void spawnWave() {
         MarketAPI source = Global.getSector().getEconomy().getMarket(sourceMarketId);
         if (source == null || source.getPrimaryEntity() == null) {
-            log.warning("InfightingPhase: source market missing; completing immediately.");
-            done = true;
+            log.warning("InfightingPhase: source market missing; skipping wave.");
+            ticksCompleted = totalTicks; // stop spawning
             return;
         }
 
-        // Pick a system in the territory
-        SectorEntityToken target = pickMeetingPoint();
-        if (target == null) {
-            log.warning("InfightingPhase: no suitable system found in territory; completing immediately.");
-            done = true;
-            return;
-        }
-        meetingPoint = target;
-        meetingSystemId = target.getContainingLocation() instanceof StarSystemAPI
-                ? ((StarSystemAPI) target.getContainingLocation()).getId()
-                : null;
+        Random rng = new Random();
+        int pairsThisTick = MIN_PAIRS_PER_TICK + rng.nextInt(MAX_PAIRS_PER_TICK - MIN_PAIRS_PER_TICK + 1);
 
         SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        long seed = (long) (Math.random() * Long.MAX_VALUE);
+        long timestamp = Global.getSector().getClock().getTimestamp();
 
-        // Route A
-        routeSourceA = ROUTE_SOURCE_PREFIX + "a_" + sourceMarketId + "_" + Global.getSector().getClock().getTimestamp();
-        OptionalFleetData extraA = new OptionalFleetData(source, factionId);
-        extraA.fp = (float) fleetFP;
-        extraA.fleetType = FleetTypes.PATROL_MEDIUM;
-        RouteData rA = RouteManager.getInstance().addRoute(
-                routeSourceA, source, seed, extraA, this);
-        float totalDays = TRAVEL_DAYS + FIGHT_DAYS;
-        rA.addSegment(new RouteSegment(1, totalDays, sourceEntity, target));
+        int spawned = 0;
+        for (int i = 0; i < pairsThisTick; i++) {
+            // Each pair gets its own random meeting point
+            SectorEntityToken target = pickMeetingPoint();
+            if (target == null) {
+                log.warning("InfightingPhase: no suitable meeting point for pair " + i + "; skipping.");
+                continue;
+            }
 
-        // Route B
-        routeSourceB = ROUTE_SOURCE_PREFIX + "b_" + sourceMarketId + "_" + Global.getSector().getClock().getTimestamp();
-        OptionalFleetData extraB = new OptionalFleetData(source, factionId);
-        extraB.fp = (float) fleetFP;
-        extraB.fleetType = FleetTypes.PATROL_MEDIUM;
-        RouteData rB = RouteManager.getInstance().addRoute(
-                routeSourceB, source, seed + 1, extraB, this);
-        rB.addSegment(new RouteSegment(1, totalDays, sourceEntity, target));
+            FleetPair pair = new FleetPair();
+            pair.meetingPoint = target;
+            pair.meetingSystemId = target.getContainingLocation() instanceof StarSystemAPI
+                    ? ((StarSystemAPI) target.getContainingLocation()).getId()
+                    : null;
 
-        routesStarted = true;
-        log.info("InfightingPhase: registered 2 routes at " + source.getName()
-                + " heading to " + target.getName() + " (" + fleetFP + " FP each).");
+            long seed = (long) (Math.random() * Long.MAX_VALUE);
+            float totalDays = TRAVEL_DAYS + FIGHT_DAYS;
+
+            String suffix = "_" + ticksCompleted + "_" + i + "_" + timestamp;
+
+            // Route A
+            pair.routeSourceA = ROUTE_SOURCE_PREFIX + "a" + suffix;
+            OptionalFleetData extraA = new OptionalFleetData(source, factionId);
+            extraA.fp = (float) fleetFP;
+            extraA.fleetType = FleetTypes.PATROL_MEDIUM;
+            RouteData rA = RouteManager.getInstance().addRoute(
+                    pair.routeSourceA, source, seed, extraA, this);
+            rA.addSegment(new RouteSegment(1, totalDays, sourceEntity, target));
+
+            // Route B
+            pair.routeSourceB = ROUTE_SOURCE_PREFIX + "b" + suffix;
+            OptionalFleetData extraB = new OptionalFleetData(source, factionId);
+            extraB.fp = (float) fleetFP;
+            extraB.fleetType = FleetTypes.PATROL_MEDIUM;
+            RouteData rB = RouteManager.getInstance().addRoute(
+                    pair.routeSourceB, source, seed + 1, extraB, this);
+            rB.addSegment(new RouteSegment(1, totalDays, sourceEntity, target));
+
+            activePairs.add(pair);
+            spawned++;
+        }
+
+        ticksCompleted++;
+        log.info("InfightingPhase: spawned wave " + ticksCompleted + "/" + totalTicks
+                + " (" + spawned + " pairs, " + fleetFP + " FP each)");
     }
 
     /**
      * Pick a point of interest in the territory for the fleets to meet at.
+     * If territoryId is null, picks a point in the home market's system instead.
      * Prefers planets, stations, asteroid fields - anything interesting.
      */
     private SectorEntityToken pickMeetingPoint() {
-        IntrigueTerritoryAccess territories = IntrigueServices.territories();
-        if (territories == null) return null;
+        StarSystemAPI system = null;
 
-        IntrigueTerritory territory = territories.getById(territoryId);
-        if (territory == null) return null;
+        if (territoryId != null) {
+            // Territory infighting: pick from territory constellation systems
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories == null) return null;
 
-        Set<String> constellationNames = new HashSet<>(territory.getConstellationNames());
-        List<StarSystemAPI> systems = new ArrayList<>();
+            IntrigueTerritory territory = territories.getById(territoryId);
+            if (territory == null) return null;
 
-        for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
-            if (sys.hasTag(Tags.THEME_CORE) || sys.hasTag(Tags.THEME_CORE_POPULATED)) continue;
-            if (sys.hasTag(Tags.THEME_HIDDEN)) continue;
-            if (sys.getConstellation() == null) continue;
-            if (constellationNames.contains(sys.getConstellation().getName())) {
-                systems.add(sys);
+            Set<String> constellationNames = new HashSet<>(territory.getConstellationNames());
+            List<StarSystemAPI> systems = new ArrayList<>();
+
+            for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+                if (sys.hasTag(Tags.THEME_CORE) || sys.hasTag(Tags.THEME_CORE_POPULATED)) continue;
+                if (sys.hasTag(Tags.THEME_HIDDEN)) continue;
+                if (sys.getConstellation() == null) continue;
+                if (constellationNames.contains(sys.getConstellation().getName())) {
+                    systems.add(sys);
+                }
+            }
+
+            if (systems.isEmpty()) return null;
+            system = systems.get(new Random().nextInt(systems.size()));
+        } else {
+            // Home infighting: pick a nearby system (not the home system itself)
+            // so the fleets actually have to travel somewhere
+            MarketAPI source = Global.getSector().getEconomy().getMarket(sourceMarketId);
+            if (source == null || source.getPrimaryEntity() == null) return null;
+            LocationAPI homeLoc = source.getPrimaryEntity().getContainingLocation();
+            if (!(homeLoc instanceof StarSystemAPI)) return null;
+
+            StarSystemAPI homeSystem = (StarSystemAPI) homeLoc;
+            float homeX = homeSystem.getLocation().x;
+            float homeY = homeSystem.getLocation().y;
+
+            // Find nearby non-hidden systems, sorted by distance
+            List<StarSystemAPI> candidates = new ArrayList<>();
+            for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+                if (sys == homeSystem) continue;
+                if (sys.hasTag(Tags.THEME_HIDDEN)) continue;
+                float dx = sys.getLocation().x - homeX;
+                float dy = sys.getLocation().y - homeY;
+                float dist = (float) Math.sqrt(dx * dx + dy * dy);
+                if (dist < 10000f) {
+                    candidates.add(sys);
+                }
+            }
+
+            if (candidates.isEmpty()) {
+                // Fallback: just use the home system
+                system = homeSystem;
+            } else {
+                system = candidates.get(new Random().nextInt(candidates.size()));
             }
         }
 
-        if (systems.isEmpty()) return null;
-
-        Random rng = new Random();
-        StarSystemAPI system = systems.get(rng.nextInt(systems.size()));
+        if (system == null) return null;
 
         // Collect points of interest: planets, stations, jump points
+        // Exclude entities with faction-owned markets to avoid fighting at colonies
         List<SectorEntityToken> pois = new ArrayList<>();
         for (PlanetAPI planet : system.getPlanets()) {
-            if (!planet.isStar()) pois.add(planet);
+            if (!planet.isStar() && !hasFactionMarket(planet)) pois.add(planet);
         }
         for (SectorEntityToken entity : system.getEntitiesWithTag(Tags.STATION)) {
-            pois.add(entity);
+            if (!hasFactionMarket(entity)) pois.add(entity);
         }
         for (SectorEntityToken jp : system.getEntitiesWithTag(Tags.JUMP_POINT)) {
             pois.add(jp);
         }
 
         if (!pois.isEmpty()) {
-            return pois.get(rng.nextInt(pois.size()));
+            return pois.get(new Random().nextInt(pois.size()));
         }
 
         // Fallback: system center
@@ -238,40 +366,80 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
             return null;
         }
 
-        // Determine which fleet this is
-        boolean isFleetA = route.getSource().equals(routeSourceA);
+        // Find which pair this route belongs to
+        FleetPair pair = findPairForRoute(route.getSource());
+        boolean isFleetA = pair != null && route.getSource().equals(pair.routeSourceA);
+
+        String fleetName;
+        String otherFleetName;
         if (isFleetA) {
-            fleetA = fleet;
+            if (pair != null) pair.fleetA = fleet;
+            fleetName = subfactionName + " Loyalists";
+            otherFleetName = subfactionName + " Dissidents";
         } else {
-            fleetB = fleet;
+            if (pair != null) pair.fleetB = fleet;
+            fleetName = subfactionName + " Dissidents";
+            otherFleetName = subfactionName + " Loyalists";
         }
 
-        fleet.setName(subfactionName + " Dissidents");
+        fleet.setName(fleetName);
         fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
         fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
         fleet.getMemoryWithoutUpdate().set("$intrigueInfighting", true);
+        fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_FLEET_DO_NOT_GET_SIDETRACKED, true);
+        fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE, true);
+
+        // Force transponder on so the player can see the fleets
+        fleet.setTransponderOn(true);
 
         SectorEntityToken sourceEntity = source.getPrimaryEntity();
         sourceEntity.getContainingLocation().addEntity(fleet);
         fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
         fleet.addEventListener(this);
 
-        // Restore meeting point reference if needed
-        if (meetingPoint == null && meetingSystemId != null) {
-            meetingPoint = restoreMeetingPoint();
+        // Resolve the pair's meeting point (restore if needed after save/load)
+        SectorEntityToken target = sourceEntity; // fallback
+        if (pair != null) {
+            if (pair.meetingPoint == null && pair.meetingSystemId != null) {
+                pair.meetingPoint = restoreMeetingPoint(pair.meetingSystemId);
+            }
+            if (pair.meetingPoint != null) {
+                target = pair.meetingPoint;
+            }
+        }
+        String targetName = target.getName() != null ? target.getName() : "unknown";
+
+        // Resolve the target system name for the first leg of travel
+        String systemName = "unknown";
+        SectorEntityToken systemEntry = target;
+        if (target.getContainingLocation() instanceof StarSystemAPI) {
+            StarSystemAPI targetSystem = (StarSystemAPI) target.getContainingLocation();
+            systemName = targetSystem.getBaseName();
+            if (targetSystem.getCenter() != null) {
+                systemEntry = targetSystem.getCenter();
+            }
         }
 
-        SectorEntityToken target = meetingPoint != null ? meetingPoint : sourceEntity;
-
+        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, systemEntry,
+                TRAVEL_DAYS * 0.7f, "Traveling to " + systemName + " with " + otherFleetName);
         fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, target,
-                TRAVEL_DAYS, "Settling their differences");
+                TRAVEL_DAYS * 0.3f, "Traveling to " + targetName + " with " + otherFleetName);
         fleet.addAssignment(FleetAssignment.ORBIT_PASSIVE, target,
-                FIGHT_DAYS, "Settling their differences");
+                FIGHT_DAYS, "Settling their differences with " + otherFleetName);
 
-        log.info("InfightingPhase.spawnFleet: spawned " + (isFleetA ? "Fleet A" : "Fleet B")
+        log.info("InfightingPhase.spawnFleet: spawned " + fleetName
                 + " (" + fleetFP + " FP) heading to " + target.getName());
 
         return fleet;
+    }
+
+    private FleetPair findPairForRoute(String routeSource) {
+        for (FleetPair pair : activePairs) {
+            if (routeSource.equals(pair.routeSourceA) || routeSource.equals(pair.routeSourceB)) {
+                return pair;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -282,12 +450,13 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     @Override
     public void reportAboutToBeDespawnedByRouteManager(RouteData route) {
-        // Route manager is removing the fleet because the player moved away
-        boolean isFleetA = route.getSource().equals(routeSourceA);
-        if (isFleetA) {
-            fleetA = null;
-        } else {
-            fleetB = null;
+        FleetPair pair = findPairForRoute(route.getSource());
+        if (pair != null) {
+            if (route.getSource().equals(pair.routeSourceA)) {
+                pair.fleetA = null;
+            } else {
+                pair.fleetB = null;
+            }
         }
         log.info("InfightingPhase: fleet despawned by RouteManager (player moved away).");
     }
@@ -301,10 +470,9 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     @Override
     public void reportFleetDespawnedToListener(CampaignFleetAPI fleet, FleetDespawnReason reason, Object param) {
-        if (fleet == fleetA) {
-            fleetA = null;
-        } else if (fleet == fleetB) {
-            fleetB = null;
+        for (FleetPair pair : activePairs) {
+            if (fleet == pair.fleetA) pair.fleetA = null;
+            else if (fleet == pair.fleetB) pair.fleetB = null;
         }
         log.info("InfightingPhase: fleet despawned. Reason: " + reason);
     }
@@ -312,66 +480,58 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
     // ── Engagement logic ────────────────────────────────────────────────
 
     /**
-     * Check if both spawned fleets have arrived near the meeting point.
-     * Once both are close, make them hostile to each other.
+     * Make a pair's fleets hostile and send them at each other.
      */
-    private void checkForArrivalAndEngage() {
-        if (fleetA == null || fleetB == null) return;
-        if (meetingPoint == null) return;
+    private void engagePair(FleetPair pair) {
+        if (pair.fleetA == null || pair.fleetB == null) return;
 
-        float distA = com.fs.starfarer.api.util.Misc.getDistance(
-                fleetA.getLocation(), meetingPoint.getLocation());
-        float distB = com.fs.starfarer.api.util.Misc.getDistance(
-                fleetB.getLocation(), meetingPoint.getLocation());
+        String originalFactionId = pair.fleetB.getFaction().getId();
+        pair.fleetB.getMemoryWithoutUpdate().set("$intrigueOriginalFaction", originalFactionId);
 
-        // Consider "arrived" if within 500 units of the POI
-        if (distA < 500f && distB < 500f) {
-            makeHostile();
+        FactionAPI dissidentFac = DissidentFactions.get(originalFactionId);
+        if (dissidentFac != null) {
+            pair.fleetB.setFaction(dissidentFac.getId(), true);
         }
+
+        // Remove travel protection and make both fleets aggressive
+        pair.fleetA.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE);
+        pair.fleetB.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE);
+        pair.fleetA.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_AGGRESSIVE, true);
+        pair.fleetB.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_AGGRESSIVE, true);
+
+        pair.fleetA.getMemoryWithoutUpdate().set(MEM_INFIGHTING_ENEMY, pair.fleetB.getId());
+        pair.fleetB.getMemoryWithoutUpdate().set(MEM_INFIGHTING_ENEMY, pair.fleetA.getId());
+
+        pair.fleetA.clearAssignments();
+        pair.fleetB.clearAssignments();
+
+        pair.fleetA.addAssignment(FleetAssignment.INTERCEPT, pair.fleetB, FIGHT_DAYS,
+                "Settling their differences with " + pair.fleetB.getName());
+        pair.fleetB.addAssignment(FleetAssignment.INTERCEPT, pair.fleetA, FIGHT_DAYS,
+                "Settling their differences with " + pair.fleetA.getName());
+
+        pair.engaged = true;
+        log.info("InfightingPhase: pair engaged!");
     }
 
     /**
-     * Make the two infighting fleets hostile to each other using memory flags.
-     * This causes them to engage in combat without needing to change faction
-     * relationships globally.
+     * After one fleet in a pair is destroyed, clean up the survivor.
      */
-    private void makeHostile() {
-        if (fleetA == null || fleetB == null) return;
-
-        // Use $hostile memory flag - each fleet targets the other
-        // Store the enemy fleet's ID so they specifically target each other
-        fleetA.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_HOSTILE, true);
-        fleetB.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_HOSTILE, true);
-
-        // Point them at each other
-        fleetA.getMemoryWithoutUpdate().set(MEM_INFIGHTING_ENEMY, fleetB.getId());
-        fleetB.getMemoryWithoutUpdate().set(MEM_INFIGHTING_ENEMY, fleetA.getId());
-
-        // Clear existing assignments and tell them to intercept
-        fleetA.clearAssignments();
-        fleetB.clearAssignments();
-
-        fleetA.addAssignment(FleetAssignment.INTERCEPT, fleetB, FIGHT_DAYS,
-                "Settling their differences");
-        fleetB.addAssignment(FleetAssignment.INTERCEPT, fleetA, FIGHT_DAYS,
-                "Settling their differences");
-
-        fleetsEngaged = true;
-
-        log.info("InfightingPhase: fleets arrived at meeting point - engaging!");
-    }
-
-    /**
-     * After one fleet is destroyed, have the survivor return home and despawn.
-     */
-    private void cleanupSurvivor() {
+    private void cleanupPairSurvivor(FleetPair pair) {
         CampaignFleetAPI survivor = null;
-        if (fleetA != null && fleetA.isAlive()) survivor = fleetA;
-        if (fleetB != null && fleetB.isAlive()) survivor = fleetB;
+        if (pair.fleetA != null && pair.fleetA.isAlive()) survivor = pair.fleetA;
+        if (pair.fleetB != null && pair.fleetB.isAlive()) survivor = pair.fleetB;
 
         if (survivor != null) {
-            survivor.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_MAKE_HOSTILE);
+            String originalFaction = survivor.getMemoryWithoutUpdate().getString("$intrigueOriginalFaction");
+            if (originalFaction != null) {
+                survivor.setFaction(originalFaction, true);
+                survivor.getMemoryWithoutUpdate().unset("$intrigueOriginalFaction");
+            }
             survivor.getMemoryWithoutUpdate().unset(MEM_INFIGHTING_ENEMY);
+            survivor.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_MAKE_AGGRESSIVE);
+            survivor.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE);
+            survivor.getMemoryWithoutUpdate().unset(MemFlags.MEMORY_KEY_FLEET_DO_NOT_GET_SIDETRACKED);
             survivor.clearAssignments();
 
             MarketAPI source = Global.getSector().getEconomy().getMarket(sourceMarketId);
@@ -385,12 +545,19 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
             }
         }
 
-        // Clean up routes
-        removeRoute(routeSourceA);
-        removeRoute(routeSourceB);
+        removeRoute(pair.routeSourceA);
+        removeRoute(pair.routeSourceB);
     }
 
     // ── Utilities ───────────────────────────────────────────────────────
+
+    /** Returns true if the entity has a market owned by a real faction (not null/neutral). */
+    private static boolean hasFactionMarket(SectorEntityToken entity) {
+        MarketAPI market = entity.getMarket();
+        if (market == null) return false;
+        String factionId = market.getFactionId();
+        return factionId != null && !factionId.isEmpty() && !"neutral".equals(factionId);
+    }
 
     private RouteData findRoute(String source) {
         if (source == null) return null;
@@ -405,15 +572,6 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
         if (route != null) RouteManager.getInstance().removeRoute(route);
     }
 
-    private SectorEntityToken restoreMeetingPoint() {
-        if (meetingSystemId == null) return null;
-        for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
-            if (sys.getId().equals(meetingSystemId)) {
-                return sys.getCenter();
-            }
-        }
-        return null;
-    }
 
 
     // ── OpPhase ─────────────────────────────────────────────────────────
@@ -425,10 +583,14 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     @Override
     public String getStatus() {
-        if (!routesStarted) return "Tensions rising";
-        if (fleetsEngaged) return "Infighting in progress";
+        if (!initialized) return "Tensions rising";
         if (done) return "Infighting subsided";
-        return "Dissidents en route";
+        int engaged = 0;
+        for (FleetPair pair : activePairs) {
+            if (pair.engaged && !pair.resolved) engaged++;
+        }
+        if (engaged > 0) return "Infighting in progress (" + engaged + " engagements)";
+        return "Dissidents en route (wave " + ticksCompleted + "/" + totalTicks + ")";
     }
 }
 

@@ -10,6 +10,7 @@ import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueSubfactionManager;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.IntrigueTerritoryManager;
+import spinloki.Intrigue.campaign.intel.IntrigueTerritoryIntel;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.SectorClock;
@@ -40,6 +41,7 @@ public class Intrigue extends BaseModPlugin {
         x.alias("FGIPhase", FGIPhase.class);
         x.alias("IntrigueRaidIntel", IntrigueRaidIntel.class);
         x.alias("IntrigueOpIntel", IntrigueOpIntel.class);
+        x.alias("IntrigueTerritoryIntel", IntrigueTerritoryIntel.class);
         x.alias("EstablishBaseOp", EstablishBaseOp.class);
         x.alias("EstablishBasePhase", EstablishBasePhase.class);
         x.alias("ScoutTerritoryOp", ScoutTerritoryOp.class);

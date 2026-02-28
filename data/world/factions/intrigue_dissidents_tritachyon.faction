@@ -1,0 +1,23 @@
+{
+	"id":"intrigue_dissidents_tritachyon",
+	"displayName":"Tri-Tachyon",
+	"displayNameWithArticle":"Tri-Tachyon",
+	"displayNameIsOrAre":"are",
+	"logo":"graphics/factions/neutral.png",
+	"crest":"graphics/factions/crest_neutral.png",
+	"color":[135, 206, 255, 255],
+	"showInIntelTab":false,
+	"shipNamePrefix":"ISS",
+	"shipNameSources":{
+		"GENERAL":1,
+	},
+	"names":{
+		"modern":1,
+	},
+	"portraits":{
+	},
+	"custom":{
+		"offersCommissions":false,
+		"engagesInHostilities":true,
+	},
+}
