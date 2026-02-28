@@ -12,27 +12,79 @@
 #   ./run_balance_tests.sh --player-hurt            # player only hurts factions
 #   ./run_balance_tests.sh --player-interval=20     # player reconsiders every 20 ticks (default 10)
 #   ./run_balance_tests.sh --ticks=500              # run for 500 ticks (default 200)
-#   Flags combine: ./run_balance_tests.sh -v --player-help --ticks=400 --player-interval=15
+#   ./run_balance_tests.sh --config               # use data/config/intrigue_subfactions.json
+#   ./run_balance_tests.sh --config=/path/to/file  # use custom config file
+#   Flags combine: ./run_balance_tests.sh -v --config --player-help --ticks=400
 
 set -e
+
+show_help() {
+    cat <<'EOF'
+Intrigue Balance Test Runner
+=============================
+
+Runs the Intrigue DI integration tests and simulation.
+No Starsector installation required — these are pure-logic tests.
+
+Usage:
+  ./run_balance_tests.sh [OPTIONS]
+
+Options:
+  -h, --help                  Show this help message and exit
+  -v, --verbose               Verbose mode: print per-tick op log with
+                              probability details
+  --ticks=N                   Run the simulation for N ticks (default: 200)
+  --config                    Load subfactions and territories from the default
+                              config files (data/config/intrigue_subfactions.json
+                              and data/config/intrigue_territories.json)
+  --config=/path/to/file      Load subfactions from a custom config file
+                              (territories loaded from intrigue_territories.json
+                              in the same directory, if present)
+
+Player Simulation:
+  --player                    Enable player intervention (randomly helps OR
+                              hurts one faction at a time)
+  --player-help               Player only helps factions
+  --player-hurt               Player only hurts factions
+  --player-interval=N         Player reconsiders target every N ticks
+                              (default: 10)
+
+Examples:
+  ./run_balance_tests.sh                              # normal mode
+  ./run_balance_tests.sh -v                           # verbose per-tick log
+  ./run_balance_tests.sh --config --ticks=400         # 400 ticks with config
+  ./run_balance_tests.sh -v --config --player-hurt    # verbose, config, player hurts
+  ./run_balance_tests.sh --player --player-interval=5 # player acts every 5 ticks
+EOF
+    exit 0
+}
 
 VERBOSE=false
 PLAYER_MODE=""
 PLAYER_INTERVAL=""
 SIM_TICKS=""
+CONFIG_PATH=""
 for arg in "$@"; do
     case "$arg" in
+        -h|--help) show_help ;;
         -v|--verbose) VERBOSE=true ;;
         --player) PLAYER_MODE=both ;;
         --player-help) PLAYER_MODE=help ;;
         --player-hurt) PLAYER_MODE=hurt ;;
         --player-interval=*) PLAYER_INTERVAL="${arg#--player-interval=}" ;;
         --ticks=*) SIM_TICKS="${arg#--ticks=}" ;;
+        --config=*) CONFIG_PATH="${arg#--config=}" ;;
+        --config) CONFIG_PATH="__default__" ;;
     esac
 done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"
+
+# Resolve default config path now that SCRIPT_DIR is set
+if [ "$CONFIG_PATH" = "__default__" ]; then
+    CONFIG_PATH="$SCRIPT_DIR/data/config/intrigue_subfactions.json"
+fi
 OUT_DIR="/tmp/intrigue_balance_test"
 JAVAC=""
 JAVA=""
@@ -114,6 +166,18 @@ if [ -n "$PLAYER_INTERVAL" ]; then
 fi
 if [ -n "$SIM_TICKS" ]; then
     JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.ticks=$SIM_TICKS"
+fi
+if [ -n "$CONFIG_PATH" ]; then
+    JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.config=$CONFIG_PATH"
+    # Derive the territories config path from the same directory
+    CONFIG_DIR=$(dirname "$CONFIG_PATH")
+    TERRITORIES_PATH="$CONFIG_DIR/intrigue_territories.json"
+    if [ -f "$TERRITORIES_PATH" ]; then
+        JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.territories=$TERRITORIES_PATH"
+        echo "(config: $CONFIG_PATH + $TERRITORIES_PATH)"
+    else
+        echo "(config: $CONFIG_PATH -- no territories file at $TERRITORIES_PATH)"
+    fi
 fi
 "$JAVA" $JAVA_FLAGS -cp "$OUT_DIR" spinloki.Intrigue.campaign.ops.sim.SimIntegrationTest 2>/dev/null
 

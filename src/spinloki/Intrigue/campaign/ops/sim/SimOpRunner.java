@@ -1,5 +1,6 @@
 package spinloki.Intrigue.campaign.ops.sim;
 
+
 import spinloki.Intrigue.campaign.ops.IntrigueOp;
 import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
 
@@ -30,6 +31,15 @@ public class SimOpRunner implements IntrigueOpRunner {
             if (personId.equals(op.getInitiatorId())) return true;
         }
         return false;
+    }
+
+    @Override
+    public int getActiveOpCount(String personId) {
+        int count = 0;
+        for (IntrigueOp op : activeOps) {
+            if (personId.equals(op.getInitiatorId())) count++;
+        }
+        return count;
     }
 
     @Override

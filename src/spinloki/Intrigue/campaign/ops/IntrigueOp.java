@@ -41,6 +41,13 @@ public abstract class IntrigueOp implements Serializable {
     /** Optional: the territory this op takes place in (null for core-world ops). */
     private String territoryId;
 
+    /**
+     * When true, this op is "free" — it doesn't set cooldown on the initiating
+     * subfaction and doesn't impose failure costs. Used for vulnerability raids
+     * triggered when a target's legitimacy hits 0.
+     */
+    private boolean noCost = false;
+
     private Stage stage = Stage.PROPOSED;
     private OpOutcome outcome = OpOutcome.PENDING;
 
@@ -69,6 +76,10 @@ public abstract class IntrigueOp implements Serializable {
     /** Territory this op is scoped to, or null for core-world ops. */
     public String getTerritoryId() { return territoryId; }
     public void setTerritoryId(String territoryId) { this.territoryId = territoryId; }
+
+    /** Whether this op is free (no cooldown, no failure costs). */
+    public boolean isNoCost() { return noCost; }
+    public void setNoCost(boolean noCost) { this.noCost = noCost; }
 
     // ── Convenience lookups ─────────────────────────────────────────────
 

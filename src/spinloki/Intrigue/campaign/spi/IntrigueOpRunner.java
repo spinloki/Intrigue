@@ -1,5 +1,6 @@
 package spinloki.Intrigue.campaign.spi;
 
+
 import spinloki.Intrigue.campaign.ops.IntrigueOp;
 
 import java.util.List;
@@ -20,6 +21,9 @@ public interface IntrigueOpRunner {
 
     /** Check if a person has an active op as initiator. */
     boolean hasActiveOp(String personId);
+
+    /** Count active ops where the given person is the initiator. */
+    int getActiveOpCount(String personId);
 
     /** Get all active ops where the given person is the initiator. */
     List<IntrigueOp> getOpsInitiatedBy(String personId);

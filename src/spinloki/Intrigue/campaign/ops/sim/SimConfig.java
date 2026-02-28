@@ -89,6 +89,14 @@ public class SimConfig {
     // ── Regions ──
     public int prominencePowerThreshold = 75;
 
+    // ── Concurrent ops ──
+    /** Total cohesion (home + all established territories) required per extra concurrent op beyond the first. */
+    public int extraOpCohesionCost = 50;
+    /** Cohesion drained per tick per extra active op (beyond the first). Drains from a random territory or home. */
+    public int concurrentOpDrainPerTick = 1;
+    /** Hard cap on concurrent ops per subfaction. */
+    public int maxConcurrentOps = 3;
+
     // ── Player intervention (sim only) ──
     /** Ticks between random player actions. */
     public int playerActionInterval = 10;
@@ -151,6 +159,9 @@ public class SimConfig {
         c.pacerNudgeMax = pacerNudgeMax;
         c.tickIntervalDays = tickIntervalDays;
         c.prominencePowerThreshold = prominencePowerThreshold;
+        c.extraOpCohesionCost = extraOpCohesionCost;
+        c.concurrentOpDrainPerTick = concurrentOpDrainPerTick;
+        c.maxConcurrentOps = maxConcurrentOps;
         c.playerActionInterval = playerActionInterval;
         c.playerFavorBonus = playerFavorBonus;
         c.playerDisfavorPenalty = playerDisfavorPenalty;

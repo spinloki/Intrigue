@@ -154,7 +154,103 @@ public class SimIntegrationTest {
                 territories);
         return clock;
     }
-
+    /**
+     * Set up the sim from the actual intrigue_subfactions.json config file.
+     * Parses the JSON, creates IntriguePerson + IntrigueSubfaction objects,
+     * and registers them with IntrigueServices.
+     */
+    static SimClock setupSimFromConfig(String configPath) throws IOException {
+        String json = Files.readString(Path.of(configPath));
+        SubfactionConfig config = SubfactionConfig.parseFromJson(json);
+        IntrigueServices.reset();
+        SimClock clock = new SimClock();
+        SimPeopleAccess people = new SimPeopleAccess();
+        SimOpRunner ops = new SimOpRunner();
+        SimOpFactory opFactory = new SimOpFactory(new Random(100), SimConfig.defaults());
+        SimSubfactionAccess subfactions = new SimSubfactionAccess();
+        Set<String> allFactionIds = new LinkedHashSet<>();
+        for (SubfactionConfig.SubfactionDef def : config.subfactions) {
+            allFactionIds.add(def.factionId);
+            IntrigueSubfaction.SubfactionType sfType = IntrigueSubfaction.SubfactionType.POLITICAL;
+            if ("CRIMINAL".equals(def.type)) {
+                sfType = IntrigueSubfaction.SubfactionType.CRIMINAL;
+            }
+            IntrigueSubfaction sf = new IntrigueSubfaction(
+                    def.subfactionId, def.name, def.factionId, def.homeMarketId, sfType);
+            sf.setHomeCohesion(def.cohesion);
+            sf.setLegitimacy(def.legitimacy);
+            if (def.cohesionLabel != null) sf.setCohesionLabel(def.cohesionLabel);
+            if (def.legitimacyLabel != null) sf.setLegitimacyLabel(def.legitimacyLabel);
+            int memberIdx = 0;
+            for (SubfactionConfig.MemberDef m : def.members) {
+                IntriguePerson.Role role = IntriguePerson.Role.MEMBER;
+                if ("LEADER".equals(m.role)) role = IntriguePerson.Role.LEADER;
+                String personId = def.subfactionId + "_" + m.role.toLowerCase() + "_" + memberIdx;
+                IntriguePerson person = new IntriguePerson(
+                        personId, def.factionId, def.homeMarketId,
+                        def.subfactionId, role, m.bonus);
+                if (m.traits != null) {
+                    for (String trait : m.traits) {
+                        person.getTraits().add(trait);
+                    }
+                }
+                people.addPerson(person);
+                if (role == IntriguePerson.Role.LEADER) {
+                    sf.setLeaderId(personId);
+                } else {
+                    sf.getMemberIds().add(personId);
+                }
+                memberIdx++;
+            }
+            subfactions.addSubfaction(sf);
+        }
+        // Territories — load from intrigue_territories.json if available, else hardcoded fallback
+        SimTerritoryAccess territories = new SimTerritoryAccess();
+        String territoriesPath = System.getProperty("intrigue.territories");
+        if (territoriesPath != null) {
+            String terrJson = Files.readString(Path.of(territoriesPath));
+            TerritoryConfig terrConfig = TerritoryConfig.parseFromJson(terrJson);
+            for (TerritoryConfig.TerritoryDef tDef : terrConfig.territories) {
+                IntrigueTerritory t = new IntrigueTerritory(
+                        tDef.territoryId, tDef.name, tDef.tier, tDef.plotHook);
+                for (int ci = 0; ci < tDef.numConstellations; ci++) {
+                    t.addConstellationName(tDef.name + " Constellation " + (ci + 1));
+                }
+                if (tDef.interestedFactions != null) {
+                    for (String fid : tDef.interestedFactions) {
+                        t.addInterestedFaction(fid);
+                    }
+                }
+                territories.addTerritory(t);
+            }
+            System.out.printf("  Loaded %d territories from: %s%n",
+                    terrConfig.territories.size(), territoriesPath);
+        } else {
+            // Hardcoded fallback — two territories, all non-criminal factions interested
+            IntrigueTerritory remnantFrontier = new IntrigueTerritory(
+                    "territory_remnant_frontier", "Remnant Frontier",
+                    TerritoryConfig.Tier.HIGH, "Remnant activity has spiked.");
+            remnantFrontier.addConstellationName("Alpha Constellation");
+            IntrigueTerritory domainCache = new IntrigueTerritory(
+                    "territory_domain_cache", "Domain Cache",
+                    TerritoryConfig.Tier.MEDIUM, "Domain-era supply caches.");
+            domainCache.addConstellationName("Beta Constellation");
+            for (SubfactionConfig.SubfactionDef def2 : config.subfactions) {
+                if (!"CRIMINAL".equals(def2.type)) {
+                    remnantFrontier.addInterestedFaction(def2.factionId);
+                    domainCache.addInterestedFaction(def2.factionId);
+                }
+            }
+            territories.addTerritory(remnantFrontier);
+            territories.addTerritory(domainCache);
+        }
+        IntrigueServices.init(clock, people, ops, opFactory, subfactions,
+                (a, b) -> a != null && b != null && !a.equals(b),
+                territories);
+        System.out.printf("  Loaded %d subfactions (%d factions) from: %s%n",
+                config.subfactions.size(), allFactionIds.size(), configPath);
+        return clock;
+    }
     static void testServicesInitialization() {
         test("IntrigueServices initializes with sim implementations", () -> {
             setupSim();
@@ -575,14 +671,29 @@ public class SimIntegrationTest {
         System.out.printf("    Civil War threshold:          <%d home cohesion for %d ticks%n",
                 config.civilWarCohesionThreshold, config.civilWarTicksRequired);
         System.out.printf("    High legitimacy threshold:    %d%n", config.highLegitimacyThreshold);
+        System.out.printf("    Low legitimacy threshold:     %d (patrol > raids)%n", OpEvaluator.LOW_LEGITIMACY_THRESHOLD);
+        System.out.printf("    Critical legitimacy threshold:%d (patrol > supplies)%n", OpEvaluator.CRITICAL_LEGITIMACY_THRESHOLD);
         System.out.printf("    Op cooldown:                  %.0f days%n", (float) OpEvaluator.COOLDOWN_DAYS);
         System.out.printf("    Min cohesion threshold:       %d%n", OpEvaluator.MIN_COHESION_THRESHOLD);
+        System.out.printf("    Concurrent ops:               max %d, extra costs %d totalCoh each, drains %d coh/tick%n",
+                config.maxConcurrentOps, config.extraOpCohesionCost, config.concurrentOpDrainPerTick);
         System.out.printf("    Player action interval:       every %d ticks%n", config.playerActionInterval);
         System.out.printf("    Player favor bonus:           %+.0f%%%n", config.playerFavorBonus * 100);
         System.out.printf("    Player disfavor penalty:      %+.0f%%%n", config.playerDisfavorPenalty * 100);
         System.out.println();
 
-        SimClock clock = setupSim();
+        SimClock clock;
+        String configPath = System.getProperty("intrigue.config");
+        if (configPath != null) {
+            try {
+                clock = setupSimFromConfig(configPath);
+            } catch (IOException e) {
+                System.err.println("ERROR: Failed to load config from " + configPath + ": " + e.getMessage());
+                return;
+            }
+        } else {
+            clock = setupSim();
+        }
         SimOpRunner ops = (SimOpRunner) IntrigueServices.ops();
 
         float daysPerTick = 7f;
@@ -613,10 +724,13 @@ public class SimIntegrationTest {
         Map<String, Map<String, int[]>> outcomeCounts = new LinkedHashMap<>();
         // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars]
         Map<String, int[]> dysfunctionCounts = new LinkedHashMap<>();
+        // Vulnerability raid counters: sfId -> [raids_launched, raids_suffered]
+        Map<String, int[]> vulnRaidCounts = new LinkedHashMap<>();
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             opCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
             outcomeCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
             dysfunctionCounts.put(sf.getSubfactionId(), new int[3]);
+            vulnRaidCounts.put(sf.getSubfactionId(), new int[2]);
         }
 
 
@@ -683,8 +797,12 @@ public class SimIntegrationTest {
                 }
             }
             for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
-                IntrigueOp op = OpEvaluator.evaluate(sf, ops, "sim");
-                if (op != null) {
+                // Evaluate up to maxConcurrentOps — each call may return a new op
+                // until the subfaction runs out of capacity or has nothing to do
+                for (int slot = 0; slot < OpEvaluator.MAX_CONCURRENT_OPS; slot++) {
+                    IntrigueOp op = OpEvaluator.evaluate(sf, ops, "sim");
+                    if (op == null) break; // no more ops to launch
+
                     ops.startOp(op);
                     opCounts.get(sf.getSubfactionId())
                             .merge(op.getOpTypeName(), 1, Integer::sum);
@@ -692,9 +810,12 @@ public class SimIntegrationTest {
                     opToSubfaction.put(op.getOpId(), sf.getSubfactionId());
 
                     if (verbose) {
-                        System.out.printf("  [t=%3d] %-35s \u2192 %-20s (homeCoh=%d leg=%d",
+                        int activeCount = ops.getActiveOpCount(sf.getLeaderId());
+                        int maxOps = OpEvaluator.maxConcurrentOps(sf);
+                        System.out.printf("  [t=%3d] %-35s \u2192 %-20s (homeCoh=%d leg=%d ops=%d/%d",
                                 t, sf.getName(), op.getOpTypeName(),
-                                sf.getHomeCohesion(), sf.getLegitimacy());
+                                sf.getHomeCohesion(), sf.getLegitimacy(),
+                                activeCount, maxOps);
                         if (op.getTerritoryId() != null) {
                             IntrigueTerritory terr = IntrigueServices.territories().getById(op.getTerritoryId());
                             if (terr != null) {
@@ -705,6 +826,26 @@ public class SimIntegrationTest {
                         }
                         System.out.println(")");
                     }
+                }
+            }
+            // ── Vulnerability raids: legitimacy == 0 triggers free raids from all hostiles ──
+            List<IntrigueOp> vulnRaids = OpEvaluator.evaluateVulnerabilityRaids(ops, "sim");
+            for (IntrigueOp vr : vulnRaids) {
+                ops.startOp(vr);
+                String atkId = vr.getInitiatorSubfactionId();
+                String defId = vr.getTargetSubfactionId();
+                opCounts.get(atkId).merge(vr.getOpTypeName() + " (free)", 1, Integer::sum);
+                pendingOps.add(vr);
+                opToSubfaction.put(vr.getOpId(), atkId);
+                vulnRaidCounts.get(atkId)[0]++;
+                vulnRaidCounts.get(defId)[1]++;
+                if (verbose) {
+                    IntrigueSubfaction atkSf = IntrigueServices.subfactions().getById(atkId);
+                    IntrigueSubfaction defSf = IntrigueServices.subfactions().getById(defId);
+                    System.out.printf("  [t=%3d] !! %-35s \u2192 VULNERABILITY RAID vs %-20s (victim leg=0)%n",
+                            t,
+                            atkSf != null ? atkSf.getName() : atkId,
+                            defSf != null ? defSf.getName() : defId);
                 }
             }
             clock.advanceDays(daysPerTick);
@@ -724,6 +865,41 @@ public class SimIntegrationTest {
                             territory.incrementLowCohesionTicks(sfId);
                         } else {
                             territory.resetLowCohesionTicks(sfId);
+                        }
+                    }
+                }
+            }
+
+            // Concurrent op cohesion drain: each extra active op (beyond the first)
+            // drains cohesion from a random established territory or home
+            Random drainRng = new Random(t * 31L + 7);
+            for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+                String leaderId = sf.getLeaderId();
+                if (leaderId == null) continue;
+                int activeCount = ops.getActiveOpCount(leaderId);
+                int extraOps = activeCount - 1;
+                if (extraOps <= 0) continue;
+
+                int drain = extraOps * config.concurrentOpDrainPerTick;
+
+                // Build pool of drain targets: home + established territories
+                List<String> drainTargets = new ArrayList<>();
+                drainTargets.add("__home__"); // sentinel for home cohesion
+                for (IntrigueTerritory terr : IntrigueServices.territories().getAll()) {
+                    if (terr.getPresence(sf.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
+                        drainTargets.add(terr.getTerritoryId());
+                    }
+                }
+
+                for (int d = 0; d < drain; d++) {
+                    String target = drainTargets.get(drainRng.nextInt(drainTargets.size()));
+                    if ("__home__".equals(target)) {
+                        sf.setHomeCohesion(sf.getHomeCohesion() - 1);
+                    } else {
+                        IntrigueTerritory terr = IntrigueServices.territories().getById(target);
+                        if (terr != null) {
+                            terr.setCohesion(sf.getSubfactionId(),
+                                    terr.getCohesion(sf.getSubfactionId()) - 1);
                         }
                     }
                 }
@@ -823,9 +999,20 @@ public class SimIntegrationTest {
 
             // Dysfunction events
             int[] dys = dysfunctionCounts.get(id);
-            if (dys[0] > 0 || dys[1] > 0 || dys[2] > 0) {
-                System.out.printf("    Events: %d infighting, %d expulsions, %d civil wars%n",
-                        dys[0], dys[1], dys[2]);
+            int[] vr = vulnRaidCounts.get(id);
+            boolean hasDys = dys[0] > 0 || dys[1] > 0 || dys[2] > 0;
+            boolean hasVuln = vr[0] > 0 || vr[1] > 0;
+            if (hasDys || hasVuln) {
+                StringBuilder ev = new StringBuilder("    Events:");
+                if (hasDys) {
+                    ev.append(String.format(" %d infighting, %d expulsions, %d civil wars",
+                            dys[0], dys[1], dys[2]));
+                }
+                if (hasVuln) {
+                    if (hasDys) ev.append(" |");
+                    ev.append(String.format(" vuln raids: %d launched, %d suffered", vr[0], vr[1]));
+                }
+                System.out.println(ev);
             }
             System.out.println();
         }
@@ -856,8 +1043,9 @@ public class SimIntegrationTest {
             int totalOps = 0;
             for (int t = 0; t < 50; t++) {
                 for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
-                    IntrigueOp op = OpEvaluator.evaluate(sf, ops, "test");
-                    if (op != null) {
+                    for (int slot = 0; slot < OpEvaluator.MAX_CONCURRENT_OPS; slot++) {
+                        IntrigueOp op = OpEvaluator.evaluate(sf, ops, "test");
+                        if (op == null) break;
                         ops.startOp(op);
                         totalOps++;
                     }

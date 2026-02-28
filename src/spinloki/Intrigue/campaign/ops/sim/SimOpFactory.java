@@ -150,8 +150,8 @@ public class SimOpFactory implements OpFactory {
                 people.returnHome(getInitiatorId());
             }
 
-            // Set cooldown on attacking subfaction
-            if (attacker != null) {
+            // Set cooldown on attacking subfaction (skip if no-cost op)
+            if (attacker != null && !isNoCost()) {
                 attacker.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
 
@@ -187,8 +187,8 @@ public class SimOpFactory implements OpFactory {
                 int cohesionLoss = config.basePowerShift / 2;
                 int legitimacyGain = config.basePowerShift / 3;
 
-                // Attacker loses home cohesion (failed operation)
-                if (attacker != null) {
+                // Attacker loses home cohesion (failed operation) — skip if no-cost
+                if (attacker != null && !isNoCost()) {
                     float lossMult = attacker.getHomeCohesion() / 100f;
                     int actual = Math.max(1, Math.round(cohesionLoss * Math.max(0.2f, lossMult)));
                     attacker.setHomeCohesion(attacker.getHomeCohesion() - actual);

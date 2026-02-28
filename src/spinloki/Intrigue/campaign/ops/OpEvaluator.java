@@ -29,9 +29,45 @@ public final class OpEvaluator {
 
     /** Legitimacy threshold above which Patrol and Raid are deprioritized. */
     public static final int HIGH_LEGITIMACY_THRESHOLD = 80;
-
+    /** Legitimacy below which patrol is prioritized above routine supplies. */
+    public static final int CRITICAL_LEGITIMACY_THRESHOLD = 30;
+    /** Legitimacy below which patrol is prioritized above raids (but after supplies). */
+    public static final int LOW_LEGITIMACY_THRESHOLD = 50;
     /** Home cohesion below which a Rally op is considered. */
     public static final int RALLY_COHESION_THRESHOLD = 50;
+
+    /** Total cohesion required per extra concurrent op slot (beyond the first). */
+    public static final int EXTRA_OP_COHESION_COST = 50;
+
+    /** Hard cap on concurrent ops per subfaction. */
+    public static final int MAX_CONCURRENT_OPS = 3;
+
+    /**
+     * Compute a subfaction's total cohesion pool: home cohesion plus
+     * cohesion from all ESTABLISHED territories.
+     */
+    public static int computeTotalCohesion(IntrigueSubfaction subfaction) {
+        int total = subfaction.getHomeCohesion();
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories != null) {
+            for (IntrigueTerritory t : territories.getAll()) {
+                if (t.getPresence(subfaction.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
+                    total += t.getCohesion(subfaction.getSubfactionId());
+                }
+            }
+        }
+        return total;
+    }
+
+    /**
+     * How many concurrent ops this subfaction can sustain based on total cohesion.
+     * Always at least 1 (the base slot). Each extra slot costs EXTRA_OP_COHESION_COST total cohesion.
+     */
+    public static int maxConcurrentOps(IntrigueSubfaction subfaction) {
+        int totalCohesion = computeTotalCohesion(subfaction);
+        int slots = 1 + totalCohesion / EXTRA_OP_COHESION_COST;
+        return Math.min(slots, MAX_CONCURRENT_OPS);
+    }
 
     /**
      * Evaluate whether this subfaction should start an op right now.
@@ -64,7 +100,9 @@ public final class OpEvaluator {
 
         // Leader must be available
         if (leader.isCheckedOut()) return null;
-        if (opsRunner.hasActiveOp(leaderId)) return null;
+        int activeOps = opsRunner.getActiveOpCount(leaderId);
+        int maxOps = maxConcurrentOps(subfaction);
+        if (activeOps >= maxOps) return null;
 
         // Cooldown on the subfaction
         if (isOnCooldown(subfaction)) return null;
@@ -73,6 +111,16 @@ public final class OpEvaluator {
         // These fire regardless of home cohesion — they ARE the consequence of low cohesion.
         IntrigueOp dysfunctionOp = evaluateDysfunction(subfaction, opsRunner, opIdPrefix);
         if (dysfunctionOp != null) return dysfunctionOp;
+
+        // ── Priority 0b: CRITICAL patrol — legitimacy < 30, patrol beats everything else ──
+        // When legitimacy is this low, restoring it is the single most urgent need
+        // (prevents vulnerability raids at 0 legitimacy). Even urgent supplies can wait.
+        boolean criticalLegitimacy = subfaction.getLegitimacy() < CRITICAL_LEGITIMACY_THRESHOLD;
+        if (criticalLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, opIdPrefix);
+            if (patrolOp != null) return patrolOp;
+        }
+
 
         // ── Priority 1a: urgent supplies — established territory about to collapse ──
         // Convoys still run even when the subfaction is weak.
@@ -94,15 +142,22 @@ public final class OpEvaluator {
         IntrigueOp presenceOp = evaluatePresenceOp(subfaction, leader, opsRunner, opIdPrefix);
         if (presenceOp != null) return presenceOp;
 
-        // ── Priority 2: routine supplies to established territories ──
+        // ── Priority 2b: routine supplies to established territories ──
         IntrigueOp supplyOp = evaluateSendSupplies(subfaction, opsRunner, opIdPrefix, 50);
         if (supplyOp != null) return supplyOp;
+
+        // ── Priority 2c: LOW patrol — legitimacy < 50, patrol before raids ──
+        boolean lowLegitimacy = !criticalLegitimacy && subfaction.getLegitimacy() < LOW_LEGITIMACY_THRESHOLD;
+        if (lowLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, opIdPrefix);
+            if (patrolOp != null) return patrolOp;
+        }
 
         // Below this point, ops are deprioritized when legitimacy is high
         boolean highLegitimacy = subfaction.getLegitimacy() >= HIGH_LEGITIMACY_THRESHOLD;
 
         // ── Priority 3: patrol (skip if legitimacy is already high) ──
-        if (!highLegitimacy) {
+        if (!highLegitimacy && !criticalLegitimacy && !lowLegitimacy) {
             IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, opIdPrefix);
             if (patrolOp != null) return patrolOp;
         }
@@ -147,7 +202,12 @@ public final class OpEvaluator {
         if (leader == null) return "leader '" + leaderId + "' not found in people registry";
 
         if (leader.isCheckedOut()) return "leader checked out";
-        if (opsRunner.hasActiveOp(leaderId)) return "leader has active op";
+        int activeOps = opsRunner.getActiveOpCount(leaderId);
+        int maxOps = maxConcurrentOps(subfaction);
+        if (activeOps >= maxOps) {
+            return "at op capacity (" + activeOps + "/" + maxOps
+                    + ", totalCoh=" + computeTotalCohesion(subfaction) + ")";
+        }
         if (isOnCooldown(subfaction)) return "on cooldown";
 
         String territoryInfo = diagnoseTerritoryOp(subfaction);
@@ -188,7 +248,20 @@ public final class OpEvaluator {
                     + "; " + territoryInfo;
         }
 
-        // Priority 2: routine supplies
+        // Priority 2a: critical patrol (legitimacy < 30)
+        boolean criticalLegitimacy = subfaction.getLegitimacy() < CRITICAL_LEGITIMACY_THRESHOLD;
+        if (criticalLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, "diag");
+            if (patrolOp != null) {
+                return "READY → " + patrolOp.getOpTypeName()
+                        + " (CRITICAL, legitimacy " + subfaction.getLegitimacy()
+                        + " < " + CRITICAL_LEGITIMACY_THRESHOLD
+                        + ", territory=" + patrolOp.getTerritoryId() + ")"
+                        + "; " + territoryInfo;
+            }
+        }
+
+        // Priority 2b: routine supplies
         IntrigueOp supplyOp = evaluateSendSupplies(subfaction, opsRunner, "diag", 50);
         if (supplyOp != null) {
             return "READY → " + supplyOp.getOpTypeName()
@@ -196,10 +269,23 @@ public final class OpEvaluator {
                     + "; " + territoryInfo;
         }
 
+        // Priority 2c: low patrol (legitimacy < 50)
+        boolean lowLegitimacy = !criticalLegitimacy && subfaction.getLegitimacy() < LOW_LEGITIMACY_THRESHOLD;
+        if (lowLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, "diag");
+            if (patrolOp != null) {
+                return "READY → " + patrolOp.getOpTypeName()
+                        + " (LOW legitimacy " + subfaction.getLegitimacy()
+                        + " < " + LOW_LEGITIMACY_THRESHOLD
+                        + ", territory=" + patrolOp.getTerritoryId() + ")"
+                        + "; " + territoryInfo;
+            }
+        }
+
         boolean highLegitimacy = subfaction.getLegitimacy() >= HIGH_LEGITIMACY_THRESHOLD;
 
         // Priority 3: patrol
-        if (!highLegitimacy) {
+        if (!highLegitimacy && !criticalLegitimacy && !lowLegitimacy) {
             IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, "diag");
             if (patrolOp != null) {
                 return "READY → " + patrolOp.getOpTypeName()
@@ -329,7 +415,7 @@ public final class OpEvaluator {
         IntriguePerson leader = IntrigueServices.people().getById(leaderId);
         if (leader == null) return null;
         if (leader.isCheckedOut()) return null;
-        if (opsRunner.hasActiveOp(leaderId)) return null;
+        if (opsRunner.getActiveOpCount(leaderId) >= maxConcurrentOps(subfaction)) return null;
 
         // Lower home cohesion threshold for establishing a base — desperate factions act sooner
         if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD / 2) return null;
@@ -348,7 +434,9 @@ public final class OpEvaluator {
         IntriguePerson leader = IntrigueServices.people().getById(leaderId);
         if (leader == null) return "CRIMINAL homeless, leader not found";
         if (leader.isCheckedOut()) return "CRIMINAL homeless, leader checked out";
-        if (opsRunner.hasActiveOp(leaderId)) return "CRIMINAL homeless, leader has active op";
+        int activeOps = opsRunner.getActiveOpCount(leaderId);
+        int maxOps = maxConcurrentOps(subfaction);
+        if (activeOps >= maxOps) return "CRIMINAL homeless, at op capacity (" + activeOps + "/" + maxOps + ")";
         if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD / 2)
             return "CRIMINAL homeless, home cohesion " + subfaction.getHomeCohesion() + " < " + (MIN_COHESION_THRESHOLD / 2);
         if (isOnCooldown(subfaction)) return "CRIMINAL homeless, on cooldown";
@@ -381,7 +469,7 @@ public final class OpEvaluator {
     private static IntrigueOp evaluateDysfunction(IntrigueSubfaction subfaction,
                                                    IntrigueOpRunner opsRunner,
                                                    String opIdPrefix) {
-        // Don't stack dysfunction ops — if the subfaction already has an active op, skip
+        // Don't stack dysfunction ops on top of each other (intentionally binary, not capacity-based)
         String leaderId = subfaction.getLeaderId();
         if (leaderId != null && opsRunner.hasActiveOp(leaderId)) return null;
 
@@ -538,8 +626,45 @@ public final class OpEvaluator {
         return "territory status: " + sb.toString().trim();
     }
 
+    // ── Vulnerability Raids ─────────────────────────────────────────────
+    /**
+     * Evaluate vulnerability raids: when a subfaction's legitimacy drops to 0,
+     * every hostile subfaction sends a free raid against it. These ops:
+     *   - bypass cooldown and active-op checks
+     *   - don't set cooldown on the attacker
+     *   - don't cost the attacker anything on failure
+     *   - are in addition to the attacker's normal op for this tick
+     *
+     * @return list of free raid ops to start (may be empty, never null)
+     */
+    public static List<IntrigueOp> evaluateVulnerabilityRaids(
+            IntrigueOpRunner opsRunner, String opIdPrefix) {
+        List<IntrigueOp> raids = new ArrayList<>();
+        Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
+        for (IntrigueSubfaction victim : allSubfactions) {
+            if (victim.getLegitimacy() > 0) continue;
+            if (!victim.hasHomeMarket()) continue;
+            for (IntrigueSubfaction attacker : allSubfactions) {
+                if (attacker == victim) continue;
+                if (attacker.getSubfactionId().equals(victim.getSubfactionId())) continue;
+                if (!attacker.hasHomeMarket()) continue;
+                // Must be from a different, hostile faction
+                if (attacker.getFactionId().equals(victim.getFactionId())) continue;
+                if (!IntrigueServices.hostility().areHostile(
+                        attacker.getFactionId(), victim.getFactionId())) continue;
+                // Must have a leader (but don't check if leader is busy — this is free)
+                if (attacker.getLeaderId() == null) continue;
+                String opId = opsRunner.nextOpId(opIdPrefix + "_vuln");
+                IntrigueOp raid = IntrigueServices.opFactory().createRaidOp(opId, attacker, victim);
+                if (raid != null) {
+                    raid.setNoCost(true);
+                    raids.add(raid);
+                }
+            }
+        }
+        return raids;
+    }
     // ── Cooldown ────────────────────────────────────────────────────────
-
     private static boolean isOnCooldown(IntrigueSubfaction subfaction) {
         long lastOp = subfaction.getLastOpTimestamp();
         if (lastOp <= 0) return false;

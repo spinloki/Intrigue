@@ -95,6 +95,12 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable, Intri
         return !getOpsInitiatedBy(personId).isEmpty();
     }
 
+    /** Count active ops where the given person is the initiator. */
+    @Override
+    public int getActiveOpCount(String personId) {
+        return getOpsInitiatedBy(personId).size();
+    }
+
     // ── EveryFrameScript ────────────────────────────────────────────────
 
     @Override
