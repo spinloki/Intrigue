@@ -38,9 +38,15 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
-        // Reuses the existing base creation logic
+        // Reuses the existing base creation logic, constrained to the territory's constellations
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        IntrigueTerritory territory = territories != null ? territories.getById(territoryId) : null;
+        java.util.List<String> constellations = territory != null
+                ? territory.getConstellationNames()
+                : java.util.Collections.emptyList();
         this.basePhase = new EstablishBasePhase(
-                subfaction.getFactionId(), subfaction.getSubfactionId(), subfaction.getName());
+                subfaction.getFactionId(), subfaction.getSubfactionId(), subfaction.getName(),
+                new TerritorySystemPicker(constellations));
         phases.add(basePhase);
     }
 

@@ -20,9 +20,14 @@ import java.util.*;
 import java.util.logging.Logger;
 
 /**
- * Phase that establishes a hidden base for a criminal subfaction.
+ * Phase that establishes a hidden base for a subfaction.
  *
- * Uses the same placement logic as vanilla PirateBaseIntel:
+ * System selection is delegated to a {@link SystemPicker}, allowing different
+ * subfaction types to use different strategies (criminals prefer near-core
+ * systems with few salvageables, political subfactions may prefer frontier
+ * systems near friendly territory, etc.).
+ *
+ * Station placement uses the same logic as vanilla PirateBaseIntel:
  * BaseThemeGenerator.getLocations() picks a suitable spot (asteroid field,
  * ring system, gas giant orbit, planet orbit, or nebula), then
  * addNonSalvageEntity() creates a makeshift_station there with proper
@@ -38,16 +43,25 @@ public class EstablishBasePhase implements OpPhase, Serializable {
     private final String factionId;
     private final String subfactionId;
     private final String subfactionName;
+    private final SystemPicker systemPicker;
 
     private float elapsed = 0f;
     private boolean done = false;
     private boolean succeeded = false;
     private String createdMarketId;
 
-    public EstablishBasePhase(String factionId, String subfactionId, String subfactionName) {
+    /**
+     * @param factionId       faction ID (e.g. "pirates")
+     * @param subfactionId    intrigue subfaction ID
+     * @param subfactionName  display name for the base
+     * @param systemPicker    strategy for choosing which system to build in
+     */
+    public EstablishBasePhase(String factionId, String subfactionId, String subfactionName,
+                              SystemPicker systemPicker) {
         this.factionId = factionId;
         this.subfactionId = subfactionId;
         this.subfactionName = subfactionName != null ? subfactionName : subfactionId;
+        this.systemPicker = systemPicker;
     }
 
     @Override
@@ -98,29 +112,16 @@ public class EstablishBasePhase implements OpPhase, Serializable {
     // ── Base creation — mirrors vanilla PirateBaseIntel ──────────────────
 
     private String createBase() {
-        List<StarSystemAPI> candidateSystems = new ArrayList<>();
-        for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
-            if (sys.hasTag(Tags.THEME_CORE)
-                    || sys.hasTag(Tags.THEME_CORE_POPULATED)
-                    || sys.hasTag(Tags.THEME_CORE_UNPOPULATED)) {
-                continue;
-            }
-            candidateSystems.add(sys);
-        }
-
-        if (candidateSystems.isEmpty()) {
-            log.warning("EstablishBasePhase: no non-core systems available.");
+        StarSystemAPI sys = systemPicker.pick();
+        if (sys == null) {
+            log.warning("EstablishBasePhase: SystemPicker returned no system.");
             return null;
         }
 
-        Collections.shuffle(candidateSystems, new Random());
+        String result = tryCreateBaseInSystem(sys);
+        if (result != null) return result;
 
-        for (StarSystemAPI sys : candidateSystems) {
-            String result = tryCreateBaseInSystem(sys);
-            if (result != null) return result;
-        }
-
-        log.warning("EstablishBasePhase: no suitable location found in any non-core system.");
+        log.warning("EstablishBasePhase: failed to place station in " + sys.getBaseName());
         return null;
     }
 

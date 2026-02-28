@@ -31,4 +31,29 @@ public class GameOpFactory implements OpFactory {
     public IntrigueOp createPatrolOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
         return new PatrolOp(opId, subfaction, territoryId);
     }
+
+    @Override
+    public IntrigueOp createSendSuppliesOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SendSuppliesOp(opId, subfaction, territoryId);
+    }
+
+    @Override
+    public IntrigueOp createRallyOp(String opId, IntrigueSubfaction subfaction) {
+        return new RallyOp(opId, subfaction);
+    }
+
+    @Override
+    public IntrigueOp createInfightingOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new InfightingOp(opId, subfaction, territoryId);
+    }
+
+    @Override
+    public IntrigueOp createExpulsionOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new ExpulsionOp(opId, subfaction, territoryId);
+    }
+
+    @Override
+    public IntrigueOp createCivilWarOp(String opId, IntrigueSubfaction subfaction) {
+        return new CivilWarOp(opId, subfaction);
+    }
 }

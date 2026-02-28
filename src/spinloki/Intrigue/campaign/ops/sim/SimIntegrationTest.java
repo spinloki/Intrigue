@@ -70,7 +70,7 @@ public class SimIntegrationTest {
         SimClock clock = new SimClock();
         SimPeopleAccess people = new SimPeopleAccess();
         SimOpRunner ops = new SimOpRunner();
-        SimOpFactory opFactory = new SimOpFactory(new Random(42), SimConfig.defaults());
+        SimOpFactory opFactory = new SimOpFactory(new Random(100), SimConfig.defaults());
         SimSubfactionAccess subfactions = new SimSubfactionAccess();
 
         // ── People ──
@@ -544,9 +544,16 @@ public class SimIntegrationTest {
     }
 
     static void runLongSimStats() {
-        System.out.println("\n╔═══════════════════════════════════════════════════╗");
-        System.out.println("║         200-Tick Simulation Statistics            ║");
-        System.out.println("╚═══════════════════════════════════════════════════╝\n");
+        // Configurable tick count
+        int ticks = 200;
+        String ticksProp = System.getProperty("intrigue.ticks");
+        if (ticksProp != null) {
+            try { ticks = Integer.parseInt(ticksProp); } catch (NumberFormatException ignored) {}
+        }
+
+        System.out.printf("%n╔═══════════════════════════════════════════════════╗%n");
+        System.out.printf("║       %d-Tick Simulation Statistics             ║%n", ticks);
+        System.out.printf("╚═══════════════════════════════════════════════════╝%n%n");
 
         SimConfig config = SimConfig.defaults();
 
@@ -555,14 +562,29 @@ public class SimIntegrationTest {
         System.out.printf("    Scout Territory success:      %.0f%%%n", config.scoutTerritorySuccessProb * 100);
         System.out.printf("    Establish Terr. Base success: %.0f%%%n", config.establishTerritoryBaseSuccessProb * 100);
         System.out.printf("    Patrol success:               %.0f%%%n", config.patrolSuccessProb * 100);
+        System.out.printf("    Send Supplies success:        %.0f%%%n", config.sendSuppliesSuccessProb * 100);
+        System.out.printf("    Send Supplies cohesion gain:  +%d%n", config.sendSuppliesCohesionGain);
+        System.out.printf("    Send Supplies cohesion loss:  -%d%n", config.sendSuppliesCohesionLoss);
+        System.out.printf("    Rally success:                %d%%%n", (int) (config.rallySuccessProb * 100));
+        System.out.printf("    Rally cohesion gain:          +%d%n", config.rallyCohesionGain);
+        System.out.printf("    Rally threshold:              <%d home cohesion%n", config.rallyCohesionThreshold);
+        System.out.printf("    Territory cohesion decay/tick: %d%n", config.territoryCohesionDecayPerTick);
+        System.out.printf("    Infighting threshold:         <%d cohesion%n", config.infightingCohesionThreshold);
+        System.out.printf("    Expulsion threshold:          <%d cohesion for %d ticks%n",
+                config.expulsionCohesionThreshold, config.expulsionTicksRequired);
+        System.out.printf("    Civil War threshold:          <%d home cohesion for %d ticks%n",
+                config.civilWarCohesionThreshold, config.civilWarTicksRequired);
+        System.out.printf("    High legitimacy threshold:    %d%n", config.highLegitimacyThreshold);
         System.out.printf("    Op cooldown:                  %.0f days%n", (float) OpEvaluator.COOLDOWN_DAYS);
         System.out.printf("    Min cohesion threshold:       %d%n", OpEvaluator.MIN_COHESION_THRESHOLD);
+        System.out.printf("    Player action interval:       every %d ticks%n", config.playerActionInterval);
+        System.out.printf("    Player favor bonus:           %+.0f%%%n", config.playerFavorBonus * 100);
+        System.out.printf("    Player disfavor penalty:      %+.0f%%%n", config.playerDisfavorPenalty * 100);
         System.out.println();
 
         SimClock clock = setupSim();
         SimOpRunner ops = (SimOpRunner) IntrigueServices.ops();
 
-        int ticks = 200;
         float daysPerTick = 7f;
 
         // Snapshot starting state
@@ -589,17 +611,77 @@ public class SimIntegrationTest {
         Map<String, Map<String, Integer>> opCounts = new LinkedHashMap<>();
         // Outcome counters: sfId -> { opType -> [successes, failures] }
         Map<String, Map<String, int[]>> outcomeCounts = new LinkedHashMap<>();
+        // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars]
+        Map<String, int[]> dysfunctionCounts = new LinkedHashMap<>();
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             opCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
             outcomeCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
+            dysfunctionCounts.put(sf.getSubfactionId(), new int[3]);
         }
+
 
         // Track ops that need resolution checking
         List<IntrigueOp> pendingOps = new ArrayList<>();
         Map<String, String> opToSubfaction = new LinkedHashMap<>(); // opId -> sfId
 
+        boolean verbose = "true".equals(System.getProperty("intrigue.verbose"));
+
+        // Player mode: "help", "hurt", "both", or null (disabled)
+        String playerMode = System.getProperty("intrigue.player");
+        boolean playerEnabled = playerMode != null;
+
+        // Configurable player interval
+        int playerInterval = config.playerActionInterval;
+        String intervalProp = System.getProperty("intrigue.player.interval");
+        if (intervalProp != null) {
+            try { playerInterval = Integer.parseInt(intervalProp); } catch (NumberFormatException ignored) {}
+        }
+
+        // Get resolver for player modifiers
+        OpOutcomeResolver resolver = ((SimOpFactory) IntrigueServices.opFactory()).getResolver();
+        Random playerRng = new Random(99); // separate RNG so player actions don't disturb op RNG sequence
+
+        // Player action tracking: sfId -> [favors, disfavors]
+        Map<String, int[]> playerActions = new LinkedHashMap<>();
+        for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+            playerActions.put(sf.getSubfactionId(), new int[2]);
+        }
+        String currentTargetId = null; // only one faction at a time
+
         // Run
         for (int t = 0; t < ticks; t++) {
+
+            // ── Player intervention: pick one faction, clear the previous ──
+            if (playerEnabled && t > 0 && t % playerInterval == 0) {
+                // Clear previous target's modifier
+                if (currentTargetId != null) {
+                    resolver.setSubfactionModifier(currentTargetId, 0f);
+                }
+
+                List<IntrigueSubfaction> allSf = new ArrayList<>(IntrigueServices.subfactions().getAll());
+                IntrigueSubfaction target = allSf.get(playerRng.nextInt(allSf.size()));
+                currentTargetId = target.getSubfactionId();
+
+                // Determine favor/disfavor based on mode
+                boolean favor;
+                if ("help".equals(playerMode)) {
+                    favor = true;
+                } else if ("hurt".equals(playerMode)) {
+                    favor = false;
+                } else {
+                    favor = playerRng.nextBoolean(); // "both" mode
+                }
+
+                float mod = favor ? config.playerFavorBonus : config.playerDisfavorPenalty;
+                resolver.setSubfactionModifier(currentTargetId, mod);
+                int[] pa = playerActions.get(currentTargetId);
+                if (favor) pa[0]++; else pa[1]++;
+
+                if (verbose) {
+                    System.out.printf("  [t=%3d] ** PLAYER %s %s ** (modifier %+.0f%%)%n",
+                            t, favor ? "FAVORS" : "DISFAVORS", target.getName(), mod * 100);
+                }
+            }
             for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
                 IntrigueOp op = OpEvaluator.evaluate(sf, ops, "sim");
                 if (op != null) {
@@ -608,10 +690,53 @@ public class SimIntegrationTest {
                             .merge(op.getOpTypeName(), 1, Integer::sum);
                     pendingOps.add(op);
                     opToSubfaction.put(op.getOpId(), sf.getSubfactionId());
+
+                    if (verbose) {
+                        System.out.printf("  [t=%3d] %-35s \u2192 %-20s (homeCoh=%d leg=%d",
+                                t, sf.getName(), op.getOpTypeName(),
+                                sf.getHomeCohesion(), sf.getLegitimacy());
+                        if (op.getTerritoryId() != null) {
+                            IntrigueTerritory terr = IntrigueServices.territories().getById(op.getTerritoryId());
+                            if (terr != null) {
+                                System.out.printf(" terrCoh=%d pres=%s",
+                                        terr.getCohesion(sf.getSubfactionId()),
+                                        terr.getPresence(sf.getSubfactionId()));
+                            }
+                        }
+                        System.out.println(")");
+                    }
                 }
             }
             clock.advanceDays(daysPerTick);
             ops.advance(daysPerTick);
+
+            // Territory cohesion decay per tick + low-cohesion tick tracking
+            for (IntrigueTerritory territory : IntrigueServices.territories().getAll()) {
+                for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+                    String sfId = sf.getSubfactionId();
+                    if (territory.getPresence(sfId) == IntrigueTerritory.Presence.ESTABLISHED) {
+                        int before = territory.getCohesion(sfId);
+                        territory.setCohesion(sfId, before - config.territoryCohesionDecayPerTick);
+
+                        int after = territory.getCohesion(sfId);
+                        // Track low-cohesion ticks for infighting/expulsion
+                        if (after < config.infightingCohesionThreshold) {
+                            territory.incrementLowCohesionTicks(sfId);
+                        } else {
+                            territory.resetLowCohesionTicks(sfId);
+                        }
+                    }
+                }
+            }
+
+            // Home cohesion civil war tick tracking
+            for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+                if (sf.getHomeCohesion() < config.civilWarCohesionThreshold) {
+                    sf.incrementLowHomeCohesionTicks();
+                } else {
+                    sf.resetLowHomeCohesionTicks();
+                }
+            }
 
             // Check for resolved ops and track outcomes
             Iterator<IntrigueOp> it = pendingOps.iterator();
@@ -625,6 +750,28 @@ public class SimIntegrationTest {
                         counts[0]++;
                     } else {
                         counts[1]++;
+                    }
+                    // Track dysfunction events
+                    int[] dys = dysfunctionCounts.get(sfId);
+                    if (dys != null) {
+                        switch (op.getOpTypeName()) {
+                            case "Infighting": dys[0]++; break;
+                            case "Expulsion":  dys[1]++; break;
+                            case "Civil War":  dys[2]++; break;
+                        }
+                    }
+                    if (verbose) {
+                        IntrigueSubfaction rsf = null;
+                        for (IntrigueSubfaction s : IntrigueServices.subfactions().getAll()) {
+                            if (s.getSubfactionId().equals(sfId)) { rsf = s; break; }
+                        }
+                        String rsfName = rsf != null ? rsf.getName() : sfId;
+                        System.out.printf("  [t=%3d]   %-35s   %-20s \u2192 %s",
+                                t, rsfName, op.getOpTypeName(), op.getOutcome());
+                        if (rsf != null) {
+                            System.out.printf("  (homeCoh=%d leg=%d)", rsf.getHomeCohesion(), rsf.getLegitimacy());
+                        }
+                        System.out.println();
                     }
                     it.remove();
                 }
@@ -673,11 +820,32 @@ public class SimIntegrationTest {
                 sb.append("  (total=").append(total).append(")");
                 System.out.println(sb);
             }
+
+            // Dysfunction events
+            int[] dys = dysfunctionCounts.get(id);
+            if (dys[0] > 0 || dys[1] > 0 || dys[2] > 0) {
+                System.out.printf("    Events: %d infighting, %d expulsions, %d civil wars%n",
+                        dys[0], dys[1], dys[2]);
+            }
             System.out.println();
         }
 
         System.out.printf("  Simulation: %d ticks x %.0f days = %.0f days (~%.1f cycles)%n",
                 ticks, daysPerTick, ticks * daysPerTick, ticks * daysPerTick / 365f);
+
+        // Player action summary
+        if (playerEnabled) {
+            System.out.println();
+            System.out.printf("  Player Mode: %s (reconsiders every %d ticks)%n", playerMode, playerInterval);
+            for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
+                String id = sf.getSubfactionId();
+                int[] pa = playerActions.get(id);
+                float mod = resolver.getSubfactionModifier(id);
+                String modStr = mod == 0f ? "none" : String.format("%+.0f%%", mod * 100);
+                System.out.printf("    %-35s  favors=%d  disfavors=%d  current modifier=%s%n",
+                        sf.getName(), pa[0], pa[1], modStr);
+            }
+        }
     }
 
     static void testFullSimLoop() {

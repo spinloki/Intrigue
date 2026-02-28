@@ -109,12 +109,29 @@ public class IntriguePacerScript implements EveryFrameScript {
                     if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
                     int before = territory.getCohesion(sfId);
                     territory.setCohesion(sfId, before - decayAmount);
-                    if (verbose && territory.getCohesion(sfId) != before) {
+                    int after = territory.getCohesion(sfId);
+                    if (verbose && after != before) {
                         result.append("\n  Territory decay: ").append(territory.getName())
                               .append(" / ").append(sfId)
-                              .append(" ").append(before).append(" -> ").append(territory.getCohesion(sfId));
+                              .append(" ").append(before).append(" -> ").append(after);
+                    }
+
+                    // Track low-cohesion ticks for infighting/expulsion
+                    if (after < 30) {
+                        territory.incrementLowCohesionTicks(sfId);
+                    } else {
+                        territory.resetLowCohesionTicks(sfId);
                     }
                 }
+            }
+        }
+
+        // ── Home cohesion civil war tracking ──
+        for (IntrigueSubfaction sf : allSubfactions) {
+            if (sf.getHomeCohesion() < 10) {
+                sf.incrementLowHomeCohesionTicks();
+            } else {
+                sf.resetLowHomeCohesionTicks();
             }
         }
 

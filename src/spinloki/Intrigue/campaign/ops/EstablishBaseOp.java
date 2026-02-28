@@ -39,7 +39,7 @@ public class EstablishBaseOp extends IntrigueOp {
               subfaction.getSubfactionId(),
               null);   // no target subfaction
         this.initiatorSubfactionId = subfaction.getSubfactionId();
-        this.basePhase = new EstablishBasePhase(subfaction.getFactionId(), subfaction.getSubfactionId(), subfaction.getName());
+        this.basePhase = new EstablishBasePhase(subfaction.getFactionId(), subfaction.getSubfactionId(), subfaction.getName(), new CriminalSystemPicker());
         phases.add(basePhase);
     }
 

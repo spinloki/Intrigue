@@ -27,5 +27,23 @@ public interface OpOutcomeResolver {
 
     /** Resolve a patrol op. */
     OpOutcome resolvePatrol(IntrigueSubfaction subfaction, String territoryId);
+
+    /** Resolve a send-supplies op (convoy to territory). */
+    OpOutcome resolveSendSupplies(IntrigueSubfaction subfaction, String territoryId);
+
+    /** Resolve a rally op (consolidate home base). */
+    OpOutcome resolveRally(IntrigueSubfaction subfaction);
+
+    /**
+     * Set a probability modifier for a subfaction (e.g. from player intervention).
+     * Positive = favor (higher success), negative = disfavor (lower success).
+     */
+    default void setSubfactionModifier(String subfactionId, float modifier) {}
+
+    /** Get the current probability modifier for a subfaction (default 0). */
+    default float getSubfactionModifier(String subfactionId) { return 0f; }
+
+    /** Clear all per-subfaction modifiers. */
+    default void clearModifiers() {}
 }
 

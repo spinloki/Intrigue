@@ -48,6 +48,38 @@ public class SimConfig {
     public float establishTerritoryBaseSuccessProb = 0.85f;
     /** Probability that a patrol fleet survives (success). */
     public float patrolSuccessProb = 0.8f;
+    /** Probability that a supply convoy reaches its territory. */
+    public float sendSuppliesSuccessProb = 0.75f;
+    /** Territory cohesion gained on successful supply run. */
+    public int sendSuppliesCohesionGain = 15;
+    /** Territory cohesion lost on failed supply run (convoy destroyed). */
+    public int sendSuppliesCohesionLoss = 10;
+    /** Probability that a rally succeeds. */
+    public float rallySuccessProb = 0.85f;
+    /** Home cohesion gained on successful rally. */
+    public int rallyCohesionGain = 10;
+    /** Home cohesion below which a rally op is considered. */
+    public int rallyCohesionThreshold = 50;
+    /** Legitimacy threshold above which Patrol and Raid are deprioritized. */
+    public int highLegitimacyThreshold = 80;
+    /** Territory cohesion decay per tick. */
+    public int territoryCohesionDecayPerTick = 1;
+
+    // ── Dysfunction thresholds ──
+    /** Territory cohesion below which infighting can occur. */
+    public int infightingCohesionThreshold = 30;
+    /** Legitimacy lost when infighting occurs in a territory. */
+    public int infightingLegitimacyLoss = 8;
+    /** Territory cohesion below which the subfaction risks expulsion. */
+    public int expulsionCohesionThreshold = 10;
+    /** Consecutive ticks below expulsion threshold before the subfaction is expelled. */
+    public int expulsionTicksRequired = 3;
+    /** Legitimacy lost when a subfaction is expelled from a territory. */
+    public int expulsionLegitimacyLoss = 20;
+    /** Home cohesion below which civil war can trigger. */
+    public int civilWarCohesionThreshold = 10;
+    /** Consecutive ticks of low home cohesion before civil war fires. */
+    public int civilWarTicksRequired = 3;
 
     // ── Pacing ──
     public int pacerNudgeMin = -1;
@@ -56,6 +88,14 @@ public class SimConfig {
 
     // ── Regions ──
     public int prominencePowerThreshold = 75;
+
+    // ── Player intervention (sim only) ──
+    /** Ticks between random player actions. */
+    public int playerActionInterval = 10;
+    /** Success probability bonus when the player favors a subfaction. */
+    public float playerFavorBonus = 0.30f;
+    /** Success probability penalty when the player disfavors a subfaction. */
+    public float playerDisfavorPenalty = -0.30f;
 
     public static SimConfig defaults() {
         return new SimConfig();
@@ -92,10 +132,28 @@ public class SimConfig {
         c.scoutTerritorySuccessProb = scoutTerritorySuccessProb;
         c.establishTerritoryBaseSuccessProb = establishTerritoryBaseSuccessProb;
         c.patrolSuccessProb = patrolSuccessProb;
+        c.sendSuppliesSuccessProb = sendSuppliesSuccessProb;
+        c.sendSuppliesCohesionGain = sendSuppliesCohesionGain;
+        c.sendSuppliesCohesionLoss = sendSuppliesCohesionLoss;
+        c.rallySuccessProb = rallySuccessProb;
+        c.rallyCohesionGain = rallyCohesionGain;
+        c.rallyCohesionThreshold = rallyCohesionThreshold;
+        c.highLegitimacyThreshold = highLegitimacyThreshold;
+        c.territoryCohesionDecayPerTick = territoryCohesionDecayPerTick;
+        c.infightingCohesionThreshold = infightingCohesionThreshold;
+        c.infightingLegitimacyLoss = infightingLegitimacyLoss;
+        c.expulsionCohesionThreshold = expulsionCohesionThreshold;
+        c.expulsionTicksRequired = expulsionTicksRequired;
+        c.expulsionLegitimacyLoss = expulsionLegitimacyLoss;
+        c.civilWarCohesionThreshold = civilWarCohesionThreshold;
+        c.civilWarTicksRequired = civilWarTicksRequired;
         c.pacerNudgeMin = pacerNudgeMin;
         c.pacerNudgeMax = pacerNudgeMax;
         c.tickIntervalDays = tickIntervalDays;
         c.prominencePowerThreshold = prominencePowerThreshold;
+        c.playerActionInterval = playerActionInterval;
+        c.playerFavorBonus = playerFavorBonus;
+        c.playerDisfavorPenalty = playerDisfavorPenalty;
         return c;
     }
 }

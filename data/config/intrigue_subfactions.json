@@ -5,6 +5,7 @@
       "name": "Eventide Aristocracy",
       "factionId": "hegemony",
       "homeMarketId": "eventide",
+      "power": 60,
       "members": [
         {
           "role": "LEADER",
@@ -14,10 +15,7 @@
           "portraitId": "graphics/portraits/portrait_hegemony01.png",
           "rankId": "spaceAdmiral",
           "postId": "fleetCommander",
-          "traits": [
-            "MERCILESS",
-            "OPPORTUNIST"
-          ]
+          "traits": ["MERCILESS", "OPPORTUNIST"]
         },
         {
           "role": "MEMBER",
@@ -28,21 +26,16 @@
           "rankId": "spaceCommander",
           "postId": "patrolCommander",
           "bonus": "Old-money connections and political favors",
-          "traits": [
-            "HONOR_BOUND"
-          ]
+          "traits": ["HONOR_BOUND"]
         }
-      ],
-      "cohesion": 50,
-      "legitimacy": 70,
-      "cohesionLabel": "Discipline",
-      "legitimacyLabel": "Authority"
+      ]
     },
     {
       "subfactionId": "hegemony_xiv_detachment",
       "name": "XIV Battlegroup Detachment",
       "factionId": "hegemony",
       "homeMarketId": "chicomoztoc",
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -52,9 +45,7 @@
           "portraitId": "graphics/portraits/portrait_hegemony03.png",
           "rankId": "groundGeneral",
           "postId": "baseCommander",
-          "traits": [
-            "PARANOID"
-          ]
+          "traits": ["PARANOID"]
         },
         {
           "role": "MEMBER",
@@ -65,21 +56,16 @@
           "rankId": "spaceCommander",
           "postId": "patrolCommander",
           "bonus": "Veteran officers and XIV Battlegroup doctrine",
-          "traits": [
-            "OPPORTUNIST"
-          ]
+          "traits": ["OPPORTUNIST"]
         }
-      ],
-      "cohesion": 80,
-      "legitimacy": 65,
-      "cohesionLabel": "Discipline",
-      "legitimacyLabel": "Authority"
+      ]
     },
     {
       "subfactionId": "tritachyon_capital_assurance",
       "name": "Capital Assurance",
       "factionId": "tritachyon",
       "homeMarketId": "eochu_bres",
+      "power": 65,
       "members": [
         {
           "role": "LEADER",
@@ -89,9 +75,7 @@
           "portraitId": "graphics/portraits/portrait_corporate01.png",
           "rankId": "citizen",
           "postId": "agent",
-          "traits": [
-            "CHARISMATIC"
-          ]
+          "traits": ["CHARISMATIC"]
         },
         {
           "role": "MEMBER",
@@ -102,21 +86,16 @@
           "rankId": "citizen",
           "postId": "agent",
           "bonus": "Private security fleets and asset protection contracts",
-          "traits": [
-            "OPPORTUNIST"
-          ]
+          "traits": ["OPPORTUNIST"]
         }
-      ],
-      "cohesion": 60,
-      "legitimacy": 75,
-      "cohesionLabel": "Synergy",
-      "legitimacyLabel": "Mandate"
+      ]
     },
     {
       "subfactionId": "tritachyon_special_projects",
       "name": "Special Projects Division",
       "factionId": "tritachyon",
       "homeMarketId": "culann",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -126,21 +105,16 @@
           "portraitId": "graphics/portraits/portrait_corporate03.png",
           "rankId": "citizen",
           "postId": "agent",
-          "traits": [
-            "PARANOID"
-          ]
+          "traits": ["PARANOID"]
         }
-      ],
-      "cohesion": 70,
-      "legitimacy": 40,
-      "cohesionLabel": "Synergy",
-      "legitimacyLabel": "Mandate"
+      ]
     },
     {
       "subfactionId": "persean_kazeron_coalition",
       "name": "Kazeron Coalition",
       "factionId": "persean",
       "homeMarketId": "kazeron",
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -150,9 +124,7 @@
           "portraitId": "graphics/portraits/portrait13.png",
           "rankId": "spaceAdmiral",
           "postId": "fleetCommander",
-          "traits": [
-            "MERCILESS"
-          ]
+          "traits": ["MERCILESS"]
         },
         {
           "role": "MEMBER",
@@ -165,17 +137,14 @@
           "bonus": "Stability and governance expertise",
           "traits": []
         }
-      ],
-      "cohesion": 70,
-      "legitimacy": 75,
-      "cohesionLabel": "Solidarity",
-      "legitimacyLabel": "Representation"
+      ]
     },
     {
       "subfactionId": "sindrian_volturn_blue_claw",
       "name": "Order of the Blue Claw",
       "factionId": "sindrian_diktat",
       "homeMarketId": "volturn",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -185,9 +154,7 @@
           "portraitId": "graphics/portraits/portrait15.png",
           "rankId": "spaceCommander",
           "postId": "fleetCommander",
-          "traits": [
-            "OPPORTUNIST"
-          ]
+          "traits": ["OPPORTUNIST"]
         },
         {
           "role": "MEMBER",
@@ -198,21 +165,16 @@
           "rankId": "citizen",
           "postId": "administrator",
           "bonus": "Volturnian lobster exports and aquaculture wealth",
-          "traits": [
-            "CHARISMATIC"
-          ]
+          "traits": ["CHARISMATIC"]
         }
-      ],
-      "cohesion": 60,
-      "legitimacy": 45,
-      "cohesionLabel": "Loyalty",
-      "legitimacyLabel": "Legitimacy"
+      ]
     },
     {
       "subfactionId": "sindrian_inner_circle",
       "name": "Inner Circle",
       "factionId": "sindrian_diktat",
       "homeMarketId": "sindria",
+      "power": 70,
       "members": [
         {
           "role": "LEADER",
@@ -222,22 +184,16 @@
           "portraitId": "graphics/portraits/portrait_diktat01.png",
           "rankId": "groundGeneral",
           "postId": "baseCommander",
-          "traits": [
-            "MERCILESS",
-            "PARANOID"
-          ]
+          "traits": ["MERCILESS", "PARANOID"]
         }
-      ],
-      "cohesion": 75,
-      "legitimacy": 80,
-      "cohesionLabel": "Loyalty",
-      "legitimacyLabel": "Legitimacy"
+      ]
     },
     {
       "subfactionId": "church_knights_hesperus",
       "name": "Hesperus Chapter",
       "factionId": "luddic_church",
       "homeMarketId": "hesperus",
+      "power": 70,
       "members": [
         {
           "role": "LEADER",
@@ -247,22 +203,16 @@
           "portraitId": "graphics/portraits/portrait_luddic01.png",
           "rankId": "groundMarshal",
           "postId": "baseCommander",
-          "traits": [
-            "MERCILESS",
-            "HONOR_BOUND"
-          ]
+          "traits": ["MERCILESS", "HONOR_BOUND"]
         }
-      ],
-      "cohesion": 80,
-      "legitimacy": 70,
-      "cohesionLabel": "Devotion",
-      "legitimacyLabel": "Orthodoxy"
+      ]
     },
     {
       "subfactionId": "church_gilead_mission",
       "name": "Gilead Mission",
       "factionId": "luddic_church",
       "homeMarketId": "gilead",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -272,21 +222,16 @@
           "portraitId": "graphics/portraits/portrait_luddic02.png",
           "rankId": "citizen",
           "postId": "agent",
-          "traits": [
-            "CHARISMATIC"
-          ]
+          "traits": ["CHARISMATIC"]
         }
-      ],
-      "cohesion": 55,
-      "legitimacy": 75,
-      "cohesionLabel": "Devotion",
-      "legitimacyLabel": "Orthodoxy"
+      ]
     },
     {
       "subfactionId": "pirates_kantas_reavers",
       "name": "Kanta's Reavers",
       "factionId": "pirates",
       "type": "CRIMINAL",
+      "power": 75,
       "members": [
         {
           "role": "LEADER",
@@ -296,9 +241,7 @@
           "portraitId": "graphics/portraits/portrait_pirate03.png",
           "rankId": "spaceCommander",
           "postId": "fleetCommander",
-          "traits": [
-            "MERCILESS"
-          ]
+          "traits": ["MERCILESS"]
         },
         {
           "role": "MEMBER",
@@ -309,21 +252,16 @@
           "rankId": "citizen",
           "postId": "agent",
           "bonus": "Raider fleet crews and black market arms supply",
-          "traits": [
-            "OPPORTUNIST"
-          ]
+          "traits": ["OPPORTUNIST"]
         }
-      ],
-      "cohesion": 70,
-      "legitimacy": 80,
-      "cohesionLabel": "Grip",
-      "legitimacyLabel": "Reputation"
+      ]
     },
     {
       "subfactionId": "path_chalcedon_cell",
       "name": "Chalcedon Purity Cell",
       "factionId": "luddic_path",
       "type": "CRIMINAL",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -333,10 +271,7 @@
           "portraitId": "graphics/portraits/portrait_luddic03.png",
           "rankId": "citizen",
           "postId": "agent",
-          "traits": [
-            "PARANOID",
-            "HONOR_BOUND"
-          ]
+          "traits": ["PARANOID", "HONOR_BOUND"]
         },
         {
           "role": "MEMBER",
@@ -347,21 +282,16 @@
           "rankId": "citizen",
           "postId": "agent",
           "bonus": "Internal discipline and ideological enforcement",
-          "traits": [
-            "MERCILESS"
-          ]
+          "traits": ["MERCILESS"]
         }
-      ],
-      "cohesion": 65,
-      "legitimacy": 70,
-      "cohesionLabel": "Fervor",
-      "legitimacyLabel": "Terror"
+      ]
     },
     {
       "subfactionId": "path_crusade_fleet",
       "name": "Crusade of the Righteous Flame",
       "factionId": "luddic_path",
       "type": "CRIMINAL",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -371,22 +301,16 @@
           "portraitId": "graphics/portraits/portrait_luddic05.png",
           "rankId": "spaceCommander",
           "postId": "fleetCommander",
-          "traits": [
-            "MERCILESS",
-            "CHARISMATIC"
-          ]
+          "traits": ["MERCILESS", "CHARISMATIC"]
         }
-      ],
-      "cohesion": 80,
-      "legitimacy": 55,
-      "cohesionLabel": "Fervor",
-      "legitimacyLabel": "Terror"
+      ]
     },
     {
       "subfactionId": "independents_fia_compact",
       "name": "Free Industry Association",
       "factionId": "independent",
       "homeMarketId": "eldfell",
+      "power": 50,
       "members": [
         {
           "role": "LEADER",
@@ -396,10 +320,7 @@
           "portraitId": "graphics/portraits/portrait12.png",
           "rankId": "citizen",
           "postId": "administrator",
-          "traits": [
-            "CHARISMATIC",
-            "OPPORTUNIST"
-          ]
+          "traits": ["CHARISMATIC", "OPPORTUNIST"]
         },
         {
           "role": "MEMBER",
@@ -410,21 +331,16 @@
           "rankId": "citizen",
           "postId": "agent",
           "bonus": "Trade network arbitrage and tariff negotiation",
-          "traits": [
-            "HONOR_BOUND"
-          ]
+          "traits": ["HONOR_BOUND"]
         }
-      ],
-      "cohesion": 50,
-      "legitimacy": 65,
-      "cohesionLabel": "Coordination",
-      "legitimacyLabel": "Standing"
+      ]
     },
     {
       "subfactionId": "independents_frontier_watch",
       "name": "Frontier Watch",
       "factionId": "independent",
       "homeMarketId": "baetis",
+      "power": 60,
       "members": [
         {
           "role": "LEADER",
@@ -434,15 +350,9 @@
           "portraitId": "graphics/portraits/portrait10.png",
           "rankId": "spaceCommander",
           "postId": "patrolCommander",
-          "traits": [
-            "HONOR_BOUND"
-          ]
+          "traits": ["HONOR_BOUND"]
         }
-      ],
-      "cohesion": 70,
-      "legitimacy": 55,
-      "cohesionLabel": "Coordination",
-      "legitimacyLabel": "Standing"
+      ]
     }
   ]
 }

@@ -53,6 +53,13 @@ public class IntrigueTerritory implements Serializable {
      */
     private final Map<String, Presence> subfactionPresence = new LinkedHashMap<>();
 
+    /**
+     * Per-subfaction tick counter for how many consecutive ticks territory
+     * cohesion has been below the critical threshold (default 10).
+     * Used to trigger expulsion after a sustained period of neglect.
+     */
+    private final Map<String, Integer> lowCohesionTicks = new LinkedHashMap<>();
+
     public IntrigueTerritory(String territoryId, String name, TerritoryConfig.Tier tier, String plotHook) {
         this.territoryId = territoryId;
         this.name = name;
@@ -135,10 +142,27 @@ public class IntrigueTerritory implements Serializable {
         return p != null && p != Presence.NONE;
     }
 
-    /** Remove a subfaction from this territory entirely (cohesion and presence). */
+    /** Remove a subfaction from this territory entirely (cohesion, presence, and low-cohesion counter). */
     public void removeSubfaction(String subfactionId) {
         subfactionCohesion.remove(subfactionId);
         subfactionPresence.remove(subfactionId);
+        lowCohesionTicks.remove(subfactionId);
+    }
+
+    /** Get the number of consecutive ticks a subfaction's cohesion has been critically low. */
+    public int getLowCohesionTicks(String subfactionId) {
+        Integer val = lowCohesionTicks.get(subfactionId);
+        return val != null ? val : 0;
+    }
+
+    /** Increment the low-cohesion tick counter for a subfaction. */
+    public void incrementLowCohesionTicks(String subfactionId) {
+        lowCohesionTicks.put(subfactionId, getLowCohesionTicks(subfactionId) + 1);
+    }
+
+    /** Reset the low-cohesion tick counter for a subfaction. */
+    public void resetLowCohesionTicks(String subfactionId) {
+        lowCohesionTicks.remove(subfactionId);
     }
 
     /** All subfaction IDs that have any presence (SCOUTING or ESTABLISHED) in this territory. */

@@ -27,6 +27,12 @@ public final class OpEvaluator {
     /** Minimum days between operations for the same subfaction. */
     public static final float COOLDOWN_DAYS = 30f;
 
+    /** Legitimacy threshold above which Patrol and Raid are deprioritized. */
+    public static final int HIGH_LEGITIMACY_THRESHOLD = 80;
+
+    /** Home cohesion below which a Rally op is considered. */
+    public static final int RALLY_COHESION_THRESHOLD = 50;
+
     /**
      * Evaluate whether this subfaction should start an op right now.
      *
@@ -60,27 +66,60 @@ public final class OpEvaluator {
         if (leader.isCheckedOut()) return null;
         if (opsRunner.hasActiveOp(leaderId)) return null;
 
-        // Subfaction home cohesion threshold
-        if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD) return null;
-
         // Cooldown on the subfaction
         if (isOnCooldown(subfaction)) return null;
 
-        // ── Priority 1: territory ops (scouting, establishing bases) ──
-        IntrigueOp territoryOp = evaluateTerritoryOp(subfaction, leader, opsRunner, opIdPrefix);
-        if (territoryOp != null) return territoryOp;
+        // ── Priority 0: dysfunction (infighting, expulsion, civil war) ──
+        // These fire regardless of home cohesion — they ARE the consequence of low cohesion.
+        IntrigueOp dysfunctionOp = evaluateDysfunction(subfaction, opsRunner, opIdPrefix);
+        if (dysfunctionOp != null) return dysfunctionOp;
 
-        // ── Priority 2: raids (last resort when nothing else to do) ──
-        Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
-        List<ScoredTarget> targets = scoreTargets(subfaction, leader, allSubfactions, opsRunner);
+        // ── Priority 1a: urgent supplies — established territory about to collapse ──
+        // Convoys still run even when the subfaction is weak.
+        IntrigueOp urgentSupplyOp = evaluateSendSupplies(subfaction, opsRunner, opIdPrefix,
+                INFIGHTING_COHESION_THRESHOLD);
+        if (urgentSupplyOp != null) return urgentSupplyOp;
 
-        if (!targets.isEmpty()) {
-            targets.sort((a, b) -> Float.compare(b.score, a.score));
-            ScoredTarget best = targets.get(0);
+        // ── Priority 1b: rally — consolidate home base when cohesion is low ──
+        // Fires regardless of MIN_COHESION_THRESHOLD so factions can recover.
+        if (subfaction.getHomeCohesion() < RALLY_COHESION_THRESHOLD) {
+            String opId = opsRunner.nextOpId(opIdPrefix);
+            return IntrigueServices.opFactory().createRallyOp(opId, subfaction);
+        }
 
-            if (best.score >= 10f) {
-                String opId = opsRunner.nextOpId(opIdPrefix);
-                return IntrigueServices.opFactory().createRaidOp(opId, subfaction, best.target);
+        // ── Below this point, the subfaction must be strong enough to project power ──
+        if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD) return null;
+
+        // ── Priority 1b: territory presence building (scout, establish) ──
+        IntrigueOp presenceOp = evaluatePresenceOp(subfaction, leader, opsRunner, opIdPrefix);
+        if (presenceOp != null) return presenceOp;
+
+        // ── Priority 2: routine supplies to established territories ──
+        IntrigueOp supplyOp = evaluateSendSupplies(subfaction, opsRunner, opIdPrefix, 50);
+        if (supplyOp != null) return supplyOp;
+
+        // Below this point, ops are deprioritized when legitimacy is high
+        boolean highLegitimacy = subfaction.getLegitimacy() >= HIGH_LEGITIMACY_THRESHOLD;
+
+        // ── Priority 3: patrol (skip if legitimacy is already high) ──
+        if (!highLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, opIdPrefix);
+            if (patrolOp != null) return patrolOp;
+        }
+
+        // ── Priority 4: raids (skip if legitimacy is already high) ──
+        if (!highLegitimacy) {
+            Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
+            List<ScoredTarget> targets = scoreTargets(subfaction, leader, allSubfactions, opsRunner);
+
+            if (!targets.isEmpty()) {
+                targets.sort((a, b) -> Float.compare(b.score, a.score));
+                ScoredTarget best = targets.get(0);
+
+                if (best.score >= 10f) {
+                    String opId = opsRunner.nextOpId(opIdPrefix);
+                    return IntrigueServices.opFactory().createRaidOp(opId, subfaction, best.target);
+                }
             }
         }
 
@@ -109,40 +148,90 @@ public final class OpEvaluator {
 
         if (leader.isCheckedOut()) return "leader checked out";
         if (opsRunner.hasActiveOp(leaderId)) return "leader has active op";
-
-        if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD)
-            return "home cohesion " + subfaction.getHomeCohesion() + " < " + MIN_COHESION_THRESHOLD;
-
         if (isOnCooldown(subfaction)) return "on cooldown";
 
         String territoryInfo = diagnoseTerritoryOp(subfaction);
 
-        // Territory ops checked first (higher priority)
-        IntrigueOp territoryOp = evaluateTerritoryOp(subfaction, leader, opsRunner, "diag");
-        if (territoryOp != null) {
-            return "READY → " + territoryOp.getOpTypeName()
-                    + " (territory=" + territoryOp.getTerritoryId() + ")"
+        // Priority 0: dysfunction
+        IntrigueOp dysfunctionOp = evaluateDysfunction(subfaction, opsRunner, "diag");
+        if (dysfunctionOp != null) {
+            return "READY → " + dysfunctionOp.getOpTypeName()
+                    + " (territory=" + dysfunctionOp.getTerritoryId() + ")"
                     + "; " + territoryInfo;
         }
 
-        // Raids checked second (lower priority)
-        Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
-        List<ScoredTarget> targets = scoreTargets(subfaction, leader, allSubfactions, opsRunner);
-
-        if (targets.isEmpty()) return "no territory ops, no valid raid targets; " + territoryInfo;
-
-        targets.sort((a, b) -> Float.compare(b.score, a.score));
-        ScoredTarget best = targets.get(0);
-
-        if (best.score < 10f) {
-            return "no territory ops; best raid score " + best.score + " < 10 (target: "
-                    + best.target.getSubfactionId() + "); " + territoryInfo;
+        // Priority 1a: urgent supplies
+        IntrigueOp urgentSupplyOp = evaluateSendSupplies(subfaction, opsRunner, "diag",
+                INFIGHTING_COHESION_THRESHOLD);
+        if (urgentSupplyOp != null) {
+            return "READY → " + urgentSupplyOp.getOpTypeName()
+                    + " (URGENT, territory=" + urgentSupplyOp.getTerritoryId() + ")"
+                    + "; " + territoryInfo;
         }
 
-        return "READY → raid " + best.target.getSubfactionId() + " (score=" + best.score + ")"
-                + "; " + territoryInfo;
-    }
+        // Priority 1b: rally
+        if (subfaction.getHomeCohesion() < RALLY_COHESION_THRESHOLD) {
+            return "READY → Rally (home cohesion " + subfaction.getHomeCohesion()
+                    + " < " + RALLY_COHESION_THRESHOLD + "); " + territoryInfo;
+        }
 
+        if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD) {
+            return "home cohesion " + subfaction.getHomeCohesion() + " < " + MIN_COHESION_THRESHOLD
+                    + " (only dysfunction/urgent supply ops allowed); " + territoryInfo;
+        }
+
+        // Priority 1b: presence building
+        IntrigueOp presenceOp = evaluatePresenceOp(subfaction, leader, opsRunner, "diag");
+        if (presenceOp != null) {
+            return "READY → " + presenceOp.getOpTypeName()
+                    + " (territory=" + presenceOp.getTerritoryId() + ")"
+                    + "; " + territoryInfo;
+        }
+
+        // Priority 2: routine supplies
+        IntrigueOp supplyOp = evaluateSendSupplies(subfaction, opsRunner, "diag", 50);
+        if (supplyOp != null) {
+            return "READY → " + supplyOp.getOpTypeName()
+                    + " (territory=" + supplyOp.getTerritoryId() + ")"
+                    + "; " + territoryInfo;
+        }
+
+        boolean highLegitimacy = subfaction.getLegitimacy() >= HIGH_LEGITIMACY_THRESHOLD;
+
+        // Priority 3: patrol
+        if (!highLegitimacy) {
+            IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, "diag");
+            if (patrolOp != null) {
+                return "READY → " + patrolOp.getOpTypeName()
+                        + " (territory=" + patrolOp.getTerritoryId() + ")"
+                        + "; " + territoryInfo;
+            }
+        }
+
+        // Priority 4: raids
+        if (!highLegitimacy) {
+            Collection<IntrigueSubfaction> allSubfactions = IntrigueServices.subfactions().getAll();
+            List<ScoredTarget> targets = scoreTargets(subfaction, leader, allSubfactions, opsRunner);
+
+            if (!targets.isEmpty()) {
+                targets.sort((a, b) -> Float.compare(b.score, a.score));
+                ScoredTarget best = targets.get(0);
+                if (best.score >= 10f) {
+                    return "READY → raid " + best.target.getSubfactionId() + " (score=" + best.score + ")"
+                            + "; " + territoryInfo;
+                }
+                return "best raid score " + best.score + " < 10 (target: "
+                        + best.target.getSubfactionId() + "); " + territoryInfo;
+            }
+        }
+
+        if (highLegitimacy) {
+            return "high legitimacy (" + subfaction.getLegitimacy() + " >= " + HIGH_LEGITIMACY_THRESHOLD
+                    + "), patrol/raid deprioritized; no supplies needed; " + territoryInfo;
+        }
+
+        return "no ops available; " + territoryInfo;
+    }
     // ── Scoring ─────────────────────────────────────────────────────────
 
     private static List<ScoredTarget> scoreTargets(IntrigueSubfaction attacker,
@@ -267,19 +356,81 @@ public final class OpEvaluator {
         return "CRIMINAL homeless → READY to establish base";
     }
 
+    // ── Dysfunction evaluation ───────────────────────────────────────────
+
+    /** Thresholds for territory infighting and expulsion. */
+    public static final int INFIGHTING_COHESION_THRESHOLD = 30;
+    public static final int EXPULSION_COHESION_THRESHOLD = 10;
+    public static final int EXPULSION_TICKS_REQUIRED = 3;
+
+    /** Thresholds for home civil war. */
+    public static final int CIVIL_WAR_COHESION_THRESHOLD = 10;
+    public static final int CIVIL_WAR_TICKS_REQUIRED = 3;
+
+    /**
+     * Check for dysfunction consequences that fire when the subfaction is ready.
+     * Priority: Civil War > Expulsion > Infighting.
+     *
+     * Low-cohesion ticks are tracked externally (by the pacer/sim loop).
+     * - Infighting fires exactly once: on the first tick cohesion drops below INFIGHTING threshold.
+     * - Expulsion fires after cohesion has been below EXPULSION threshold for N ticks.
+     * - Civil War fires after home cohesion has been below threshold for N ticks.
+     *
+     * Returns null if no dysfunction event should fire.
+     */
+    private static IntrigueOp evaluateDysfunction(IntrigueSubfaction subfaction,
+                                                   IntrigueOpRunner opsRunner,
+                                                   String opIdPrefix) {
+        // Don't stack dysfunction ops — if the subfaction already has an active op, skip
+        String leaderId = subfaction.getLeaderId();
+        if (leaderId != null && opsRunner.hasActiveOp(leaderId)) return null;
+
+        // ── Civil War: home cohesion critically low for too long ──
+        if (subfaction.getLowHomeCohesionTicks() >= CIVIL_WAR_TICKS_REQUIRED) {
+            String opId = opsRunner.nextOpId(opIdPrefix);
+            return IntrigueServices.opFactory().createCivilWarOp(opId, subfaction);
+        }
+
+        // ── Territory dysfunction: check each established territory ──
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories == null) return null;
+
+        String factionId = subfaction.getFactionId();
+        String sfId = subfaction.getSubfactionId();
+
+        for (IntrigueTerritory territory : territories.getAll()) {
+            if (!territory.isFactionInterested(factionId)) continue;
+            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+
+            int lowTicks = territory.getLowCohesionTicks(sfId);
+            int cohesion = territory.getCohesion(sfId);
+
+            // Expulsion: cohesion critically low AND sustained for too many ticks
+            if (cohesion < EXPULSION_COHESION_THRESHOLD && lowTicks >= EXPULSION_TICKS_REQUIRED) {
+                String opId = opsRunner.nextOpId(opIdPrefix);
+                return IntrigueServices.opFactory().createExpulsionOp(opId, subfaction, territory.getTerritoryId());
+            }
+
+            // Infighting: fires exactly once — on the first tick the counter increments
+            if (lowTicks == 1) {
+                String opId = opsRunner.nextOpId(opIdPrefix);
+                return IntrigueServices.opFactory().createInfightingOp(opId, subfaction, territory.getTerritoryId());
+            }
+        }
+
+        return null;
+    }
+
     // ── Territory Op evaluation ────────────────────────────────────────
 
     /**
-     * Evaluate whether this subfaction should pursue a territory op.
-     * Checks all territories where the subfaction's parent faction is interested:
-     *   - If presence is NONE → create a ScoutTerritoryOp
-     *   - If presence is SCOUTING → create an EstablishTerritoryBaseOp
-     *   - If presence is ESTABLISHED → no action (future ops will go here)
+     * Priority 1: Presence building. If any interested territory has NONE or SCOUTING
+     * presence, launch a scout or establish op to advance it.
      */
-    private static IntrigueOp evaluateTerritoryOp(IntrigueSubfaction subfaction,
-                                                    IntriguePerson leader,
-                                                    IntrigueOpRunner opsRunner,
-                                                    String opIdPrefix) {
+    private static IntrigueOp evaluatePresenceOp(IntrigueSubfaction subfaction,
+                                                  IntriguePerson leader,
+                                                  IntrigueOpRunner opsRunner,
+                                                  String opIdPrefix) {
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         if (territories == null) return null;
 
@@ -301,8 +452,63 @@ public final class OpEvaluator {
                 return IntrigueServices.opFactory().createEstablishTerritoryBaseOp(
                         opId, subfaction, territory.getTerritoryId());
             }
+        }
 
-            if (presence == IntrigueTerritory.Presence.ESTABLISHED) {
+        return null;
+    }
+
+    /**
+     * Send supplies to the established territory with the lowest cohesion,
+     * if any territory cohesion is below the given threshold.
+     */
+    private static IntrigueOp evaluateSendSupplies(IntrigueSubfaction subfaction,
+                                                    IntrigueOpRunner opsRunner,
+                                                    String opIdPrefix,
+                                                    int threshold) {
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories == null) return null;
+
+        String factionId = subfaction.getFactionId();
+        String sfId = subfaction.getSubfactionId();
+
+        IntrigueTerritory neediest = null;
+        int lowestCohesion = Integer.MAX_VALUE;
+
+        for (IntrigueTerritory territory : territories.getAll()) {
+            if (!territory.isFactionInterested(factionId)) continue;
+            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+
+            int coh = territory.getCohesion(sfId);
+            if (coh < threshold && coh < lowestCohesion) {
+                lowestCohesion = coh;
+                neediest = territory;
+            }
+        }
+
+        if (neediest != null) {
+            String opId = opsRunner.nextOpId(opIdPrefix);
+            return IntrigueServices.opFactory().createSendSuppliesOp(
+                    opId, subfaction, neediest.getTerritoryId());
+        }
+
+        return null;
+    }
+
+    /**
+     * Priority 3: Patrol an established territory. Picks the first
+     * established territory found.
+     */
+    private static IntrigueOp evaluatePatrol(IntrigueSubfaction subfaction,
+                                              IntrigueOpRunner opsRunner,
+                                              String opIdPrefix) {
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories == null) return null;
+
+        String factionId = subfaction.getFactionId();
+
+        for (IntrigueTerritory territory : territories.getAll()) {
+            if (!territory.isFactionInterested(factionId)) continue;
+            if (territory.getPresence(subfaction.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
                 String opId = opsRunner.nextOpId(opIdPrefix);
                 return IntrigueServices.opFactory().createPatrolOp(
                         opId, subfaction, territory.getTerritoryId());

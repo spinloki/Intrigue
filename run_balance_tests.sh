@@ -3,8 +3,33 @@
 # No Starsector installation required — these are pure-logic tests.
 #
 # Must compile from src/ to avoid javac picking up the com/ Starsector API stubs.
+#
+# Usage:
+#   ./run_balance_tests.sh                          # normal mode
+#   ./run_balance_tests.sh -v                       # verbose mode (per-tick op log)
+#   ./run_balance_tests.sh --player                 # player randomly helps OR hurts factions
+#   ./run_balance_tests.sh --player-help            # player only helps factions
+#   ./run_balance_tests.sh --player-hurt            # player only hurts factions
+#   ./run_balance_tests.sh --player-interval=20     # player reconsiders every 20 ticks (default 10)
+#   ./run_balance_tests.sh --ticks=500              # run for 500 ticks (default 200)
+#   Flags combine: ./run_balance_tests.sh -v --player-help --ticks=400 --player-interval=15
 
 set -e
+
+VERBOSE=false
+PLAYER_MODE=""
+PLAYER_INTERVAL=""
+SIM_TICKS=""
+for arg in "$@"; do
+    case "$arg" in
+        -v|--verbose) VERBOSE=true ;;
+        --player) PLAYER_MODE=both ;;
+        --player-help) PLAYER_MODE=help ;;
+        --player-hurt) PLAYER_MODE=hurt ;;
+        --player-interval=*) PLAYER_INTERVAL="${arg#--player-interval=}" ;;
+        --ticks=*) SIM_TICKS="${arg#--ticks=}" ;;
+    esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC_DIR="$SCRIPT_DIR/src"
@@ -74,4 +99,21 @@ cd "$SRC_DIR"
 
 echo ""
 echo "=== DI Integration Tests ==="
-"$JAVA" -cp "$OUT_DIR" spinloki.Intrigue.campaign.ops.sim.SimIntegrationTest
+
+JAVA_FLAGS=""
+if [ "$VERBOSE" = "true" ]; then
+    JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.verbose=true"
+    echo "(verbose mode -- showing per-tick op log with probability details)"
+fi
+if [ -n "$PLAYER_MODE" ]; then
+    JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.player=$PLAYER_MODE"
+    echo "(player mode: $PLAYER_MODE)"
+fi
+if [ -n "$PLAYER_INTERVAL" ]; then
+    JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.player.interval=$PLAYER_INTERVAL"
+fi
+if [ -n "$SIM_TICKS" ]; then
+    JAVA_FLAGS="$JAVA_FLAGS -Dintrigue.ticks=$SIM_TICKS"
+fi
+"$JAVA" $JAVA_FLAGS -cp "$OUT_DIR" spinloki.Intrigue.campaign.ops.sim.SimIntegrationTest 2>/dev/null
+

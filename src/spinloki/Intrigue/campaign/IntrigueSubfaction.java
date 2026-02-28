@@ -51,6 +51,12 @@ public class IntrigueSubfaction implements Serializable {
 
     private long lastOpTimestamp = 0;
 
+    /**
+     * Number of consecutive ticks home cohesion has been below the civil war threshold.
+     * After enough ticks, a Civil War op triggers.
+     */
+    private int lowHomeCohesionTicks = 0;
+
     /** Convenience constructor — uses subfactionId as name, defaults to POLITICAL. */
     public IntrigueSubfaction(String subfactionId, String factionId, String homeMarketId) {
         this(subfactionId, subfactionId, factionId, homeMarketId, SubfactionType.POLITICAL);
@@ -162,4 +168,9 @@ public class IntrigueSubfaction implements Serializable {
 
     public long getLastOpTimestamp() { return lastOpTimestamp; }
     public void setLastOpTimestamp(long lastOpTimestamp) { this.lastOpTimestamp = lastOpTimestamp; }
+
+    public int getLowHomeCohesionTicks() { return lowHomeCohesionTicks; }
+    public void setLowHomeCohesionTicks(int ticks) { this.lowHomeCohesionTicks = Math.max(0, ticks); }
+    public void incrementLowHomeCohesionTicks() { this.lowHomeCohesionTicks++; }
+    public void resetLowHomeCohesionTicks() { this.lowHomeCohesionTicks = 0; }
 }

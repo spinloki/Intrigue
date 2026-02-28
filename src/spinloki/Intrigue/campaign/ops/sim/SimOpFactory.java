@@ -31,6 +31,11 @@ public class SimOpFactory implements OpFactory {
         this.resolver = resolver;
     }
 
+    /** Get the outcome resolver (for applying player modifiers, etc.). */
+    public OpOutcomeResolver getResolver() {
+        return resolver;
+    }
+
     @Override
     public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
         return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, resolver, config);
@@ -56,6 +61,31 @@ public class SimOpFactory implements OpFactory {
         return new SimPatrolOp(opId, subfaction, territoryId, resolver);
     }
 
+    @Override
+    public IntrigueOp createSendSuppliesOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimSendSuppliesOp(opId, subfaction, territoryId, resolver, config);
+    }
+
+    @Override
+    public IntrigueOp createRallyOp(String opId, IntrigueSubfaction subfaction) {
+        return new SimRallyOp(opId, subfaction, resolver, config);
+    }
+
+    @Override
+    public IntrigueOp createInfightingOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimInfightingOp(opId, subfaction, territoryId, config);
+    }
+
+    @Override
+    public IntrigueOp createExpulsionOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimExpulsionOp(opId, subfaction, territoryId, config);
+    }
+
+    @Override
+    public IntrigueOp createCivilWarOp(String opId, IntrigueSubfaction subfaction) {
+        return new SimCivilWarOp(opId, subfaction);
+    }
+
     /**
      * A lightweight RaidOp that uses abstract combat resolution.
      */
@@ -75,8 +105,8 @@ public class SimOpFactory implements OpFactory {
                   target.getLeaderId(),
                   attacker.getSubfactionId(),
                   target.getSubfactionId());
-            this.attackerCohesion = attacker.getCohesion();
-            this.defenderCohesion = target.getCohesion();
+            this.attackerCohesion = attacker.getHomeCohesion();
+            this.defenderCohesion = target.getHomeCohesion();
             this.resolver = resolver;
             this.config = config;
 
@@ -417,6 +447,185 @@ public class SimOpFactory implements OpFactory {
                 } else {
                     sf.setLegitimacy(sf.getLegitimacy() - 4);
                 }
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /**
+     * Sim-side SendSuppliesOp: completes instantly.
+     * Success → territory cohesion + gain. Failure → territory cohesion - loss.
+     */
+    static class SimSendSuppliesOp extends IntrigueOp {
+
+        private final String subfactionId;
+        private final String tId;
+        private final OpOutcomeResolver resolver;
+        private final SimConfig config;
+
+        SimSendSuppliesOp(String opId, IntrigueSubfaction subfaction, String territoryId,
+                          OpOutcomeResolver resolver, SimConfig config) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.subfactionId = subfaction.getSubfactionId();
+            this.tId = territoryId;
+            this.resolver = resolver;
+            this.config = config;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Sending supplies"));
+        }
+
+        @Override public String getOpTypeName() { return "Send Supplies"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return resolver.resolveSendSupplies(getInitiatorSubfaction(), tId);
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            IntrigueTerritory t = territories != null ? territories.getById(tId) : null;
+
+            if (t != null) {
+                int current = t.getCohesion(subfactionId);
+                if (getOutcome() == OpOutcome.SUCCESS) {
+                    t.setCohesion(subfactionId, current + config.sendSuppliesCohesionGain);
+                } else {
+                    t.setCohesion(subfactionId, current - config.sendSuppliesCohesionLoss);
+                }
+            }
+
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /**
+     * Sim-side RallyOp: consolidate home base.
+     * Success → home cohesion + gain. Failure → no change (wastes time).
+     */
+    static class SimRallyOp extends IntrigueOp {
+
+        private final OpOutcomeResolver resolver;
+        private final SimConfig config;
+
+        SimRallyOp(String opId, IntrigueSubfaction subfaction,
+                   OpOutcomeResolver resolver, SimConfig config) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.resolver = resolver;
+            this.config = config;
+            phases.add(new InstantPhase("Rallying"));
+        }
+
+        @Override public String getOpTypeName() { return "Rally"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return resolver.resolveRally(getInitiatorSubfaction());
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                if (getOutcome() == OpOutcome.SUCCESS) {
+                    sf.setHomeCohesion(sf.getHomeCohesion() + config.rallyCohesionGain);
+                }
+                // Failure: no change — a failed rally just wastes time
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /**
+     * Sim-side InfightingOp: resolves instantly, costs legitimacy.
+     */
+    static class SimInfightingOp extends IntrigueOp {
+        private final SimConfig config;
+
+        SimInfightingOp(String opId, IntrigueSubfaction subfaction, String territoryId, SimConfig config) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.config = config;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Infighting"));
+        }
+
+        @Override public String getOpTypeName() { return "Infighting"; }
+        @Override protected void onStarted() {}
+        @Override protected OpOutcome determineOutcome() { return OpOutcome.FAILURE; }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLegitimacy(sf.getLegitimacy() - config.infightingLegitimacyLoss);
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /**
+     * Sim-side ExpulsionOp: resolves instantly, removes subfaction from territory,
+     * heavy legitimacy loss.
+     */
+    static class SimExpulsionOp extends IntrigueOp {
+        private final String subfactionId;
+        private final String tId;
+        private final SimConfig config;
+
+        SimExpulsionOp(String opId, IntrigueSubfaction subfaction, String territoryId, SimConfig config) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.subfactionId = subfaction.getSubfactionId();
+            this.tId = territoryId;
+            this.config = config;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Expelled"));
+        }
+
+        @Override public String getOpTypeName() { return "Expulsion"; }
+        @Override protected void onStarted() {}
+        @Override protected OpOutcome determineOutcome() { return OpOutcome.FAILURE; }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories != null) {
+                IntrigueTerritory t = territories.getById(tId);
+                if (t != null) t.removeSubfaction(subfactionId);
+            }
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLegitimacy(sf.getLegitimacy() - config.expulsionLegitimacyLoss);
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /**
+     * Sim-side CivilWarOp: resolves instantly, resets home cohesion and legitimacy to 50.
+     */
+    static class SimCivilWarOp extends IntrigueOp {
+
+        SimCivilWarOp(String opId, IntrigueSubfaction subfaction) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            phases.add(new InstantPhase("Civil War"));
+        }
+
+        @Override public String getOpTypeName() { return "Civil War"; }
+        @Override protected void onStarted() {}
+        @Override protected OpOutcome determineOutcome() { return OpOutcome.FAILURE; }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setHomeCohesion(50);
+                sf.setLegitimacy(50);
+                sf.resetLowHomeCohesionTicks();
                 sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
         }

@@ -11,7 +11,7 @@ import java.util.*;
 public class SimTerritoryAccess implements IntrigueTerritoryAccess {
 
     private final Map<String, IntrigueTerritory> territories = new LinkedHashMap<>();
-    private int decayPerTick = 2;
+    private int decayPerTick = 1;
 
     public void addTerritory(IntrigueTerritory territory) {
         territories.put(territory.getTerritoryId(), territory);

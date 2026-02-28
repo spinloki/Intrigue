@@ -44,6 +44,7 @@ public class IntrigueHomelessLogCommand implements BaseCommand {
                 Console.showMessage("  " + sf.getName()
                         + " [" + sf.getSubfactionId() + "]"
                         + " faction=" + sf.getFactionId()
+                        + " type=" + sf.getType()
                         + " home=" + home);
             }
             Console.showMessage("");

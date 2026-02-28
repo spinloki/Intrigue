@@ -46,6 +46,12 @@ public class Intrigue extends BaseModPlugin {
         x.alias("EstablishTerritoryBaseOp", EstablishTerritoryBaseOp.class);
         x.alias("PatrolOp", PatrolOp.class);
         x.alias("PatrolPhase", PatrolPhase.class);
+        x.alias("SendSuppliesOp", SendSuppliesOp.class);
+        x.alias("SendSuppliesPhase", SendSuppliesPhase.class);
+        x.alias("InfightingOp", InfightingOp.class);
+        x.alias("ExpulsionOp", ExpulsionOp.class);
+        x.alias("CivilWarOp", CivilWarOp.class);
+        x.alias("RallyOp", RallyOp.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
         x.alias("IntrigueTerritory", IntrigueTerritory.class);
