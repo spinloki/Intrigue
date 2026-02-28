@@ -45,9 +45,9 @@ public class RaidOp extends IntrigueOp {
               targetSubfaction.getSubfactionId());
         this.targetMarketId = targetSubfaction.getHomeMarketId();
 
-        int cohesion = attackerSubfaction.getCohesion();
+        int cohesion = attackerSubfaction.getHomeCohesion();
 
-        // Determine fleet strength from subfaction cohesion: 30 FP at 0, 150 FP at 100
+        // Determine fleet strength from subfaction home cohesion: 30 FP at 0, 150 FP at 100
         int combatFP = 30 + (int) (cohesion * 1.2f);
 
         // Single phase: FGIPhase handles prep, travel, combat, and return
@@ -140,14 +140,14 @@ public class RaidOp extends IntrigueOp {
         }
 
         if (attacker != null) {
-            // Attacker gains cohesion (operational success) and some legitimacy (proved their strength)
-            attacker.setCohesion(attacker.getCohesion() + cohesionGain);
+            // Attacker gains home cohesion (operational success) and some legitimacy (proved their strength)
+            attacker.setHomeCohesion(attacker.getHomeCohesion() + cohesionGain);
             attacker.setLegitimacy(attacker.getLegitimacy() + legitimacyShift / 2);
         }
         if (defender != null) {
-            // Defender loses legitimacy primarily (they looked weak) and some cohesion (damaged infrastructure)
+            // Defender loses legitimacy primarily (they looked weak) and some home cohesion (damaged infrastructure)
             defender.setLegitimacy(defender.getLegitimacy() - legitimacyShift);
-            defender.setCohesion(defender.getCohesion() - cohesionGain / 2);
+            defender.setHomeCohesion(defender.getHomeCohesion() - cohesionGain / 2);
         }
 
         // Subfaction relationship drops
@@ -162,7 +162,7 @@ public class RaidOp extends IntrigueOp {
             attacker.setRelToPlayer(attacker.getRelToPlayer() - 2);
         }
 
-        log.info("  SUCCESS: attacker +" + cohesionGain + " cohesion, defender -" + legitimacyShift + " legitimacy");
+        log.info("  SUCCESS: attacker +" + cohesionGain + " home cohesion, defender -" + legitimacyShift + " legitimacy");
     }
 
     private void applyFailure(IntrigueSubfactionAccess subfactions,
@@ -171,8 +171,8 @@ public class RaidOp extends IntrigueOp {
         int legitimacyGain = BASE_LEGITIMACY_SHIFT / 2;
 
         if (attacker != null) {
-            // Attacker loses cohesion (failed operation, troops spent)
-            attacker.setCohesion(attacker.getCohesion() - cohesionLoss);
+            // Attacker loses home cohesion (failed operation, troops spent)
+            attacker.setHomeCohesion(attacker.getHomeCohesion() - cohesionLoss);
         }
         if (defender != null) {
             // Defender gains legitimacy (they repelled an attack, looking strong)
@@ -186,7 +186,7 @@ public class RaidOp extends IntrigueOp {
                     rel + REL_DROP_ON_RAID / 2);
         }
 
-        log.info("  FAILURE: attacker -" + cohesionLoss + " cohesion, defender +" + legitimacyGain + " legitimacy");
+        log.info("  FAILURE: attacker -" + cohesionLoss + " home cohesion, defender +" + legitimacyGain + " legitimacy");
     }
 
     private int getSubfactionRelOrZero(IntrigueSubfaction sf, String otherId) {

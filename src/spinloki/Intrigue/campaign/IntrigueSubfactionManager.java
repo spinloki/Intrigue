@@ -184,7 +184,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
             }
 
             IntrigueSubfaction sf = new IntrigueSubfaction(def.subfactionId, def.name, def.factionId, homeMarketId, sfType);
-            sf.setCohesion(def.cohesion);
+            sf.setHomeCohesion(def.cohesion);
             sf.setLegitimacy(def.legitimacy);
             if (def.cohesionLabel != null) sf.setCohesionLabel(def.cohesionLabel);
             if (def.legitimacyLabel != null) sf.setLegitimacyLabel(def.legitimacyLabel);

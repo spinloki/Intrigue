@@ -39,6 +39,16 @@ public class SimConfig {
     public float meanReversionTarget = 50f;
     public float meanReversionRate = 0.05f;
 
+    // ── Op success probabilities (sim only) ──
+    /** Probability that a homeless subfaction successfully establishes a base. */
+    public float establishBaseSuccessProb = 1.0f;
+    /** Probability that a scout-territory op succeeds. */
+    public float scoutTerritorySuccessProb = 0.9f;
+    /** Probability that an establish-territory-base op succeeds. */
+    public float establishTerritoryBaseSuccessProb = 0.85f;
+    /** Probability that a patrol fleet survives (success). */
+    public float patrolSuccessProb = 0.8f;
+
     // ── Pacing ──
     public int pacerNudgeMin = -1;
     public int pacerNudgeMax = 1;
@@ -78,6 +88,10 @@ public class SimConfig {
         c.underdogFpBonus = underdogFpBonus;
         c.meanReversionTarget = meanReversionTarget;
         c.meanReversionRate = meanReversionRate;
+        c.establishBaseSuccessProb = establishBaseSuccessProb;
+        c.scoutTerritorySuccessProb = scoutTerritorySuccessProb;
+        c.establishTerritoryBaseSuccessProb = establishTerritoryBaseSuccessProb;
+        c.patrolSuccessProb = patrolSuccessProb;
         c.pacerNudgeMin = pacerNudgeMin;
         c.pacerNudgeMax = pacerNudgeMax;
         c.tickIntervalDays = tickIntervalDays;

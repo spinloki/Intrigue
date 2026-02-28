@@ -43,7 +43,7 @@ public class IntrigueShowCommand implements BaseCommandWithSuggestion {
             if (sf != null) {
                 Console.showMessage("--- Subfaction Details ---");
                 Console.showMessage("  Name: " + sf.getName());
-                Console.showMessage("  " + sf.getCohesionLabel() + ": " + sf.getCohesion());
+                Console.showMessage("  Home " + sf.getCohesionLabel() + ": " + sf.getHomeCohesion());
                 Console.showMessage("  " + sf.getLegitimacyLabel() + ": " + sf.getLegitimacy());
                 Console.showMessage("  Home Market: " + sf.getHomeMarketId());
                 Console.showMessage("  Leader: " + sf.getLeaderId());

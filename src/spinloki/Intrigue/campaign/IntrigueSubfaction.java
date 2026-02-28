@@ -35,7 +35,11 @@ public class IntrigueSubfaction implements Serializable {
      */
     private boolean hidden = false;
 
-    private int cohesion = 50;
+    /**
+     * Home cohesion — the subfaction's internal cohesion at its home market.
+     * Territory-specific cohesion is tracked on IntrigueTerritory, not here.
+     */
+    private int homeCohesion = 50;
     private int legitimacy = 50;
     private String cohesionLabel = "Cohesion";
     private String legitimacyLabel = "Legitimacy";
@@ -86,22 +90,30 @@ public class IntrigueSubfaction implements Serializable {
     /** Returns true if the subfaction has a home market. A homeless subfaction is dormant. */
     public boolean hasHomeMarket() { return homeMarketId != null && !homeMarketId.isEmpty(); }
 
-    // ── Cohesion & Legitimacy ─────────────────────────────────────────
+    // ── Home Cohesion & Legitimacy ──────────────────────────────────────
 
-    public int getCohesion() { return cohesion; }
-    public void setCohesion(int cohesion) { this.cohesion = Math.max(0, Math.min(100, cohesion)); }
+    /** Home cohesion at the subfaction's base market (0–100). */
+    public int getHomeCohesion() { return homeCohesion; }
+    public void setHomeCohesion(int value) { this.homeCohesion = Math.max(0, Math.min(100, value)); }
+
+    /** @deprecated Use getHomeCohesion() instead. Returns home cohesion for backward compat. */
+    @Deprecated
+    public int getCohesion() { return homeCohesion; }
+    /** @deprecated Use setHomeCohesion() instead. Sets home cohesion for backward compat. */
+    @Deprecated
+    public void setCohesion(int cohesion) { setHomeCohesion(cohesion); }
 
     public int getLegitimacy() { return legitimacy; }
     public void setLegitimacy(int legitimacy) { this.legitimacy = Math.max(0, Math.min(100, legitimacy)); }
 
-    /** Derived power: average of cohesion and legitimacy (read-only). */
-    public int getPower() { return (cohesion + legitimacy) / 2; }
+    /** Derived power: average of home cohesion and legitimacy (read-only). */
+    public int getPower() { return (homeCohesion + legitimacy) / 2; }
 
-    /** @deprecated Use setCohesion / setLegitimacy instead. Sets both stats equally. */
+    /** @deprecated Use setHomeCohesion / setLegitimacy instead. Sets both stats equally. */
     @Deprecated
     public void setPower(int power) {
         int clamped = Math.max(0, Math.min(100, power));
-        this.cohesion = clamped;
+        this.homeCohesion = clamped;
         this.legitimacy = clamped;
     }
 

@@ -19,6 +19,7 @@ public final class IntrigueServices {
     private static OpFactory opFactory;
     private static IntrigueSubfactionAccess subfactions;
     private static FactionHostilityChecker hostility;
+    private static IntrigueTerritoryAccess territories;
 
     private IntrigueServices() {}
 
@@ -28,19 +29,32 @@ public final class IntrigueServices {
     public static void init(IntrigueClock clock, IntriguePeopleAccess people,
                             IntrigueOpRunner ops, OpFactory opFactory,
                             IntrigueSubfactionAccess subfactions,
-                            FactionHostilityChecker hostility) {
+                            FactionHostilityChecker hostility,
+                            IntrigueTerritoryAccess territories) {
         IntrigueServices.clock = clock;
         IntrigueServices.people = people;
         IntrigueServices.ops = ops;
         IntrigueServices.opFactory = opFactory;
         IntrigueServices.subfactions = subfactions;
         IntrigueServices.hostility = hostility;
+        IntrigueServices.territories = territories;
         log.info("IntrigueServices initialized: clock=" + clock.getClass().getSimpleName()
                 + ", people=" + people.getClass().getSimpleName()
                 + ", ops=" + ops.getClass().getSimpleName()
                 + ", opFactory=" + opFactory.getClass().getSimpleName()
                 + ", subfactions=" + subfactions.getClass().getSimpleName()
-                + ", hostility=" + hostility.getClass().getSimpleName());
+                + ", hostility=" + hostility.getClass().getSimpleName()
+                + ", territories=" + (territories != null ? territories.getClass().getSimpleName() : "null"));
+    }
+
+    /**
+     * Backward-compatible init without territories (for sim/test code).
+     */
+    public static void init(IntrigueClock clock, IntriguePeopleAccess people,
+                            IntrigueOpRunner ops, OpFactory opFactory,
+                            IntrigueSubfactionAccess subfactions,
+                            FactionHostilityChecker hostility) {
+        init(clock, people, ops, opFactory, subfactions, hostility, null);
     }
 
     public static IntrigueClock clock() {
@@ -73,7 +87,12 @@ public final class IntrigueServices {
         return hostility;
     }
 
-    /** Returns true if all services have been initialized. */
+    /** Returns the territory access, or null if not wired (e.g. sim mode). */
+    public static IntrigueTerritoryAccess territories() {
+        return territories;
+    }
+
+    /** Returns true if all core services have been initialized. */
     public static boolean isInitialized() {
         return clock != null && people != null && ops != null && opFactory != null && subfactions != null && hostility != null;
     }
@@ -86,5 +105,6 @@ public final class IntrigueServices {
         opFactory = null;
         subfactions = null;
         hostility = null;
+        territories = null;
     }
 }

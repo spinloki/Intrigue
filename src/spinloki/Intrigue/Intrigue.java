@@ -8,6 +8,8 @@ import spinloki.Intrigue.campaign.IntriguePeopleManager;
 import spinloki.Intrigue.campaign.IntriguePeopleScript;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueSubfactionManager;
+import spinloki.Intrigue.campaign.IntrigueTerritory;
+import spinloki.Intrigue.campaign.IntrigueTerritoryManager;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.SectorClock;
@@ -39,14 +41,22 @@ public class Intrigue extends BaseModPlugin {
         x.alias("IntrigueRaidIntel", IntrigueRaidIntel.class);
         x.alias("EstablishBaseOp", EstablishBaseOp.class);
         x.alias("EstablishBasePhase", EstablishBasePhase.class);
+        x.alias("ScoutTerritoryOp", ScoutTerritoryOp.class);
+        x.alias("ScoutTerritoryPhase", ScoutTerritoryPhase.class);
+        x.alias("EstablishTerritoryBaseOp", EstablishTerritoryBaseOp.class);
+        x.alias("PatrolOp", PatrolOp.class);
+        x.alias("PatrolPhase", PatrolPhase.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
+        x.alias("IntrigueTerritory", IntrigueTerritory.class);
+        x.alias("IntrigueTerritoryManager", IntrigueTerritoryManager.class);
     }
 
     @Override
     public void onNewGameAfterEconomyLoad() {
         initServices();
         IntrigueSubfactionManager.get().bootstrapIfNeeded();
+        IntrigueTerritoryManager.get().bootstrapIfNeeded();
         IntriguePeopleManager.get().refreshAll();
         ensureScripts();
     }
@@ -65,7 +75,8 @@ public class Intrigue extends BaseModPlugin {
                 IntrigueOpsManager.get(),
                 new GameOpFactory(),
                 IntrigueSubfactionManager.get(),
-                new GameFactionHostilityChecker()
+                new GameFactionHostilityChecker(),
+                IntrigueTerritoryManager.get()
         );
     }
 

@@ -206,7 +206,7 @@
       "cohesion": 60,
       "legitimacy": 45,
       "cohesionLabel": "Loyalty",
-      "legitimacyLabel": "Favor"
+      "legitimacyLabel": "Legitimacy"
     },
     {
       "subfactionId": "sindrian_inner_circle",
@@ -231,7 +231,7 @@
       "cohesion": 75,
       "legitimacy": 80,
       "cohesionLabel": "Loyalty",
-      "legitimacyLabel": "Favor"
+      "legitimacyLabel": "Legitimacy"
     },
     {
       "subfactionId": "church_knights_hesperus",
@@ -354,8 +354,8 @@
       ],
       "cohesion": 65,
       "legitimacy": 70,
-      "cohesionLabel": "Zeal",
-      "legitimacyLabel": "Purity"
+      "cohesionLabel": "Fervor",
+      "legitimacyLabel": "Terror"
     },
     {
       "subfactionId": "path_crusade_fleet",
@@ -379,8 +379,8 @@
       ],
       "cohesion": 80,
       "legitimacy": 55,
-      "cohesionLabel": "Zeal",
-      "legitimacyLabel": "Purity"
+      "cohesionLabel": "Fervor",
+      "legitimacyLabel": "Terror"
     },
     {
       "subfactionId": "independents_fia_compact",

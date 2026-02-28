@@ -3,33 +3,57 @@ package spinloki.Intrigue.campaign.ops.sim;
 import spinloki.Intrigue.IntrigueTraits;
 import spinloki.Intrigue.campaign.IntriguePerson;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
+import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
+import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 
 import java.util.Random;
 
 /**
- * Sim-side OpFactory that creates lightweight raid ops with no game dependencies.
- * Uses a SimCombatPhase that resolves combat probabilistically.
+ * Sim-side OpFactory that creates lightweight ops with no game dependencies.
+ * Outcome determination is delegated to an {@link OpOutcomeResolver}, which
+ * can be swapped out or configured via {@link SimConfig} probabilities.
  */
 public class SimOpFactory implements OpFactory {
 
     private final Random rng;
     private final SimConfig config;
+    private final OpOutcomeResolver resolver;
 
     public SimOpFactory(Random rng, SimConfig config) {
+        this(rng, config, new DefaultOutcomeResolver(rng, config));
+    }
+
+    public SimOpFactory(Random rng, SimConfig config, OpOutcomeResolver resolver) {
         this.rng = rng;
         this.config = config;
+        this.resolver = resolver;
     }
 
     @Override
     public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction, IntrigueSubfaction targetSubfaction) {
-        return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, rng, config);
+        return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, resolver, config);
     }
 
     @Override
     public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
-        return new SimEstablishBaseOp(opId, subfaction);
+        return new SimEstablishBaseOp(opId, subfaction, resolver);
+    }
+
+    @Override
+    public IntrigueOp createScoutTerritoryOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimScoutTerritoryOp(opId, subfaction, territoryId, resolver);
+    }
+
+    @Override
+    public IntrigueOp createEstablishTerritoryBaseOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimEstablishTerritoryBaseOp(opId, subfaction, territoryId, resolver);
+    }
+
+    @Override
+    public IntrigueOp createPatrolOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new SimPatrolOp(opId, subfaction, territoryId, resolver);
     }
 
     /**
@@ -40,12 +64,12 @@ public class SimOpFactory implements OpFactory {
         private final int attackerCohesion;
         private final int defenderCohesion;
         private final boolean attackerMerciless;
-        private final Random rng;
+        private final OpOutcomeResolver resolver;
         private final SimConfig config;
         private boolean attackerWon = false;
 
         SimRaidOp(String opId, IntrigueSubfaction attacker, IntrigueSubfaction target,
-                  Random rng, SimConfig config) {
+                  OpOutcomeResolver resolver, SimConfig config) {
             super(opId,
                   attacker.getLeaderId(),
                   target.getLeaderId(),
@@ -53,16 +77,14 @@ public class SimOpFactory implements OpFactory {
                   target.getSubfactionId());
             this.attackerCohesion = attacker.getCohesion();
             this.defenderCohesion = target.getCohesion();
-            this.rng = rng;
+            this.resolver = resolver;
             this.config = config;
 
-            // Check leader traits
             IntriguePerson leader = IntrigueServices.people().getById(attacker.getLeaderId());
             this.attackerMerciless = leader != null && leader.getTraits().contains(IntrigueTraits.MERCILESS);
 
-            // Phases: assemble, simulated combat, return
             phases.add(new AssemblePhase(attackerCohesion));
-            phases.add(new SimCombatPhase());
+            phases.add(new InstantPhase("Combat"));
             phases.add(new ReturnPhase(3f));
         }
 
@@ -81,7 +103,9 @@ public class SimOpFactory implements OpFactory {
 
         @Override
         protected OpOutcome determineOutcome() {
-            return attackerWon ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
+            OpOutcome result = resolver.resolveRaid(attackerCohesion, defenderCohesion, attackerMerciless);
+            attackerWon = result == OpOutcome.SUCCESS;
+            return result;
         }
 
         @Override
@@ -109,19 +133,19 @@ public class SimOpFactory implements OpFactory {
                     legitimacyShift += config.mercilessBonusPower / 2;
                 }
 
-                // Attacker gains cohesion, some legitimacy (diminishing returns)
+                // Attacker gains home cohesion, some legitimacy (diminishing returns)
                 if (attacker != null) {
-                    float gainMult = 1f - (attacker.getCohesion() / 150f);
+                    float gainMult = 1f - (attacker.getHomeCohesion() / 150f);
                     int actualCoh = Math.max(1, Math.round(cohesionGain * Math.max(0.2f, gainMult)));
-                    attacker.setCohesion(attacker.getCohesion() + actualCoh);
+                    attacker.setHomeCohesion(attacker.getHomeCohesion() + actualCoh);
                     attacker.setLegitimacy(attacker.getLegitimacy() + legitimacyShift / 2);
                 }
-                // Defender loses legitimacy primarily, some cohesion
+                // Defender loses legitimacy primarily, some home cohesion
                 if (defender != null) {
                     float lossMult = defender.getLegitimacy() / 100f;
                     int actualLeg = Math.max(1, Math.round(legitimacyShift * Math.max(0.2f, lossMult)));
                     defender.setLegitimacy(defender.getLegitimacy() - actualLeg);
-                    defender.setCohesion(defender.getCohesion() - cohesionGain / 2);
+                    defender.setHomeCohesion(defender.getHomeCohesion() - cohesionGain / 2);
                 }
 
                 if (attacker != null && defender != null) {
@@ -133,11 +157,11 @@ public class SimOpFactory implements OpFactory {
                 int cohesionLoss = config.basePowerShift / 2;
                 int legitimacyGain = config.basePowerShift / 3;
 
-                // Attacker loses cohesion (failed operation)
+                // Attacker loses home cohesion (failed operation)
                 if (attacker != null) {
-                    float lossMult = attacker.getCohesion() / 100f;
+                    float lossMult = attacker.getHomeCohesion() / 100f;
                     int actual = Math.max(1, Math.round(cohesionLoss * Math.max(0.2f, lossMult)));
-                    attacker.setCohesion(attacker.getCohesion() - actual);
+                    attacker.setHomeCohesion(attacker.getHomeCohesion() - actual);
                 }
                 // Defender gains legitimacy (repelled attack)
                 if (defender != null) {
@@ -161,42 +185,6 @@ public class SimOpFactory implements OpFactory {
             Integer rel = sf.getRelTo(otherId);
             return rel != null ? rel : 0;
         }
-
-        /**
-         * Phase that resolves combat abstractly using a sigmoid probability.
-         */
-        class SimCombatPhase implements OpPhase {
-            private boolean done = false;
-
-            @Override
-            public void advance(float days) {
-                if (done) return;
-                int attackerFP = config.baseFP + (int)(attackerCohesion * config.fpPerPower);
-                int defenderFP = config.defenderBaseFP + (int)(defenderCohesion * config.defenderFpPerPower);
-
-                // Underdog bonus
-                int fpGap = attackerFP - defenderFP;
-                if (fpGap > 0) {
-                    defenderFP += (int)(fpGap * config.underdogFpBonus);
-                }
-
-                double diff = attackerFP - defenderFP;
-                double prob = 1.0 / (1.0 + Math.exp(-config.combatSteepness * diff));
-                attackerWon = rng.nextDouble() < prob;
-                done = true;
-            }
-
-            @Override
-            public boolean isDone() {
-                return done;
-            }
-
-            @Override
-            public String getStatus() {
-                if (!done) return "Engaging";
-                return attackerWon ? "Victory" : "Defeat";
-            }
-        }
     }
 
     /**
@@ -206,16 +194,17 @@ public class SimOpFactory implements OpFactory {
     static class SimEstablishBaseOp extends IntrigueOp {
 
         private final String subfactionId;
+        private final OpOutcomeResolver resolver;
 
-        SimEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
+        SimEstablishBaseOp(String opId, IntrigueSubfaction subfaction, OpOutcomeResolver resolver) {
             super(opId,
                   subfaction.getLeaderId(),
                   null,
                   subfaction.getSubfactionId(),
                   null);
             this.subfactionId = subfaction.getSubfactionId();
+            this.resolver = resolver;
 
-            // Single timed phase representing scouting
             phases.add(new SimScoutPhase());
         }
 
@@ -225,9 +214,7 @@ public class SimOpFactory implements OpFactory {
         }
 
         @Override
-        protected void onStarted() {
-            // nothing needed in sim
-        }
+        protected void onStarted() {}
 
         @Override
         protected boolean shouldAbort() {
@@ -238,7 +225,7 @@ public class SimOpFactory implements OpFactory {
 
         @Override
         protected OpOutcome determineOutcome() {
-            return OpOutcome.SUCCESS;
+            return resolver.resolveEstablishBase(getInitiatorSubfaction());
         }
 
         @Override
@@ -247,7 +234,7 @@ public class SimOpFactory implements OpFactory {
             if (sf != null && getOutcome() == OpOutcome.SUCCESS) {
                 String fakeMarketId = "sim_base_" + subfactionId;
                 sf.setHomeMarketId(fakeMarketId);
-                sf.setCohesion(sf.getCohesion() + 10);
+                sf.setHomeCohesion(sf.getHomeCohesion() + 10);
                 sf.setLegitimacy(sf.getLegitimacy() + 5);
                 sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
@@ -272,5 +259,178 @@ public class SimOpFactory implements OpFactory {
                 return done ? "Base established" : "Scouting";
             }
         }
+    }
+
+    /**
+     * Sim-side ScoutTerritoryOp: sets presence to SCOUTING on start,
+     * completes instantly.
+     */
+    static class SimScoutTerritoryOp extends IntrigueOp {
+
+        private final String subfactionId;
+        private final String tId;
+        private final OpOutcomeResolver resolver;
+
+        SimScoutTerritoryOp(String opId, IntrigueSubfaction subfaction, String territoryId, OpOutcomeResolver resolver) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.subfactionId = subfaction.getSubfactionId();
+            this.tId = territoryId;
+            this.resolver = resolver;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Scouting territory"));
+        }
+
+        @Override public String getOpTypeName() { return "Scout Territory"; }
+
+        @Override
+        protected void onStarted() {
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories != null) {
+                IntrigueTerritory t = territories.getById(tId);
+                if (t != null) t.setPresence(subfactionId, IntrigueTerritory.Presence.SCOUTING);
+            }
+        }
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return resolver.resolveScoutTerritory(getInitiatorSubfaction(), tId);
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+            if (getOutcome() == OpOutcome.SUCCESS) {
+                if (sf != null) {
+                    sf.setHomeCohesion(sf.getHomeCohesion() - 5);
+                    sf.setLegitimacy(sf.getLegitimacy() + 3);
+                }
+            } else {
+                // Revert presence to NONE on failure
+                IntrigueTerritoryAccess territories = IntrigueServices.territories();
+                if (territories != null) {
+                    IntrigueTerritory t = territories.getById(tId);
+                    if (t != null) t.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
+                }
+                if (sf != null) {
+                    sf.setHomeCohesion(sf.getHomeCohesion() - 3);
+                }
+            }
+        }
+    }
+
+    /**
+     * Sim-side EstablishTerritoryBaseOp: sets presence to ESTABLISHED on success,
+     * completes instantly.
+     */
+    static class SimEstablishTerritoryBaseOp extends IntrigueOp {
+
+        private final String subfactionId;
+        private final String tId;
+        private final OpOutcomeResolver resolver;
+
+        SimEstablishTerritoryBaseOp(String opId, IntrigueSubfaction subfaction, String territoryId, OpOutcomeResolver resolver) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.subfactionId = subfaction.getSubfactionId();
+            this.tId = territoryId;
+            this.resolver = resolver;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Establishing base"));
+        }
+
+        @Override public String getOpTypeName() { return "Establish Territory Base"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return resolver.resolveEstablishTerritoryBase(getInitiatorSubfaction(), tId);
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+            if (getOutcome() == OpOutcome.SUCCESS) {
+                IntrigueTerritoryAccess territories = IntrigueServices.territories();
+                if (territories != null) {
+                    IntrigueTerritory t = territories.getById(tId);
+                    if (t != null) {
+                        t.setPresence(subfactionId, IntrigueTerritory.Presence.ESTABLISHED);
+                        t.setCohesion(subfactionId, 50);
+                    }
+                }
+                if (sf != null) {
+                    sf.setHomeCohesion(sf.getHomeCohesion() - 8);
+                    sf.setLegitimacy(sf.getLegitimacy() + 5);
+                }
+            } else {
+                // Revert presence to NONE on failure
+                IntrigueTerritoryAccess territories = IntrigueServices.territories();
+                if (territories != null) {
+                    IntrigueTerritory t = territories.getById(tId);
+                    if (t != null) t.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
+                }
+                if (sf != null) {
+                    sf.setHomeCohesion(sf.getHomeCohesion() - 4);
+                }
+            }
+        }
+    }
+
+    /**
+     * Sim-side PatrolOp: completes instantly with a random success/failure outcome.
+     * Success → legitimacy +3. Failure (destroyed) → legitimacy -4.
+     */
+    static class SimPatrolOp extends IntrigueOp {
+
+        private final String subfactionId;
+        private final String tId;
+        private final OpOutcomeResolver resolver;
+
+        SimPatrolOp(String opId, IntrigueSubfaction subfaction, String territoryId, OpOutcomeResolver resolver) {
+            super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
+            this.subfactionId = subfaction.getSubfactionId();
+            this.tId = territoryId;
+            this.resolver = resolver;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Patrolling"));
+        }
+
+        @Override public String getOpTypeName() { return "Patrol"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            return resolver.resolvePatrol(getInitiatorSubfaction(), tId);
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            if (sf != null) {
+                if (getOutcome() == OpOutcome.SUCCESS) {
+                    sf.setLegitimacy(sf.getLegitimacy() + 3);
+                } else {
+                    sf.setLegitimacy(sf.getLegitimacy() - 4);
+                }
+                sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+        }
+    }
+
+    /** An OpPhase that completes instantly. */
+    static class InstantPhase implements OpPhase {
+        private final String label;
+        private boolean done = false;
+
+        InstantPhase(String label) { this.label = label; }
+
+        @Override public void advance(float days) { done = true; }
+        @Override public boolean isDone() { return done; }
+        @Override public String getStatus() { return done ? label + " complete" : label; }
     }
 }

@@ -32,7 +32,7 @@ public class IntrigueListSubfactionsCommand implements BaseCommand {
             Console.showMessage(sf.getName() + " [" + sf.getSubfactionId() + "]"
                     + " | " + sf.getFactionId()
                     + " | " + marketName
-                    + " | " + sf.getCohesionLabel() + "=" + sf.getCohesion()
+                    + " | Home " + sf.getCohesionLabel() + "=" + sf.getHomeCohesion()
                     + " " + sf.getLegitimacyLabel() + "=" + sf.getLegitimacy()
                     + " | type=" + sf.getType()
                     + (sf.isHidden() ? " | HIDDEN" : ""));

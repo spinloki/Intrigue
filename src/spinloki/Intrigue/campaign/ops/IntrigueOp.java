@@ -38,6 +38,9 @@ public abstract class IntrigueOp implements Serializable {
     private final String targetSubfactionId;      // defending subfaction
     private final List<String> participantIds = new ArrayList<>();
 
+    /** Optional: the territory this op takes place in (null for core-world ops). */
+    private String territoryId;
+
     private Stage stage = Stage.PROPOSED;
     private OpOutcome outcome = OpOutcome.PENDING;
 
@@ -62,6 +65,10 @@ public abstract class IntrigueOp implements Serializable {
     public String getTargetSubfactionId() { return targetSubfactionId; }
     public List<String> getParticipantIds() { return Collections.unmodifiableList(participantIds); }
     protected void addParticipant(String personId) { participantIds.add(personId); }
+
+    /** Territory this op is scoped to, or null for core-world ops. */
+    public String getTerritoryId() { return territoryId; }
+    public void setTerritoryId(String territoryId) { this.territoryId = territoryId; }
 
     // ── Convenience lookups ─────────────────────────────────────────────
 

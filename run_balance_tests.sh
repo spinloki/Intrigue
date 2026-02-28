@@ -39,13 +39,16 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 cd "$SRC_DIR"
-"$JAVAC" -d "$OUT_DIR" \
+"$JAVAC" -encoding UTF-8 -d "$OUT_DIR" \
   spinloki/Intrigue/IntrigueTraits.java \
   spinloki/Intrigue/campaign/IntriguePerson.java \
   spinloki/Intrigue/campaign/IntrigueSubfaction.java \
+  spinloki/Intrigue/config/TerritoryConfig.java \
+  spinloki/Intrigue/campaign/IntrigueTerritory.java \
   spinloki/Intrigue/campaign/spi/IntrigueClock.java \
   spinloki/Intrigue/campaign/spi/IntriguePeopleAccess.java \
   spinloki/Intrigue/campaign/spi/IntrigueSubfactionAccess.java \
+  spinloki/Intrigue/campaign/spi/IntrigueTerritoryAccess.java \
   spinloki/Intrigue/campaign/spi/IntrigueOpRunner.java \
   spinloki/Intrigue/campaign/spi/IntrigueServices.java \
   spinloki/Intrigue/campaign/spi/FactionHostilityChecker.java \
@@ -56,11 +59,15 @@ cd "$SRC_DIR"
   spinloki/Intrigue/campaign/ops/OpEvaluator.java \
   spinloki/Intrigue/campaign/ops/AssemblePhase.java \
   spinloki/Intrigue/campaign/ops/ReturnPhase.java \
+  spinloki/Intrigue/campaign/ops/ScoutTerritoryPhase.java \
   spinloki/Intrigue/campaign/ops/sim/SimClock.java \
   spinloki/Intrigue/campaign/ops/sim/SimPeopleAccess.java \
   spinloki/Intrigue/campaign/ops/sim/SimSubfactionAccess.java \
+  spinloki/Intrigue/campaign/ops/sim/SimTerritoryAccess.java \
   spinloki/Intrigue/campaign/ops/sim/SimOpRunner.java \
   spinloki/Intrigue/campaign/ops/sim/SimConfig.java \
+  spinloki/Intrigue/campaign/ops/sim/OpOutcomeResolver.java \
+  spinloki/Intrigue/campaign/ops/sim/DefaultOutcomeResolver.java \
   spinloki/Intrigue/campaign/ops/sim/SimOpFactory.java \
   spinloki/Intrigue/config/SubfactionConfig.java \
   spinloki/Intrigue/campaign/ops/sim/SimIntegrationTest.java

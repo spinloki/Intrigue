@@ -16,4 +16,19 @@ public class GameOpFactory implements OpFactory {
     public IntrigueOp createEstablishBaseOp(String opId, IntrigueSubfaction subfaction) {
         return new EstablishBaseOp(opId, subfaction);
     }
+
+    @Override
+    public IntrigueOp createScoutTerritoryOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new ScoutTerritoryOp(opId, subfaction, territoryId);
+    }
+
+    @Override
+    public IntrigueOp createEstablishTerritoryBaseOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new EstablishTerritoryBaseOp(opId, subfaction, territoryId);
+    }
+
+    @Override
+    public IntrigueOp createPatrolOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new PatrolOp(opId, subfaction, territoryId);
+    }
 }

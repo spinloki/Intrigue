@@ -105,8 +105,8 @@ public class IntrigueValidateCommand implements BaseCommand {
                 Console.showMessage("  Market: " + market.getName() + " (" + sf.getHomeMarketId() + ") OK");
             }
 
-            // 4. Check cohesion/legitimacy
-            Console.showMessage("  " + sf.getCohesionLabel() + ": " + sf.getCohesion()
+            // 4. Check home cohesion/legitimacy
+            Console.showMessage("  Home " + sf.getCohesionLabel() + ": " + sf.getHomeCohesion()
                     + " (config=" + def.cohesion + ")");
             Console.showMessage("  " + sf.getLegitimacyLabel() + ": " + sf.getLegitimacy()
                     + " (config=" + def.legitimacy + ")");

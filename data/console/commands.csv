@@ -12,3 +12,4 @@ intrigue_list_fleets,spinloki.Intrigue.console.IntrigueListFleetsCommand,"campai
 intrigue_list_subfactions,spinloki.Intrigue.console.IntrigueListSubfactionsCommand,"campaign",,
 intrigue_validate,spinloki.Intrigue.console.IntrigueValidateCommand,"campaign",,
 intrigue_homeless_log,spinloki.Intrigue.console.IntrigueHomelessLogCommand,"campaign",,
+intrigue_list_territories,spinloki.Intrigue.console.IntrigueListTerritoriesCommand,"campaign",,

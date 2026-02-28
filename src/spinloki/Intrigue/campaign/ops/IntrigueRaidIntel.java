@@ -127,7 +127,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
         params.raidParams = raidParams;
 
         // Timing
-        params.prepDays = 3f + (100 - attacker.getCohesion()) * 0.07f; // 3-10 days prep
+        params.prepDays = 3f + (100 - attacker.getHomeCohesion()) * 0.07f; // 3-10 days prep
         params.payloadDays = 20f;
 
         // Don't use makeFleetsHostile — that makes fleets hostile to EVERYONE including the player.

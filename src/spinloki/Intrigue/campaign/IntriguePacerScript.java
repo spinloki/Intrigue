@@ -8,6 +8,7 @@ import spinloki.Intrigue.campaign.ops.OpEvaluator;
 import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueSubfactionAccess;
+import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,7 @@ public class IntriguePacerScript implements EveryFrameScript {
             }
         }
 
-        // ── Stat nudges: nudge a random subfaction's cohesion or legitimacy ──
+        // ── Stat nudges: nudge a random subfaction's home cohesion or legitimacy ──
         IntrigueSubfaction target = allSubfactions.get(rng.nextInt(allSubfactions.size()));
 
         int delta = rng.nextInt(3) - 1; // -1,0,+1
@@ -81,12 +82,12 @@ public class IntriguePacerScript implements EveryFrameScript {
 
         boolean nudgeCohesion = rng.nextBoolean();
         if (nudgeCohesion) {
-            int before = target.getCohesion();
-            target.setCohesion(before + delta);
+            int before = target.getHomeCohesion();
+            target.setHomeCohesion(before + delta);
             if (verbose) {
                 result.append("Pacer tick: ").append(target.getSubfactionId())
-                      .append(" ").append(target.getCohesionLabel())
-                      .append(" ").append(before).append(" -> ").append(target.getCohesion());
+                      .append(" Home ").append(target.getCohesionLabel())
+                      .append(" ").append(before).append(" -> ").append(target.getHomeCohesion());
             }
         } else {
             int before = target.getLegitimacy();
@@ -95,6 +96,25 @@ public class IntriguePacerScript implements EveryFrameScript {
                 result.append("Pacer tick: ").append(target.getSubfactionId())
                       .append(" ").append(target.getLegitimacyLabel())
                       .append(" ").append(before).append(" -> ").append(target.getLegitimacy());
+            }
+        }
+
+        // ── Territory cohesion decay: only ESTABLISHED subfactions decay each tick ──
+        IntrigueTerritoryAccess territoryAccess = IntrigueServices.territories();
+        if (territoryAccess != null) {
+            int decayAmount = territoryAccess.getDecayPerTick();
+            for (IntrigueTerritory territory : territoryAccess.getAll()) {
+                for (String sfId : new ArrayList<>(territory.getActiveSubfactionIds())) {
+                    // Only decay cohesion for ESTABLISHED presence
+                    if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+                    int before = territory.getCohesion(sfId);
+                    territory.setCohesion(sfId, before - decayAmount);
+                    if (verbose && territory.getCohesion(sfId) != before) {
+                        result.append("\n  Territory decay: ").append(territory.getName())
+                              .append(" / ").append(sfId)
+                              .append(" ").append(before).append(" -> ").append(territory.getCohesion(sfId));
+                    }
+                }
             }
         }
 
