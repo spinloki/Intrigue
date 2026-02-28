@@ -9,17 +9,20 @@ import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 import java.util.logging.Logger;
 
 /**
- * Operation: a subfaction sends a patrol fleet to roam the systems in one
- * of its parent faction's territories.
+ * Operation: a subfaction sends a patrol fleet from its home market to roam
+ * one of its parent faction's territories.
  *
- * This is a self-op scoped to a territory. The fleet is spawned from the
+ * <p>This is a self-op scoped to a territory. The fleet is spawned from the
  * subfaction's home market, patrols the area, and returns. If it survives,
  * the subfaction gains a small amount of Legitimacy. If the fleet is
- * destroyed, the subfaction <em>loses</em> Legitimacy instead.
+ * destroyed, the subfaction <em>loses</em> Legitimacy instead.</p>
+ *
+ * <p>Note: ambient territory patrols spawning from the territory base are
+ * handled separately by {@code TerritoryPatrolScript}, not by this op.</p>
  */
 public class PatrolOp extends IntrigueOp {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private static final Logger log = Logger.getLogger(PatrolOp.class.getName());
 
     private static final int LEGITIMACY_GAIN = 3;

@@ -64,6 +64,10 @@ public class Intrigue extends BaseModPlugin {
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
         x.alias("IntrigueTerritory", IntrigueTerritory.class);
         x.alias("IntrigueTerritoryManager", IntrigueTerritoryManager.class);
+        x.alias("TerritoryPatrolScript", TerritoryPatrolScript.class);
+        x.alias("TerritoryPatrolSlot", TerritoryPatrolScript.PatrolSlot.class);
+        x.alias("TerritoryPatrolSatEntry", TerritoryPatrolScript.SatelliteRouteEntry.class);
+        x.alias("AmbientPatrolSpawner", TerritoryPatrolScript.AmbientPatrolSpawner.class);
     }
 
     @Override
@@ -100,6 +104,7 @@ public class Intrigue extends BaseModPlugin {
         ensurePacerScript();
         ensurePeopleScript();
         ensureOpsManagerScript();
+        ensureTerritoryPatrolScript();
     }
 
     private void ensurePeopleScript() {
@@ -131,6 +136,17 @@ public class Intrigue extends BaseModPlugin {
         if (!(existing instanceof IntrigueOpsManager)) {
             IntrigueOpsManager mgr = IntrigueOpsManager.get();
             Global.getSector().addScript(mgr);
+        }
+    }
+
+    private void ensureTerritoryPatrolScript() {
+        Map<String, Object> data = Global.getSector().getPersistentData();
+        Object existing = data.get(IntrigueIds.PERSIST_TERRITORY_PATROL_KEY);
+
+        if (!(existing instanceof TerritoryPatrolScript)) {
+            TerritoryPatrolScript script = new TerritoryPatrolScript();
+            Global.getSector().addScript(script);
+            data.put(IntrigueIds.PERSIST_TERRITORY_PATROL_KEY, script);
         }
     }
 

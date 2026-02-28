@@ -25,19 +25,25 @@ import java.util.logging.Logger;
  * destroyed, which counts as failure.</p>
  */
 public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private static final Logger log = Logger.getLogger(PatrolPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_patrol_";
+
     private final String factionId;
     private final String sourceMarketId;
     private final int combatFP;
     private final float patrolDays;
     private final String subfactionName;
+
     private boolean done = false;
     private boolean succeeded = false;
     private boolean routeStarted = false;
     private transient CampaignFleetAPI fleet;
     private String routeSource;
+
+    /**
+     * Standard patrol: single fleet spawns from sourceMarketId and patrols that system.
+     */
     public PatrolPhase(String factionId, String sourceMarketId,
                        int combatFP, float patrolDays, String subfactionName) {
         this.factionId = factionId;
@@ -77,6 +83,7 @@ public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListen
             return;
         }
         routeSource = ROUTE_SOURCE_PREFIX + sourceMarketId + "_" + Global.getSector().getClock().getTimestamp();
+
         OptionalFleetData extra = new OptionalFleetData(source, factionId);
         extra.fp = (float) combatFP;
         extra.fleetType = FleetTypes.PATROL_LARGE;

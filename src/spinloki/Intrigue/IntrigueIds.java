@@ -18,6 +18,7 @@ public final class IntrigueIds {
     public static final String PERSIST_OPS_MANAGER_KEY = "spinloki_intrigue_ops_manager";
     public static final String PERSIST_SUBFACTION_MANAGER_KEY = "spinloki_intrigue_subfaction_manager";
     public static final String PERSIST_TERRITORY_MANAGER_KEY = "spinloki_intrigue_territory_manager";
+    public static final String PERSIST_TERRITORY_PATROL_KEY = "spinloki_intrigue_territory_patrol_script";
 
     /** Custom intel tag - groups all Intrigue intel items under one tab. */
     public static final String INTEL_TAG_INTRIGUE = "Intrigue";
