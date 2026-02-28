@@ -136,7 +136,6 @@ cd "$SRC_DIR"
   spinloki/Intrigue/campaign/ops/OpEvaluator.java \
   spinloki/Intrigue/campaign/ops/AssemblePhase.java \
   spinloki/Intrigue/campaign/ops/ReturnPhase.java \
-  spinloki/Intrigue/campaign/ops/ScoutTerritoryPhase.java \
   spinloki/Intrigue/campaign/ops/sim/SimClock.java \
   spinloki/Intrigue/campaign/ops/sim/SimPeopleAccess.java \
   spinloki/Intrigue/campaign/ops/sim/SimSubfactionAccess.java \

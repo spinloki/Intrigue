@@ -4,7 +4,12 @@ import spinloki.Intrigue.IntrigueTraits;
 import spinloki.Intrigue.campaign.IntriguePerson;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
-import spinloki.Intrigue.campaign.ops.*;
+import spinloki.Intrigue.campaign.ops.AssemblePhase;
+import spinloki.Intrigue.campaign.ops.IntrigueOp;
+import spinloki.Intrigue.campaign.ops.OpFactory;
+import spinloki.Intrigue.campaign.ops.OpOutcome;
+import spinloki.Intrigue.campaign.ops.OpPhase;
+import spinloki.Intrigue.campaign.ops.ReturnPhase;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 
@@ -298,12 +303,14 @@ public class SimOpFactory implements OpFactory {
     static class SimScoutTerritoryOp extends IntrigueOp {
 
         private final String subfactionId;
+        private final String factionId;
         private final String tId;
         private final OpOutcomeResolver resolver;
 
         SimScoutTerritoryOp(String opId, IntrigueSubfaction subfaction, String territoryId, OpOutcomeResolver resolver) {
             super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
             this.subfactionId = subfaction.getSubfactionId();
+            this.factionId = subfaction.getFactionId();
             this.tId = territoryId;
             this.resolver = resolver;
             setTerritoryId(territoryId);
@@ -323,7 +330,27 @@ public class SimOpFactory implements OpFactory {
 
         @Override
         protected OpOutcome determineOutcome() {
-            return resolver.resolveScoutTerritory(getInitiatorSubfaction(), tId);
+            // Mirror the game-side hostile-cohesion check:
+            // fail if combined cohesion of all hostile established subfactions exceeds 100
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories != null) {
+                IntrigueTerritory territory = territories.getById(tId);
+                if (territory != null) {
+                    int combinedHostileCohesion = 0;
+                    for (String otherSfId : territory.getActiveSubfactionIds()) {
+                        if (otherSfId.equals(subfactionId)) continue;
+                        if (territory.getPresence(otherSfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+                        IntrigueSubfaction otherSf = IntrigueServices.subfactions().getById(otherSfId);
+                        if (otherSf == null) continue;
+                        if (!IntrigueServices.hostility().areHostile(factionId, otherSf.getFactionId())) continue;
+                        combinedHostileCohesion += territory.getCohesion(otherSfId);
+                    }
+                    if (combinedHostileCohesion > 100) {
+                        return OpOutcome.FAILURE;
+                    }
+                }
+            }
+            return OpOutcome.SUCCESS;
         }
 
         @Override

@@ -13,3 +13,4 @@ intrigue_list_subfactions,spinloki.Intrigue.console.IntrigueListSubfactionsComma
 intrigue_validate,spinloki.Intrigue.console.IntrigueValidateCommand,"campaign",,
 intrigue_homeless_log,spinloki.Intrigue.console.IntrigueHomelessLogCommand,"campaign",,
 intrigue_list_territories,spinloki.Intrigue.console.IntrigueListTerritoriesCommand,"campaign",,
+intrigue_start_op,spinloki.Intrigue.console.IntrigueStartOpCommand,"cheat,campaign",,

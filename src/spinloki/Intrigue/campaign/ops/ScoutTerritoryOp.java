@@ -36,7 +36,16 @@ public class ScoutTerritoryOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
-        this.scoutPhase = new ScoutTerritoryPhase(30f); // 30 days to scout
+        int combatFP = 10 + (int) (subfaction.getHomeCohesion() * 0.2f);
+
+        this.scoutPhase = new ScoutTerritoryPhase(
+                subfaction.getFactionId(),
+                subfaction.getHomeMarketId(),
+                subfaction.getSubfactionId(),
+                territoryId,
+                combatFP,
+                30f,      // 30 days to scout each system
+                subfaction.getName());
         phases.add(scoutPhase);
     }
 

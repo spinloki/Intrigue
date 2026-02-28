@@ -11,12 +11,17 @@ import java.util.logging.Logger;
 /**
  * Operation: establish a base inside a territory that has already been scouted.
  *
- * Requires presence = SCOUTING in the target territory. On success, advances
- * presence to ESTABLISHED and sets initial territory cohesion. On failure,
- * presence reverts to NONE (the scouts were driven off).
+ * Requires presence = SCOUTING in the target territory. Uses a two-phase pipeline:
+ * <ol>
+ *   <li>{@link EstablishTerritoryBasePhase}: sends a supply fleet escorted by
+ *       military fleets to orbit the target system. If the fleet is destroyed, the
+ *       op fails. If the fleet is never spawned (abstract), it auto-succeeds.</li>
+ *   <li>{@link EstablishBasePhase}: if the escort phase succeeded, creates the
+ *       actual station and market in the territory.</li>
+ * </ol>
  *
- * The actual base creation reuses EstablishBasePhase, constraining the system
- * search to constellations within the territory.
+ * On success, advances presence to ESTABLISHED and sets initial territory cohesion.
+ * On failure, presence reverts to NONE.
  */
 public class EstablishTerritoryBaseOp extends IntrigueOp {
 
@@ -25,8 +30,10 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
     private static final int INITIAL_TERRITORY_COHESION = 50;
     private static final int HOME_COHESION_COST = 8;
     private static final int LEGITIMACY_GAIN = 5;
+    private static final float ESTABLISH_DAYS = 45f;
 
     private final String subfactionId;
+    private final EstablishTerritoryBasePhase escortPhase;
     private final EstablishBasePhase basePhase;
 
     public EstablishTerritoryBaseOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
@@ -38,7 +45,21 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
-        // Reuses the existing base creation logic, constrained to the territory's constellations
+        // Phase 1: send an escort fleet to the territory
+        int escortFP = 20 + (int) (subfaction.getHomeCohesion() * 0.4f);
+        int supplyFP = 15 + (int) (subfaction.getHomeCohesion() * 0.2f);
+
+        this.escortPhase = new EstablishTerritoryBasePhase(
+                subfaction.getFactionId(),
+                subfaction.getHomeMarketId(),
+                territoryId,
+                escortFP, supplyFP,
+                ESTABLISH_DAYS,
+                subfaction.getName());
+        phases.add(escortPhase);
+
+        // Phase 2: create the actual base (reuses existing base creation logic,
+        // constrained to the territory's constellations)
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         IntrigueTerritory territory = territories != null ? territories.getById(territoryId) : null;
         java.util.List<String> constellations = territory != null
@@ -69,6 +90,9 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
     protected boolean shouldAbort() {
         if (getInitiator() == null) return true;
 
+        // If the escort phase completed but the fleet was destroyed, skip base creation
+        if (escortPhase.isDone() && !escortPhase.didSucceed()) return true;
+
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         if (territories == null) return true;
 
@@ -88,6 +112,9 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
 
     @Override
     protected OpOutcome determineOutcome() {
+        // If the escort fleet was destroyed, the whole op fails
+        if (!escortPhase.didSucceed()) return OpOutcome.FAILURE;
+        // Otherwise, check if the base was actually created
         return basePhase.didSucceed() ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
     }
 
