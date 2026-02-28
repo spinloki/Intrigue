@@ -91,7 +91,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
         if (done) return;
 
         // ── Sim mode: use hostile-cohesion check ──
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routesStarted) {
                 succeeded = passesHostileCohesionCheck();
                 done = true;
@@ -253,13 +253,6 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
 
     // ── OpPhase ──────────────────────────────────────────────────────────
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     @Override
     public boolean isDone() {

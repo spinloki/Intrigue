@@ -81,7 +81,7 @@ public class EstablishTerritoryBasePhase implements OpPhase, RouteFleetSpawner, 
         if (done) return;
 
         // ── Sim mode: auto-succeed ──
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("EstablishTerritoryBasePhase: no sector (sim mode); auto-completing as success.");
                 succeeded = true;
@@ -346,13 +346,6 @@ public class EstablishTerritoryBasePhase implements OpPhase, RouteFleetSpawner, 
 
     // ── OpPhase ──────────────────────────────────────────────────────────
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     @Override
     public boolean isDone() {

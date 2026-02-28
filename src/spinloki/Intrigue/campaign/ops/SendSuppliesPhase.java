@@ -58,7 +58,7 @@ public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEvent
         if (done) return;
 
         // ── Sim mode (no sector) — auto-complete as success ──
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("SendSuppliesPhase: no sector (sim mode); auto-completing as success.");
                 succeeded = true;
@@ -234,13 +234,6 @@ public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEvent
 
     // ── OpPhase ──────────────────────────────────────────────────────────
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     @Override
     public boolean isDone() {

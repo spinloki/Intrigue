@@ -83,7 +83,7 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
     public void advance(float days) {
         if (done) return;
 
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routesStarted) {
                 log.info("InfightingPhase: no sector (sim mode); auto-completing.");
                 done = true;
@@ -415,13 +415,6 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
         return null;
     }
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     // ── OpPhase ─────────────────────────────────────────────────────────
 

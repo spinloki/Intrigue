@@ -45,7 +45,7 @@ public class FGIPhase implements OpPhase, Serializable {
         if (done) return;
 
         // Sim mode: no sector available, auto-resolve
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             done = true;
             succeeded = false;
             return;
@@ -137,12 +137,5 @@ public class FGIPhase implements OpPhase, Serializable {
         succeeded = false;
     }
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 }
 

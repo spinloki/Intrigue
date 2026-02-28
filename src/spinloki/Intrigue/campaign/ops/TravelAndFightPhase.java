@@ -73,7 +73,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         if (done) return;
 
         // ── Sim mode (no sector) — auto-complete ──
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("TravelAndFightPhase: no sector available (sim mode); auto-completing.");
                 fleetWon = false;
@@ -293,13 +293,6 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
 
     // ── OpPhase ──────────────────────────────────────────────────────────
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     @Override
     public boolean isDone() {

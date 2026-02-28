@@ -68,7 +68,7 @@ public class EstablishBasePhase implements OpPhase, Serializable {
     public void advance(float days) {
         if (done) return;
 
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             done = true;
             succeeded = false;
             return;
@@ -213,13 +213,6 @@ public class EstablishBasePhase implements OpPhase, Serializable {
         return marketId;
     }
 
-    private boolean isSectorAvailable() {
-        try {
-            return Global.getSector() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 }
 
 

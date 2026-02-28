@@ -48,7 +48,7 @@ public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListen
     @Override
     public void advance(float days) {
         if (done) return;
-        if (!isSectorAvailable()) {
+        if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("PatrolPhase: no sector (sim mode); auto-completing as success.");
                 succeeded = true;
@@ -172,10 +172,6 @@ public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListen
         if (route != null) RouteManager.getInstance().removeRoute(route);
     }
     // ── OpPhase ──
-    private boolean isSectorAvailable() {
-        try { return Global.getSector() != null; }
-        catch (Exception e) { return false; }
-    }
     @Override public boolean isDone() { return done; }
     @Override
     public String getStatus() {
