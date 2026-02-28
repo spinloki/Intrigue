@@ -121,6 +121,23 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
     }
 
     @Override
+    public String getIcon() {
+        switch (opTypeName) {
+            case "Patrol":                  return "graphics/icons/intel/fleet_log.png";
+            case "Rally":                   return "graphics/icons/intel/reputation.png";
+            case "Scout Territory":         return "graphics/icons/intel/discovered_entity.png";
+            case "Establish Base":          return "graphics/icons/intel/log_to_orbital.png";
+            case "Establish Territory Base":return "graphics/icons/intel/log_to_orbital.png";
+            case "Send Supplies":           return "graphics/icons/intel/tradefleet_large.png";
+            case "Infighting":              return "graphics/icons/intel/faction_conflict.png";
+            case "Expulsion":               return "graphics/icons/intel/log_x_mark.png";
+            case "Civil War":               return "graphics/icons/intel/war.png";
+            case "Mischief":                return "graphics/icons/intel/smuggling.png";
+            default:                        return "graphics/icons/intel/events.png";
+        }
+    }
+
+    @Override
     public void createSmallDescription(TooltipMakerAPI info, float width, float height) {
         float opad = 10f;
         Color h = Misc.getHighlightColor();
