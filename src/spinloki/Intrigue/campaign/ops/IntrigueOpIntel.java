@@ -35,9 +35,6 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
 
     private static final Logger log = Logger.getLogger(IntrigueOpIntel.class.getName());
 
-    /** Placeholder relation threshold for revealing intel to the player. */
-    private static final float REVEAL_RELATION_THRESHOLD = -0.9f;
-
     // Persisted fields for rendering even if the op reference is lost
     private final String opId;
     private final String opTypeName;
@@ -94,24 +91,6 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
         setNew(true);
     }
 
-    // ── Visibility condition ────────────────────────────────────────────
-
-    /**
-     * Placeholder condition for revealing intel to the player. Returns true if
-     * the player's relation with the initiator's parent faction is at least -90.
-     * This is almost always true - intended to be replaced with more nuanced
-     * conditions later (contacts, spy networks, etc.).
-     */
-    public static boolean shouldRevealToPlayer(IntrigueOp op) {
-        if (!PhaseUtil.isSectorAvailable()) return false;
-
-        String factionId = resolveFactionId(op.getInitiatorSubfactionId());
-        if (factionId == null) return true; // Can't determine - default to visible
-
-        FactionAPI playerFaction = Global.getSector().getPlayerFaction();
-        float rel = playerFaction.getRelationship(factionId);
-        return rel >= REVEAL_RELATION_THRESHOLD;
-    }
 
     // ── Display ─────────────────────────────────────────────────────────
 

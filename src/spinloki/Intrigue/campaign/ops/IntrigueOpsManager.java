@@ -60,7 +60,7 @@ public class IntrigueOpsManager implements EveryFrameScript, Serializable, Intri
      */
     private void registerIntelForOp(IntrigueOp op) {
         if (op.isSkipIntel()) return;
-        if (!IntrigueOpIntel.shouldRevealToPlayer(op)) return;
+        if (!op.shouldRevealToPlayer()) return;
 
         IntrigueOpIntel intel = new IntrigueOpIntel(op);
         intel.setPlayerVisibleTimestamp(Global.getSector().getClock().getTimestamp());

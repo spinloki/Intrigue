@@ -138,8 +138,22 @@ public abstract class IntrigueOp implements Serializable {
      * @param info the tooltip to append content to
      * @param opad standard paragraph padding
      */
-    public void createIntelDetails(TooltipMakerAPI info, float opad) {
+    public void createIntelDetails(com.fs.starfarer.api.ui.TooltipMakerAPI info, float opad) {
         // Default: no extra details
+    }
+
+    /**
+     * Whether this op's intel should be revealed to the player.
+     * Called by {@link IntrigueOpIntel#shouldRevealToPlayer(IntrigueOp)}.
+     *
+     * <p>Default implementation returns {@code true} — subclasses should
+     * override for more restrictive visibility (e.g. requiring faction
+     * relations, shared territory presence, contacts, etc.).</p>
+     *
+     * @return true if the player should see this op in their intel panel
+     */
+    public boolean shouldRevealToPlayer() {
+        return true;
     }
 
     /**
