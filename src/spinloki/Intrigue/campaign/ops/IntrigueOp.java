@@ -1,5 +1,6 @@
 package spinloki.Intrigue.campaign.ops;
 
+import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import spinloki.Intrigue.campaign.IntriguePerson;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
@@ -128,6 +129,18 @@ public abstract class IntrigueOp implements Serializable {
     public Object getIntel() { return intel; }
     /** Set the transient intel reference (called by IntrigueOpsManager). */
     public void setIntel(Object intel) { this.intel = intel; }
+
+    /**
+     * Called by {@link IntrigueOpIntel} to let the op render extra details
+     * into the intel panel description. Default implementation does nothing.
+     * Subclasses can override to add custom sections (market info, etc.).
+     *
+     * @param info the tooltip to append content to
+     * @param opad standard paragraph padding
+     */
+    public void createIntelDetails(TooltipMakerAPI info, float opad) {
+        // Default: no extra details
+    }
 
     /**
      * Success chance penalty applied by active mischief ops targeting this op.

@@ -169,6 +169,12 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
             info.addPara("Destination: %s", opad, tc, h, destinationDisplayName);
         }
 
+        // Extra details from the op (e.g. loyalist/rebel markets)
+        ensureOpRef();
+        if (op != null) {
+            op.createIntelDetails(info, opad);
+        }
+
         // Status
         ensureOpRef();
         if (op != null && !op.isResolved()) {
