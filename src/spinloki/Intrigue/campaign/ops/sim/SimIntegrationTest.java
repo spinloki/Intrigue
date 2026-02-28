@@ -767,6 +767,7 @@ public class SimIntegrationTest {
         // Track ops that need resolution checking
         List<IntrigueOp> pendingOps = new ArrayList<>();
         Map<String, String> opToSubfaction = new LinkedHashMap<>(); // opId -> sfId
+        Map<String, String> opToLabel = new LinkedHashMap<>(); // opId -> display label
 
         boolean verbose = "true".equals(System.getProperty("intrigue.verbose"));
 
@@ -838,6 +839,7 @@ public class SimIntegrationTest {
                             .merge(op.getOpTypeName(), 1, Integer::sum);
                     pendingOps.add(op);
                     opToSubfaction.put(op.getOpId(), sf.getSubfactionId());
+                    opToLabel.put(op.getOpId(), op.getOpTypeName());
 
                     if (verbose) {
                         int activeCount = ops.getActiveOpCount(sf.getLeaderId());
@@ -867,6 +869,7 @@ public class SimIntegrationTest {
                 opCounts.get(atkId).merge(vr.getOpTypeName() + " (free)", 1, Integer::sum);
                 pendingOps.add(vr);
                 opToSubfaction.put(vr.getOpId(), atkId);
+                opToLabel.put(vr.getOpId(), vr.getOpTypeName() + " (free)");
                 vulnRaidCounts.get(atkId)[0]++;
                 vulnRaidCounts.get(defId)[1]++;
                 if (verbose) {
@@ -889,6 +892,7 @@ public class SimIntegrationTest {
                 opCounts.get(atkId).merge(label, 1, Integer::sum);
                 pendingOps.add(fo);
                 opToSubfaction.put(fo.getOpId(), atkId);
+                opToLabel.put(fo.getOpId(), label);
                 if (verbose) {
                     IntrigueSubfaction atkSf = IntrigueServices.subfactions().getById(atkId);
                     IntrigueSubfaction defSf = IntrigueServices.subfactions().getById(defId);
@@ -1039,8 +1043,9 @@ public class SimIntegrationTest {
                 IntrigueOp op = it.next();
                 if (op.isResolved()) {
                     String sfId = opToSubfaction.get(op.getOpId());
+                    String label = opToLabel.getOrDefault(op.getOpId(), op.getOpTypeName());
                     int[] counts = outcomeCounts.get(sfId)
-                            .computeIfAbsent(op.getOpTypeName(), k -> new int[2]);
+                            .computeIfAbsent(label, k -> new int[2]);
                     if (op.getOutcome() == OpOutcome.SUCCESS) {
                         counts[0]++;
                     } else {
