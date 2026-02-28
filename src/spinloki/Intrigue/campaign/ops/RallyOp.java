@@ -23,7 +23,7 @@ public class RallyOp extends IntrigueOp {
     public RallyOp(String opId, IntrigueSubfaction subfaction) {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         // TODO: game-side phase — could be a timed event at the home market
-        phases.add(new InfightingOp.TimedPhase("Rally", 5f));
+        phases.add(new TimedPhase("Rally", 5f));
     }
 
     @Override public String getOpTypeName() { return "Rally"; }

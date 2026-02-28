@@ -7,8 +7,12 @@ import java.util.logging.Logger;
 
 /**
  * Consequence op: infighting erupts in a territory where cohesion has dropped
- * below the danger threshold. Subfaction fleets spawn and fight each other.
- * Result: legitimacy loss.
+ * below the danger threshold.
+ *
+ * <p>Two fleets from the same subfaction travel to a point of interest in the
+ * territory to "settle their differences." When they arrive, they become
+ * hostile to each other and fight. The outcome is always FAILURE — infighting
+ * always hurts the subfaction, resulting in legitimacy loss.</p>
  */
 public class InfightingOp extends IntrigueOp {
 
@@ -21,17 +25,28 @@ public class InfightingOp extends IntrigueOp {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
-        // TODO: game-side phase that spawns fighting fleets in the territory
-        // For now, resolves instantly
-        phases.add(new TimedPhase("Infighting", 3f));
+
+        // Each dissident fleet gets roughly half the subfaction's strength
+        int fleetFP = 15 + (int) (subfaction.getHomeCohesion() * 0.3f);
+
+        phases.add(new InfightingPhase(
+                subfaction.getFactionId(),
+                subfaction.getHomeMarketId(),
+                territoryId,
+                fleetFP,
+                subfaction.getName()));
     }
 
     @Override public String getOpTypeName() { return "Infighting"; }
+
     @Override protected void onStarted() {
         log.info("Infighting erupted for " + subfactionId + " in territory " + getTerritoryId());
     }
 
-    @Override protected OpOutcome determineOutcome() { return OpOutcome.FAILURE; }
+    @Override protected OpOutcome determineOutcome() {
+        // Infighting is always bad for the subfaction
+        return OpOutcome.FAILURE;
+    }
 
     @Override
     protected void applyOutcome() {
@@ -42,22 +57,4 @@ public class InfightingOp extends IntrigueOp {
             log.info("Infighting resolved: " + subfactionId + " legitimacy -" + LEGITIMACY_LOSS);
         }
     }
-
-    /** Simple phase that completes after a set number of days. */
-    static class TimedPhase implements OpPhase, java.io.Serializable {
-        private final String label;
-        private final float duration;
-        private float elapsed = 0f;
-
-        TimedPhase(String label, float duration) {
-            this.label = label;
-            this.duration = duration;
-        }
-
-        @Override public void advance(float days) { elapsed += days; }
-        @Override public boolean isDone() { return elapsed >= duration; }
-        @Override public String getStatus() { return isDone() ? label + " subsided" : label + " ongoing"; }
-    }
 }
-
-

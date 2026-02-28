@@ -106,10 +106,24 @@ public class SimConfig {
     public float playerDisfavorPenalty = -0.30f;
 
     // ── Territory friction ──
-    /** Friction gained per tick between cross-faction subfactions sharing a territory. */
-    public int frictionPerTick = 3;
-    /** Friction gained per tick between same-faction subfactions sharing a territory. */
-    public int sameFactionFrictionPerTick = 1;
+    /**
+     * Base friction gained per tick per pair of ESTABLISHED subfactions sharing a territory.
+     * Actual gain is {@code baseFrictionPerTick * (numEstablished - 1)} — more crowding means
+     * faster friction build-up for everyone.
+     */
+    public int baseFrictionPerTick = 2;
+    /**
+     * For each point of positive subfaction relationship, this much friction is drained per tick.
+     * E.g. with frictionRelDrainDivisor=10 and rel=+40, drain = 40/10 = 4 per tick.
+     * This allows friendly/same-parent subfactions to slow friction growth, but not eliminate it
+     * entirely in crowded territories.
+     */
+    public int frictionRelDrainDivisor = 10;
+    /**
+     * Maximum friction drained per tick due to positive relations, preventing full neutralization.
+     * Even very friendly subfactions will still accumulate some friction in crowded territories.
+     */
+    public int frictionRelDrainCap = 3;
     /** Friction threshold at which a mischief op is triggered. */
     public int frictionThreshold = 60;
     /** Probability that a mischief op succeeds. */
@@ -118,6 +132,8 @@ public class SimConfig {
     public int mischiefCohesionPenalty = 5;
     /** Legitimacy penalty inflicted on victim when mischief succeeds. */
     public int mischiefLegitimacyPenalty = 3;
+    /** Success chance penalty applied to the target op while mischief is ongoing (e.g. 0.15 = 15%). */
+    public float mischiefTargetSuccessPenalty = 0.15f;
 
     public static SimConfig defaults() {
         return new SimConfig();
@@ -179,12 +195,14 @@ public class SimConfig {
         c.playerActionInterval = playerActionInterval;
         c.playerFavorBonus = playerFavorBonus;
         c.playerDisfavorPenalty = playerDisfavorPenalty;
-        c.frictionPerTick = frictionPerTick;
-        c.sameFactionFrictionPerTick = sameFactionFrictionPerTick;
+        c.baseFrictionPerTick = baseFrictionPerTick;
+        c.frictionRelDrainDivisor = frictionRelDrainDivisor;
+        c.frictionRelDrainCap = frictionRelDrainCap;
         c.frictionThreshold = frictionThreshold;
         c.mischiefSuccessProb = mischiefSuccessProb;
         c.mischiefCohesionPenalty = mischiefCohesionPenalty;
         c.mischiefLegitimacyPenalty = mischiefLegitimacyPenalty;
+        c.mischiefTargetSuccessPenalty = mischiefTargetSuccessPenalty;
         return c;
     }
 }

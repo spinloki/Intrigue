@@ -680,12 +680,13 @@ public class SimIntegrationTest {
         System.out.printf("    Player action interval:       every %d ticks%n", config.playerActionInterval);
         System.out.printf("    Player favor bonus:           %+.0f%%%n", config.playerFavorBonus * 100);
         System.out.printf("    Player disfavor penalty:      %+.0f%%%n", config.playerDisfavorPenalty * 100);
-        System.out.printf("    Friction/tick (cross-faction): %d%n", config.frictionPerTick);
-        System.out.printf("    Friction/tick (same-faction):  %d%n", config.sameFactionFrictionPerTick);
+        System.out.printf("    Friction base/tick:            %d (×crowding)%n", config.baseFrictionPerTick);
+        System.out.printf("    Friction rel drain divisor:    %d (cap %d)%n", config.frictionRelDrainDivisor, config.frictionRelDrainCap);
         System.out.printf("    Friction threshold (mischief): %d%n", config.frictionThreshold);
         System.out.printf("    Mischief success:              %.0f%%%n", config.mischiefSuccessProb * 100);
         System.out.printf("    Mischief cohesion penalty:     %d%n", config.mischiefCohesionPenalty);
         System.out.printf("    Mischief legitimacy penalty:   %d%n", config.mischiefLegitimacyPenalty);
+        System.out.printf("    Mischief target op penalty:    %.0f%%%n", config.mischiefTargetSuccessPenalty * 100);
         System.out.println();
 
         SimClock clock;
@@ -917,16 +918,35 @@ public class SimIntegrationTest {
                     }
                 }
 
-                // ── Friction accumulation: each pair of ESTABLISHED subfactions ──
-                for (String[] pair : territory.getEstablishedPairs()) {
+                // ── Friction accumulation: crowding-scaled, directional, + relationship drain ──
+                List<String[]> pairs = territory.getEstablishedPairs();
+                int numEstablished = territory.getEstablishedCount();
+                int crowdingMult = Math.max(1, numEstablished - 1);
+                for (String[] pair : pairs) {
                     IntrigueSubfaction sfA = IntrigueServices.subfactions().getById(pair[0]);
                     IntrigueSubfaction sfB = IntrigueServices.subfactions().getById(pair[1]);
                     if (sfA == null || sfB == null) continue;
-
-                    boolean sameFaction = sfA.getFactionId().equals(sfB.getFactionId());
-                    int gain = sameFaction ? config.sameFactionFrictionPerTick : config.frictionPerTick;
-                    int current = territory.getFriction(pair[0], pair[1]);
-                    territory.setFriction(pair[0], pair[1], current + gain);
+                    int baseGain = config.baseFrictionPerTick * crowdingMult;
+                    // A→B direction
+                    Integer relAB = sfA.getRelTo(pair[1]);
+                    int rAB = (relAB != null) ? relAB : 0;
+                    int drainAB = 0;
+                    if (rAB > 0 && config.frictionRelDrainDivisor > 0) {
+                        drainAB = Math.min(rAB / config.frictionRelDrainDivisor, config.frictionRelDrainCap);
+                    }
+                    int netAB = Math.max(0, baseGain - drainAB);
+                    territory.setFriction(pair[0], pair[1],
+                            territory.getFriction(pair[0], pair[1]) + netAB);
+                    // B→A direction
+                    Integer relBA = sfB.getRelTo(pair[0]);
+                    int rBA = (relBA != null) ? relBA : 0;
+                    int drainBA = 0;
+                    if (rBA > 0 && config.frictionRelDrainDivisor > 0) {
+                        drainBA = Math.min(rBA / config.frictionRelDrainDivisor, config.frictionRelDrainCap);
+                    }
+                    int netBA = Math.max(0, baseGain - drainBA);
+                    territory.setFriction(pair[1], pair[0],
+                            territory.getFriction(pair[1], pair[0]) + netBA);
                 }
             }
 
@@ -1030,6 +1050,9 @@ public class SimIntegrationTest {
                         String rsfName = rsf != null ? rsf.getName() : sfId;
                         System.out.printf("  [t=%3d]   %-35s   %-20s \u2192 %s",
                                 t, rsfName, op.getOpTypeName(), op.getOutcome());
+                        if (op.wasSabotagedByMischief()) {
+                            System.out.printf(" [SABOTAGED penalty=%.0f%%]", op.getMischiefPenalty() * 100);
+                        }
                         if (rsf != null) {
                             System.out.printf("  (homeCoh=%d leg=%d)", rsf.getHomeCohesion(), rsf.getLegitimacy());
                         }

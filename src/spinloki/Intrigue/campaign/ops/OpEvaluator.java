@@ -39,6 +39,9 @@ public final class OpEvaluator {
     /** Total cohesion required per extra concurrent op slot (beyond the first). */
     public static final int EXTRA_OP_COHESION_COST = 50;
 
+    /** Success chance penalty applied to an op targeted by mischief (0.15 = 15%). */
+    public static final float MISCHIEF_TARGET_SUCCESS_PENALTY = 0.15f;
+
     /** Hard cap on concurrent ops per subfaction. */
     public static final int MAX_CONCURRENT_OPS = 3;
 
@@ -696,76 +699,73 @@ public final class OpEvaluator {
             for (String[] pair : territory.getEstablishedPairs()) {
                 String sfA = pair[0];
                 String sfB = pair[1];
-                int friction = territory.getFriction(sfA, sfB);
-                if (friction < frictionThreshold) continue;
 
-                IntrigueSubfaction subA = IntrigueServices.subfactions().getById(sfA);
-                IntrigueSubfaction subB = IntrigueServices.subfactions().getById(sfB);
-                if (subA == null || subB == null) continue;
+                // Check both directions — each can trigger independently
+                int frictionAB = territory.getFriction(sfA, sfB);
+                int frictionBA = territory.getFriction(sfB, sfA);
 
-                // Pick initiator: higher legitimacy, tiebreak alphabetical
-                IntrigueSubfaction initiator, victim;
-                if (subA.getLegitimacy() > subB.getLegitimacy()) {
-                    initiator = subA;
-                    victim = subB;
-                } else if (subB.getLegitimacy() > subA.getLegitimacy()) {
-                    initiator = subB;
-                    victim = subA;
-                } else {
-                    // Tiebreak: alphabetical by subfaction ID (pair is already sorted)
-                    initiator = subA;
-                    victim = subB;
-                }
+                // Process whichever direction(s) crossed the threshold
+                // (both could fire in the same tick if both are above threshold)
+                for (int dir = 0; dir < 2; dir++) {
+                    String initId = (dir == 0) ? sfA : sfB;
+                    String victId = (dir == 0) ? sfB : sfA;
+                    int friction = (dir == 0) ? frictionAB : frictionBA;
+                    if (friction < frictionThreshold) continue;
 
-                if (initiator.getLeaderId() == null) continue;
+                    IntrigueSubfaction initiator = IntrigueServices.subfactions().getById(initId);
+                    IntrigueSubfaction victim = IntrigueServices.subfactions().getById(victId);
+                    if (initiator == null || victim == null) continue;
+                    if (initiator.getLeaderId() == null) continue;
 
-                boolean hostile = IntrigueServices.hostility().areHostile(
-                        initiator.getFactionId(), victim.getFactionId());
+                    boolean hostile = IntrigueServices.hostility().areHostile(
+                            initiator.getFactionId(), victim.getFactionId());
 
-                if (hostile) {
-                    // Hostile factions skip mischief — launch a free raid targeting
-                    // the victim's base in this shared territory (the source of friction).
-                    // Falls back to home market if no territory base is recorded.
-                    String territoryBaseId = territory.getBaseMarketId(victim.getSubfactionId());
-                    boolean hasTarget = (territoryBaseId != null && !territoryBaseId.isEmpty())
-                            || victim.hasHomeMarket();
-                    if (!hasTarget) continue;
+                    if (hostile) {
+                        // Hostile factions skip mischief — launch a free raid targeting
+                        // the victim's base in this shared territory (the source of friction).
+                        String territoryBaseId = territory.getBaseMarketId(victim.getSubfactionId());
+                        boolean hasTarget = (territoryBaseId != null && !territoryBaseId.isEmpty())
+                                || victim.hasHomeMarket();
+                        if (!hasTarget) continue;
 
-                    String opId = opsRunner.nextOpId(opIdPrefix + "_friction_raid");
-                    IntrigueOp raid = IntrigueServices.opFactory().createRaidOp(
-                            opId, initiator, victim, territoryBaseId);
-                    if (raid != null) {
-                        raid.setNoCost(true);
-                        raid.setTerritoryId(territory.getTerritoryId());
-                        ops.add(raid);
-                    }
-                    // Reset friction after triggering the raid
-                    territory.resetFriction(sfA, sfB);
-                } else {
-                    // Non-hostile: mischief, but only if the victim has an active op to sabotage
-                    List<IntrigueOp> victimOps = new ArrayList<>();
-                    for (IntrigueOp op : activeOps) {
-                        if (op.isResolved()) continue;
-                        String opSfId = op.getInitiatorSubfactionId();
-                        if (opSfId != null && opSfId.equals(victim.getSubfactionId())) {
-                            victimOps.add(op);
+                        String opId = opsRunner.nextOpId(opIdPrefix + "_friction_raid");
+                        IntrigueOp raid = IntrigueServices.opFactory().createRaidOp(
+                                opId, initiator, victim, territoryBaseId);
+                        if (raid != null) {
+                            raid.setNoCost(true);
+                            raid.setTerritoryId(territory.getTerritoryId());
+                            ops.add(raid);
                         }
-                    }
-                    if (victimOps.isEmpty()) {
-                        // No active op to target — friction stays, re-check next tick
-                        continue;
-                    }
+                        // Reset only the initiator's directed friction
+                        territory.resetFriction(initId, victId);
+                    } else {
+                        // Non-hostile: mischief, but only if the victim has an active op to sabotage
+                        List<IntrigueOp> victimOps = new ArrayList<>();
+                        for (IntrigueOp op : activeOps) {
+                            if (op.isResolved()) continue;
+                            String opSfId = op.getInitiatorSubfactionId();
+                            if (opSfId != null && opSfId.equals(victim.getSubfactionId())) {
+                                victimOps.add(op);
+                            }
+                        }
+                        if (victimOps.isEmpty()) {
+                            // No active op to target — friction stays, re-check next tick
+                            continue;
+                        }
 
-                    IntrigueOp targetOp = victimOps.get((int) (Math.random() * victimOps.size()));
-                    String opId = opsRunner.nextOpId(opIdPrefix + "_mischief");
-                    IntrigueOp mischiefOp = IntrigueServices.opFactory().createMischiefOp(
-                            opId, initiator, victim, territory.getTerritoryId(), targetOp);
-                    if (mischiefOp != null) {
-                        mischiefOp.setNoCost(true);
-                        ops.add(mischiefOp);
+                        IntrigueOp targetOp = victimOps.get((int) (Math.random() * victimOps.size()));
+                        String opId = opsRunner.nextOpId(opIdPrefix + "_mischief");
+                        IntrigueOp mischiefOp = IntrigueServices.opFactory().createMischiefOp(
+                                opId, initiator, victim, territory.getTerritoryId(), targetOp);
+                        if (mischiefOp != null) {
+                            mischiefOp.setNoCost(true);
+                            ops.add(mischiefOp);
+                            // Apply a success penalty to the targeted op
+                            targetOp.addMischiefPenalty(MISCHIEF_TARGET_SUCCESS_PENALTY);
+                        }
+                        // Reset only the initiator's directed friction
+                        territory.resetFriction(initId, victId);
                     }
-                    // Reset friction after triggering mischief
-                    territory.resetFriction(sfA, sfB);
                 }
             }
         }

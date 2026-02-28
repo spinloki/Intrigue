@@ -24,7 +24,7 @@ public class ExpulsionOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
         // Resolves instantly — the expulsion is a fait accompli
-        phases.add(new InfightingOp.TimedPhase("Expelled", 1f));
+        phases.add(new TimedPhase("Expelled", 1f));
     }
 
     @Override public String getOpTypeName() { return "Expulsion"; }

@@ -26,6 +26,8 @@ public class MischiefOp extends IntrigueOp {
 
     private final String victimSubfactionId;
     private final String targetOpId;
+    /** The initiator's directed friction toward the victim at the moment this op was created. */
+    private final int initiatorFrictionAtCreation;
 
     public MischiefOp(String opId, IntrigueSubfaction initiator,
                       IntrigueSubfaction victim, String territoryId,
@@ -39,6 +41,17 @@ public class MischiefOp extends IntrigueOp {
         this.targetOpId = targetOp != null ? targetOp.getOpId() : null;
         setTerritoryId(territoryId);
         setNoCost(true);
+
+        // Capture the initiator's friction before OpEvaluator resets it
+        int capturedFriction = 0;
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories != null) {
+            IntrigueTerritory t = territories.getById(territoryId);
+            if (t != null) {
+                capturedFriction = t.getFriction(initiator.getSubfactionId(), victim.getSubfactionId());
+            }
+        }
+        this.initiatorFrictionAtCreation = capturedFriction;
 
         // Quick op — resolves after a short phase
         phases.add(new AssemblePhase(initiator.getHomeCohesion()));
@@ -102,6 +115,20 @@ public class MischiefOp extends IntrigueOp {
                 if (t != null) {
                     int current = t.getCohesion(victimSubfactionId);
                     t.setCohesion(victimSubfactionId, current - COHESION_PENALTY);
+
+                    // Friction transfer: half the initiator's pre-reset friction is
+                    // applied to the victim's friction toward the initiator.
+                    // Getting mischief'd makes the victim more annoyed at the initiator.
+                    int transfer = initiatorFrictionAtCreation / 2;
+                    if (transfer > 0) {
+                        int victimFriction = t.getFriction(victimSubfactionId, getInitiatorSubfactionId());
+                        t.setFriction(victimSubfactionId, getInitiatorSubfactionId(),
+                                victimFriction + transfer);
+                        log.info("  Friction transfer: " + victimSubfactionId + "→"
+                                + getInitiatorSubfactionId() + " +" + transfer
+                                + " (was " + victimFriction + ", now "
+                                + t.getFriction(victimSubfactionId, getInitiatorSubfactionId()) + ")");
+                    }
                 }
             }
             log.info("  SUCCESS: " + victimSubfactionId + " loses " + COHESION_PENALTY

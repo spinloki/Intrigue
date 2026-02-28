@@ -21,7 +21,7 @@ public class CivilWarOp extends IntrigueOp {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         this.subfactionId = subfaction.getSubfactionId();
         // TODO: game-side phase that spawns massive fleet battle at home market
-        phases.add(new InfightingOp.TimedPhase("Civil War", 7f));
+        phases.add(new TimedPhase("Civil War", 7f));
     }
 
     @Override public String getOpTypeName() { return "Civil War"; }

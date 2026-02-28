@@ -19,6 +19,11 @@ public class IntriguePacerScript implements EveryFrameScript {
     private final IntervalUtil homelessCheckInterval = new IntervalUtil(14f, 16f);
     private final Random rng = new Random();
 
+    // ── Friction tuning (matches SimConfig defaults) ──
+    private static final int BASE_FRICTION_PER_TICK = 2;
+    private static final int FRICTION_REL_DRAIN_DIVISOR = 10;
+    private static final int FRICTION_REL_DRAIN_CAP = 3;
+
     @Override
     public boolean isDone() { return false; }
 
@@ -121,6 +126,49 @@ public class IntriguePacerScript implements EveryFrameScript {
                         territory.incrementLowCohesionTicks(sfId);
                     } else {
                         territory.resetLowCohesionTicks(sfId);
+                    }
+                }
+
+                // ── Friction accumulation: crowding-scaled, directional, + relationship drain ──
+                java.util.List<String[]> pairs = territory.getEstablishedPairs();
+                int numEstablished = territory.getEstablishedCount();
+                int crowdingMult = Math.max(1, numEstablished - 1);
+
+                for (String[] pair : pairs) {
+                    IntrigueSubfaction sfA = subfactions.getById(pair[0]);
+                    IntrigueSubfaction sfB = subfactions.getById(pair[1]);
+                    if (sfA == null || sfB == null) continue;
+
+                    int baseGain = BASE_FRICTION_PER_TICK * crowdingMult;
+
+                    // A→B friction (uses A's view of relationship with B)
+                    Integer relAB = sfA.getRelTo(pair[1]);
+                    int rAB = (relAB != null) ? relAB : 0;
+                    int drainAB = 0;
+                    if (rAB > 0 && FRICTION_REL_DRAIN_DIVISOR > 0) {
+                        drainAB = Math.min(rAB / FRICTION_REL_DRAIN_DIVISOR, FRICTION_REL_DRAIN_CAP);
+                    }
+                    int netAB = Math.max(0, baseGain - drainAB);
+                    int curAB = territory.getFriction(pair[0], pair[1]);
+                    territory.setFriction(pair[0], pair[1], curAB + netAB);
+
+                    // B→A friction (uses B's view of relationship with A)
+                    Integer relBA = sfB.getRelTo(pair[0]);
+                    int rBA = (relBA != null) ? relBA : 0;
+                    int drainBA = 0;
+                    if (rBA > 0 && FRICTION_REL_DRAIN_DIVISOR > 0) {
+                        drainBA = Math.min(rBA / FRICTION_REL_DRAIN_DIVISOR, FRICTION_REL_DRAIN_CAP);
+                    }
+                    int netBA = Math.max(0, baseGain - drainBA);
+                    int curBA = territory.getFriction(pair[1], pair[0]);
+                    territory.setFriction(pair[1], pair[0], curBA + netBA);
+
+                    if (verbose && (netAB > 0 || netBA > 0)) {
+                        result.append("\n  Friction: ").append(territory.getName())
+                              .append(" ").append(pair[0]).append("→").append(pair[1])
+                              .append(" +").append(netAB).append("→").append(territory.getFriction(pair[0], pair[1]))
+                              .append("  ").append(pair[1]).append("→").append(pair[0])
+                              .append(" +").append(netBA).append("→").append(territory.getFriction(pair[1], pair[0]));
                     }
                 }
             }

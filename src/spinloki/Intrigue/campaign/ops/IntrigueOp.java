@@ -48,6 +48,15 @@ public abstract class IntrigueOp implements Serializable {
      */
     private boolean noCost = false;
 
+    /**
+     * Accumulated success chance penalty from active mischief ops targeting this op.
+     * Applied as a negative modifier when this op resolves (e.g. 0.15 = 15% penalty).
+     */
+    private float mischiefPenalty = 0f;
+
+    /** True if mischief sabotage flipped this op's outcome from SUCCESS to FAILURE. */
+    private boolean sabotagedByMischief = false;
+
     private Stage stage = Stage.PROPOSED;
     private OpOutcome outcome = OpOutcome.PENDING;
 
@@ -80,6 +89,18 @@ public abstract class IntrigueOp implements Serializable {
     /** Whether this op is free (no cooldown, no failure costs). */
     public boolean isNoCost() { return noCost; }
     public void setNoCost(boolean noCost) { this.noCost = noCost; }
+
+    /**
+     * Success chance penalty applied by active mischief ops targeting this op.
+     * 0.0 = no penalty, 0.15 = 15% penalty, etc.
+     */
+    public float getMischiefPenalty() { return mischiefPenalty; }
+
+    /** Add to the accumulated mischief penalty on this op. */
+    public void addMischiefPenalty(float penalty) { this.mischiefPenalty += penalty; }
+
+    /** True if mischief sabotage flipped this op's outcome from SUCCESS to FAILURE. */
+    public boolean wasSabotagedByMischief() { return sabotagedByMischief; }
 
     // ── Convenience lookups ─────────────────────────────────────────────
 
@@ -191,6 +212,18 @@ public abstract class IntrigueOp implements Serializable {
 
     private void resolve(OpOutcome result) {
         if (stage == Stage.RESOLVED) return;
+
+        // Mischief penalty: if the op would succeed and has accumulated mischief
+        // sabotage, there is a chance the success is flipped to failure.
+        // The penalty is a probability (e.g. 0.15 = 15% chance of sabotage).
+        if (result == OpOutcome.SUCCESS && mischiefPenalty > 0f) {
+            float roll = (float) Math.random();
+            if (roll < mischiefPenalty) {
+                result = OpOutcome.FAILURE;
+                sabotagedByMischief = true;
+            }
+        }
+
         this.outcome = result;
         this.stage = Stage.RESOLVED;
         applyOutcome();

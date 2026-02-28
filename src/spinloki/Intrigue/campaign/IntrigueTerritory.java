@@ -68,8 +68,9 @@ public class IntrigueTerritory implements Serializable {
     private final Map<String, Integer> lowCohesionTicks = new LinkedHashMap<>();
 
     /**
-     * Pairwise friction between subfactions sharing this territory (0–100).
-     * Key = canonical pair key (sorted IDs joined by "|"), Value = friction level.
+     * Directed friction from one subfaction toward another in this territory (0–100).
+     * Key = directed key "from|to", Value = friction level.
+     * A→B and B→A are stored independently.
      */
     private final Map<String, Integer> pairFriction = new LinkedHashMap<>();
 
@@ -191,18 +192,24 @@ public class IntrigueTerritory implements Serializable {
         });
     }
 
-    // ── Pairwise friction ───────────────────────────────────────────────
+    // ── Directed friction ─────────────────────────────────────────────
 
-    /** Get friction between two subfactions in this territory (0–100). Returns 0 if no entry. */
-    public int getFriction(String sfA, String sfB) {
-        Integer val = pairFriction.get(pairKey(sfA, sfB));
+    /**
+     * Get directed friction from one subfaction toward another in this territory (0–100).
+     * Friction is asymmetric: A→B may differ from B→A. Returns 0 if no entry.
+     */
+    public int getFriction(String from, String to) {
+        Integer val = pairFriction.get(directedKey(from, to));
         return val != null ? val : 0;
     }
 
-    /** Set friction between two subfactions (clamped 0–100). Setting to 0 removes the entry. */
-    public void setFriction(String sfA, String sfB, int value) {
+    /**
+     * Set directed friction from one subfaction toward another (clamped 0–100).
+     * Setting to 0 removes the entry.
+     */
+    public void setFriction(String from, String to, int value) {
         int clamped = Math.max(0, Math.min(100, value));
-        String key = pairKey(sfA, sfB);
+        String key = directedKey(from, to);
         if (clamped <= 0) {
             pairFriction.remove(key);
         } else {
@@ -210,9 +217,9 @@ public class IntrigueTerritory implements Serializable {
         }
     }
 
-    /** Reset friction between two subfactions to 0. */
-    public void resetFriction(String sfA, String sfB) {
-        pairFriction.remove(pairKey(sfA, sfB));
+    /** Reset directed friction from one subfaction toward another to 0. */
+    public void resetFriction(String from, String to) {
+        pairFriction.remove(directedKey(from, to));
     }
 
     /**
@@ -236,13 +243,23 @@ public class IntrigueTerritory implements Serializable {
         return pairs;
     }
 
+    /** Number of subfactions with ESTABLISHED presence in this territory. */
+    public int getEstablishedCount() {
+        int count = 0;
+        for (Presence p : subfactionPresence.values()) {
+            if (p == Presence.ESTABLISHED) count++;
+        }
+        return count;
+    }
+
     /** Unmodifiable view of all pairwise friction values. */
     public Map<String, Integer> getPairFrictionView() {
         return Collections.unmodifiableMap(pairFriction);
     }
 
-    private static String pairKey(String sfA, String sfB) {
-        return sfA.compareTo(sfB) <= 0 ? sfA + "|" + sfB : sfB + "|" + sfA;
+    /** Directed key: "from|to" — order matters (A→B ≠ B→A). */
+    private static String directedKey(String from, String to) {
+        return from + "|" + to;
     }
 
     /** Get the number of consecutive ticks a subfaction's cohesion has been critically low. */

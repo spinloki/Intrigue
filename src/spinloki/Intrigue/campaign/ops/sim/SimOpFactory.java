@@ -686,6 +686,8 @@ public class SimOpFactory implements OpFactory {
         private final String targetOpId;
         private final OpOutcomeResolver resolver;
         private final SimConfig config;
+        /** Initiator's directed friction toward the victim at creation time. */
+        private final int initiatorFrictionAtCreation;
 
         SimMischiefOp(String opId, IntrigueSubfaction initiator, IntrigueSubfaction victim,
                       String territoryId, String targetOpId,
@@ -698,6 +700,18 @@ public class SimOpFactory implements OpFactory {
             this.resolver = resolver;
             this.config = config;
             setTerritoryId(territoryId);
+
+            // Capture the initiator's friction before OpEvaluator resets it
+            int capturedFriction = 0;
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories != null) {
+                IntrigueTerritory t = territories.getById(territoryId);
+                if (t != null) {
+                    capturedFriction = t.getFriction(initiator.getSubfactionId(), victim.getSubfactionId());
+                }
+            }
+            this.initiatorFrictionAtCreation = capturedFriction;
+
             phases.add(new InstantPhase("Mischief"));
         }
 
@@ -730,6 +744,15 @@ public class SimOpFactory implements OpFactory {
                     if (t != null) {
                         int current = t.getCohesion(victimSubfactionId);
                         t.setCohesion(victimSubfactionId, current - config.mischiefCohesionPenalty);
+
+                        // Friction transfer: half the initiator's pre-reset friction
+                        // is applied to the victim's friction toward the initiator.
+                        int transfer = initiatorFrictionAtCreation / 2;
+                        if (transfer > 0) {
+                            int victimFriction = t.getFriction(victimSubfactionId, getInitiatorSubfactionId());
+                            t.setFriction(victimSubfactionId, getInitiatorSubfactionId(),
+                                    victimFriction + transfer);
+                        }
                     }
                 }
             }
