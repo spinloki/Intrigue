@@ -10,6 +10,7 @@ import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueSubfactionManager;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.IntrigueTerritoryManager;
+import spinloki.Intrigue.campaign.TerritoryPatrolScript;
 import spinloki.Intrigue.campaign.intel.IntrigueTerritoryIntel;
 import spinloki.Intrigue.campaign.ops.*;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
@@ -47,6 +48,9 @@ public class Intrigue extends BaseModPlugin {
         x.alias("ScoutTerritoryOp", ScoutTerritoryOp.class);
         x.alias("ScoutTerritoryPhase", ScoutTerritoryPhase.class);
         x.alias("EstablishTerritoryBaseOp", EstablishTerritoryBaseOp.class);
+        x.alias("AssaultTerritoryBaseOp", AssaultTerritoryBaseOp.class);
+        x.alias("SlotSystemPicker", SlotSystemPicker.class);
+        x.alias("BaseSlot", IntrigueTerritory.BaseSlot.class);
         x.alias("PatrolOp", PatrolOp.class);
         x.alias("PatrolPhase", PatrolPhase.class);
         x.alias("SendSuppliesOp", SendSuppliesOp.class);

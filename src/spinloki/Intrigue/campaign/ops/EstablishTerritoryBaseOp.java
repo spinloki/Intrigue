@@ -6,26 +6,30 @@ import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
  * Operation: establish a base inside a territory that has already been scouted.
  *
- * Requires presence = SCOUTING in the target territory. Uses a two-phase pipeline:
+ * <p>Requires presence = SCOUTING in the target territory. Claims a free
+ * {@link IntrigueTerritory.BaseSlot} and directs the base to that slot's system.</p>
+ *
+ * Uses a two-phase pipeline:
  * <ol>
  *   <li>{@link EstablishTerritoryBasePhase}: sends a supply fleet escorted by
  *       military fleets to orbit the target system. If the fleet is destroyed, the
  *       op fails. If the fleet is never spawned (abstract), it auto-succeeds.</li>
  *   <li>{@link EstablishBasePhase}: if the escort phase succeeded, creates the
- *       actual station and market in the territory.</li>
+ *       actual station and market in the slot's system.</li>
  * </ol>
  *
  * On success, advances presence to ESTABLISHED and sets initial territory cohesion.
- * On failure, presence reverts to NONE.
+ * On failure, presence reverts to NONE and the slot is released.
  */
 public class EstablishTerritoryBaseOp extends IntrigueOp {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private static final Logger log = Logger.getLogger(EstablishTerritoryBaseOp.class.getName());
 
     private static final int INITIAL_TERRITORY_COHESION = 50;
@@ -63,16 +67,35 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
                 subfaction.getName());
         phases.add(escortPhase);
 
-        // Phase 2: create the actual base (reuses existing base creation logic,
-        // constrained to the territory's constellations)
+        // Phase 2: create the actual base — claim a slot and use its system
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         IntrigueTerritory territory = territories != null ? territories.getById(territoryId) : null;
-        java.util.List<String> constellations = territory != null
-                ? territory.getConstellationNames()
-                : java.util.Collections.emptyList();
+
+        SystemPicker picker;
+        if (territory != null) {
+            List<IntrigueTerritory.BaseSlot> freeSlots = territory.getFreeSlots();
+            if (!freeSlots.isEmpty()) {
+                IntrigueTerritory.BaseSlot slot = freeSlots.get(0);
+                territory.claimSlot(slot, subfaction.getSubfactionId());
+                picker = new SlotSystemPicker(slot.getSystemId());
+                // Update intel arrow to point at the slot's system
+                setIntelDestinationSystemId(slot.getSystemName());
+                log.info("EstablishTerritoryBaseOp: claimed slot in " + slot.getSystemName()
+                        + " (" + slot.getLocationDescription() + ") for " + subfaction.getName());
+            } else {
+                // Fallback: use TerritorySystemPicker (shouldn't happen if evaluator checks slots)
+                java.util.List<String> constellations = territory.getConstellationNames();
+                picker = new TerritorySystemPicker(constellations);
+                log.warning("EstablishTerritoryBaseOp: no free slots in " + territory.getName()
+                        + "; falling back to TerritorySystemPicker.");
+            }
+        } else {
+            picker = new TerritorySystemPicker(java.util.Collections.emptyList());
+        }
+
         this.basePhase = new EstablishBasePhase(
                 subfaction.getFactionId(), subfaction.getSubfactionId(), subfaction.getName(),
-                new TerritorySystemPicker(constellations));
+                picker);
         phases.add(basePhase);
     }
 
@@ -158,9 +181,10 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
             log.info("  SUCCESS: " + subfactionId + " ESTABLISHED in " + territory.getName()
                     + " (territory cohesion=" + INITIAL_TERRITORY_COHESION + ")");
         } else {
-            // Revert presence to NONE - the effort failed
+            // Revert presence to NONE - the effort failed, release the claimed slot
             if (territory != null) {
                 territory.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
+                territory.releaseSlot(subfactionId);
             }
 
             if (subfaction != null) {

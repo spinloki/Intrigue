@@ -127,4 +127,17 @@ public interface OpFactory {
     IntrigueOp createMischiefOp(String opId, IntrigueSubfaction initiator,
                                 IntrigueSubfaction victim, String territoryId,
                                 IntrigueOp targetOp);
+
+    /**
+     * Create an assault op to take over a territory base from a hostile subfaction.
+     * Triggered when all base slots are full and the attacker needs to displace someone.
+     *
+     * @param opId       unique operation ID
+     * @param attacker   the subfaction launching the assault
+     * @param defender   the subfaction being displaced
+     * @param territoryId the contested territory
+     * @return an IntrigueOp, or null if the op cannot be created
+     */
+    IntrigueOp createAssaultTerritoryBaseOp(String opId, IntrigueSubfaction attacker,
+                                            IntrigueSubfaction defender, String territoryId);
 }

@@ -29,7 +29,15 @@ public class TerritoryConfig {
         public Tier tier;
         public String plotHook;
         public int numConstellations;
+        /** Max number of base slots in this territory. Defaults to interestedFactions.size() if ≤ 0. */
+        public int capacity;
         public List<String> interestedFactions;
+
+        /** Returns effective capacity: explicit value if > 0, otherwise interestedFactions count. */
+        public int getEffectiveCapacity() {
+            if (capacity > 0) return capacity;
+            return interestedFactions != null ? interestedFactions.size() : 3;
+        }
 
         @Override
         public boolean equals(Object o) {
@@ -37,6 +45,7 @@ public class TerritoryConfig {
             if (!(o instanceof TerritoryDef)) return false;
             TerritoryDef d = (TerritoryDef) o;
             return numConstellations == d.numConstellations
+                    && capacity == d.capacity
                     && Objects.equals(territoryId, d.territoryId)
                     && Objects.equals(name, d.name)
                     && tier == d.tier
@@ -46,7 +55,7 @@ public class TerritoryConfig {
 
         @Override
         public int hashCode() {
-            return Objects.hash(territoryId, name, tier, plotHook, numConstellations, interestedFactions);
+            return Objects.hash(territoryId, name, tier, plotHook, numConstellations, capacity, interestedFactions);
         }
 
         @Override
@@ -77,6 +86,7 @@ public class TerritoryConfig {
         sb.append(indent).append("  \"tier\": ").append(jsonStr(def.tier.name())).append(",\n");
         sb.append(indent).append("  \"plotHook\": ").append(jsonStr(def.plotHook)).append(",\n");
         sb.append(indent).append("  \"numConstellations\": ").append(def.numConstellations).append(",\n");
+        sb.append(indent).append("  \"capacity\": ").append(def.capacity).append(",\n");
         sb.append(indent).append("  \"interestedFactions\": [");
         if (def.interestedFactions != null) {
             for (int i = 0; i < def.interestedFactions.size(); i++) {
@@ -132,6 +142,7 @@ public class TerritoryConfig {
         }
         def.plotHook = extractStringOrNull(json, "plotHook");
         def.numConstellations = extractInt(json, "numConstellations", 1);
+        def.capacity = extractInt(json, "capacity", 0); // 0 = auto from interestedFactions.size()
         def.interestedFactions = extractStringArray(json, "interestedFactions");
         return def;
     }

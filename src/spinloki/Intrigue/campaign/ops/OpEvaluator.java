@@ -549,13 +549,58 @@ public final class OpEvaluator {
             }
 
             if (presence == IntrigueTerritory.Presence.SCOUTING) {
-                String opId = opsRunner.nextOpId(opIdPrefix);
-                return IntrigueServices.opFactory().createEstablishTerritoryBaseOp(
-                        opId, subfaction, territory.getTerritoryId());
+                // Check if there are free base slots
+                if (!territory.getFreeSlots().isEmpty()) {
+                    // Free slot available — normal establish base op
+                    String opId = opsRunner.nextOpId(opIdPrefix);
+                    return IntrigueServices.opFactory().createEstablishTerritoryBaseOp(
+                            opId, subfaction, territory.getTerritoryId());
+                }
+
+                // No free slots — try to assault the weakest hostile occupant
+                IntrigueSubfaction assaultTarget = findWeakestHostileOccupant(
+                        subfaction, territory);
+                if (assaultTarget != null) {
+                    String opId = opsRunner.nextOpId(opIdPrefix);
+                    return IntrigueServices.opFactory().createAssaultTerritoryBaseOp(
+                            opId, subfaction, assaultTarget, territory.getTerritoryId());
+                }
+                // No valid assault targets — skip this territory
             }
         }
 
         return null;
+    }
+
+    /**
+     * Find the ESTABLISHED subfaction in the territory (from a hostile faction)
+     * with the lowest territory cohesion, suitable as an assault target.
+     * Returns null if no valid target exists.
+     */
+    private static IntrigueSubfaction findWeakestHostileOccupant(
+            IntrigueSubfaction attacker, IntrigueTerritory territory) {
+        IntrigueSubfaction weakest = null;
+        int lowestCohesion = Integer.MAX_VALUE;
+
+        for (String sfId : territory.getActiveSubfactionIds()) {
+            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+
+            IntrigueSubfaction candidate = IntrigueServices.subfactions().getById(sfId);
+            if (candidate == null) continue;
+
+            // Must be from a different faction that is hostile
+            if (candidate.getFactionId().equals(attacker.getFactionId())) continue;
+            if (!IntrigueServices.hostility().areHostile(
+                    attacker.getFactionId(), candidate.getFactionId())) continue;
+
+            int coh = territory.getCohesion(sfId);
+            if (coh < lowestCohesion) {
+                lowestCohesion = coh;
+                weakest = candidate;
+            }
+        }
+
+        return weakest;
     }
 
     /**

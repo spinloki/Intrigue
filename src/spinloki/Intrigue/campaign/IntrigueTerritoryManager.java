@@ -142,6 +142,10 @@ public class IntrigueTerritoryManager implements Serializable, IntrigueTerritory
             territories.put(territory.getTerritoryId(), territory);
             log.info("Bootstrapped territory: " + territory);
 
+            // Generate base slots for this territory
+            int capacity = def.getEffectiveCapacity();
+            BaseSlotGenerator.generateSlots(territory, capacity);
+
             // Create and register intel item for this territory
             try {
                 IntrigueTerritoryIntel intel = new IntrigueTerritoryIntel(territory);

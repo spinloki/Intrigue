@@ -139,6 +139,7 @@ public class SimIntegrationTest {
         remnantFrontier.addInterestedFaction("hegemony");
         remnantFrontier.addInterestedFaction("tritachyon");
         remnantFrontier.addConstellationName("Alpha Constellation");
+        SimTerritoryAccess.addSyntheticSlots(remnantFrontier, 2); // capacity = interested factions
         territories.addTerritory(remnantFrontier);
 
         IntrigueTerritory domainCache = new IntrigueTerritory(
@@ -146,6 +147,7 @@ public class SimIntegrationTest {
                 TerritoryConfig.Tier.MEDIUM, "Domain-era supply caches.");
         domainCache.addInterestedFaction("tritachyon");
         domainCache.addConstellationName("Beta Constellation");
+        SimTerritoryAccess.addSyntheticSlots(domainCache, 1); // capacity = interested factions
         territories.addTerritory(domainCache);
 
         IntrigueServices.init(clock, people, ops, opFactory, subfactions,
@@ -221,6 +223,7 @@ public class SimIntegrationTest {
                         t.addInterestedFaction(fid);
                     }
                 }
+                SimTerritoryAccess.addSyntheticSlots(t, tDef.getEffectiveCapacity());
                 territories.addTerritory(t);
             }
             System.out.printf("  Loaded %d territories from: %s%n",
@@ -241,6 +244,8 @@ public class SimIntegrationTest {
                     domainCache.addInterestedFaction(def2.factionId);
                 }
             }
+            SimTerritoryAccess.addSyntheticSlots(remnantFrontier, remnantFrontier.getInterestedFactions().size());
+            SimTerritoryAccess.addSyntheticSlots(domainCache, domainCache.getInterestedFactions().size());
             territories.addTerritory(remnantFrontier);
             territories.addTerritory(domainCache);
         }
@@ -752,14 +757,16 @@ public class SimIntegrationTest {
         Map<String, Map<String, Integer>> opCounts = new LinkedHashMap<>();
         // Outcome counters: sfId -> { opType -> [successes, failures] }
         Map<String, Map<String, int[]>> outcomeCounts = new LinkedHashMap<>();
-        // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars, mischiefs]
+        // Dysfunction event counters: sfId -> [infightings, expulsions, civilWars, mischiefs, evictions]
+        // "evictions" = total times this subfaction was removed from a territory
+        //   (expulsions from low cohesion + successful assaults suffered)
         Map<String, int[]> dysfunctionCounts = new LinkedHashMap<>();
         // Vulnerability raid counters: sfId -> [raids_launched, raids_suffered]
         Map<String, int[]> vulnRaidCounts = new LinkedHashMap<>();
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             opCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
             outcomeCounts.put(sf.getSubfactionId(), new LinkedHashMap<>());
-            dysfunctionCounts.put(sf.getSubfactionId(), new int[4]);
+            dysfunctionCounts.put(sf.getSubfactionId(), new int[5]);
             vulnRaidCounts.put(sf.getSubfactionId(), new int[2]);
         }
 
@@ -1056,9 +1063,18 @@ public class SimIntegrationTest {
                     if (dys != null) {
                         switch (op.getOpTypeName()) {
                             case "Infighting": dys[0]++; break;
-                            case "Expulsion":  dys[1]++; break;
+                            case "Expulsion":  dys[1]++; dys[4]++; break; // expulsion = eviction for self
                             case "Civil War":  dys[2]++; break;
                             case "Mischief":   dys[3]++; break;
+                        }
+                    }
+                    // Successful assault = eviction suffered by the defender
+                    if ("Assault Territory Base".equals(op.getOpTypeName())
+                            && op.getOutcome() == OpOutcome.SUCCESS) {
+                        String defId = op.getTargetSubfactionId();
+                        if (defId != null) {
+                            int[] defDys = dysfunctionCounts.get(defId);
+                            if (defDys != null) defDys[4]++;
                         }
                     }
                     if (verbose) {
@@ -1136,13 +1152,13 @@ public class SimIntegrationTest {
             // Dysfunction events
             int[] dys = dysfunctionCounts.get(id);
             int[] vr = vulnRaidCounts.get(id);
-            boolean hasDys = dys[0] > 0 || dys[1] > 0 || dys[2] > 0 || dys[3] > 0;
+            boolean hasDys = dys[0] > 0 || dys[1] > 0 || dys[2] > 0 || dys[3] > 0 || dys[4] > 0;
             boolean hasVuln = vr[0] > 0 || vr[1] > 0;
             if (hasDys || hasVuln) {
                 StringBuilder ev = new StringBuilder("    Events:");
                 if (hasDys) {
-                    ev.append(String.format(" %d infighting, %d expulsions, %d civil wars, %d mischief",
-                            dys[0], dys[1], dys[2], dys[3]));
+                    ev.append(String.format(" %d infighting, %d expulsions, %d civil wars, %d mischief, %d evictions",
+                            dys[0], dys[1], dys[2], dys[3], dys[4]));
                 }
                 if (hasVuln) {
                     if (hasDys) ev.append(" |");

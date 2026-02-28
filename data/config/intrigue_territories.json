@@ -7,6 +7,7 @@
       "tier": "HIGH",
       "plotHook": "Remnant activity has spiked in this region. The Hegemony is mobilizing to contain the threat before it spreads.",
       "numConstellations": 2,
+      "capacity": 3,
       "interestedFactions": ["hegemony", "tritachyon", "pirates"]
     },
     {
@@ -15,6 +16,7 @@
       "tier": "MEDIUM",
       "plotHook": "A lost Luddic shrine has been located in this constellation. The Church wants to reclaim it; others want to exploit it.",
       "numConstellations": 1,
+      "capacity": 4,
       "interestedFactions": ["luddic_church", "luddic_path", "persean", "pirates"]
     },
     {
@@ -23,6 +25,7 @@
       "tier": "MEDIUM",
       "plotHook": "Scavengers report Domain-era supply caches scattered across these systems. Tri-Tachyon and independents race to recover the technology.",
       "numConstellations": 2,
+      "capacity": 3,
       "interestedFactions": ["tritachyon", "independent", "pirates"]
     },
     {
@@ -31,6 +34,7 @@
       "tier": "LOW",
       "plotHook": "This border region is claimed by multiple factions. Patrols skirmish over mining rights and territorial control.",
       "numConstellations": 1,
+      "capacity": 4,
       "interestedFactions": ["hegemony", "persean", "sindrian_diktat", "pirates"]
     }
   ]

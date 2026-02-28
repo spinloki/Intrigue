@@ -76,6 +76,58 @@ public class IntrigueTerritory implements Serializable {
      */
     private final Map<String, Integer> pairFriction = new LinkedHashMap<>();
 
+    /**
+     * Pre-computed base slots within this territory. Each slot is a valid orbital
+     * location where a subfaction can establish a base. The number of slots equals
+     * the territory's capacity. Subfactions claim slots when starting an
+     * establish-base op; unclaimed slots are available for new arrivals.
+     */
+    private final List<BaseSlot> baseSlots = new ArrayList<>();
+
+    // ── BaseSlot inner class ────────────────────────────────────────────
+
+    /**
+     * A pre-computed orbital location within a territory where a base can be built.
+     */
+    public static class BaseSlot implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final String systemId;
+        private final String systemName;
+        /** The entity to orbit (e.g. a star, planet). Resolved to avoid orbiting non-physical features. */
+        private final String orbitFocusEntityId;
+        private final float orbitRadius;
+        private final String locationDescription; // e.g. "asteroid belt", "ring system", "planet orbit"
+
+        private String claimedBySubfactionId;
+
+        public BaseSlot(String systemId, String systemName, String orbitFocusEntityId,
+                        float orbitRadius, String locationDescription) {
+            this.systemId = systemId;
+            this.systemName = systemName;
+            this.orbitFocusEntityId = orbitFocusEntityId;
+            this.orbitRadius = orbitRadius;
+            this.locationDescription = locationDescription;
+        }
+
+        public String getSystemId() { return systemId; }
+        public String getSystemName() { return systemName; }
+        public String getOrbitFocusEntityId() { return orbitFocusEntityId; }
+        public float getOrbitRadius() { return orbitRadius; }
+        public String getLocationDescription() { return locationDescription; }
+
+        public boolean isClaimed() { return claimedBySubfactionId != null; }
+        public String getClaimedBySubfactionId() { return claimedBySubfactionId; }
+        public void claim(String subfactionId) { this.claimedBySubfactionId = subfactionId; }
+        public void release() { this.claimedBySubfactionId = null; }
+
+        @Override
+        public String toString() {
+            return systemName + " (" + locationDescription + ")"
+                    + (isClaimed() ? " [claimed by " + claimedBySubfactionId + "]" : " [free]");
+        }
+    }
+
     public IntrigueTerritory(String territoryId, String name, TerritoryConfig.Tier tier, String plotHook) {
         this.territoryId = territoryId;
         this.name = name;
@@ -181,17 +233,66 @@ public class IntrigueTerritory implements Serializable {
         }
     }
 
-    /** Remove a subfaction from this territory entirely (cohesion, presence, base, low-cohesion counter, and friction). */
+    /** Remove a subfaction from this territory entirely (cohesion, presence, base, base slot, low-cohesion counter, and friction). */
     public void removeSubfaction(String subfactionId) {
         subfactionCohesion.remove(subfactionId);
         subfactionPresence.remove(subfactionId);
         subfactionBaseMarketId.remove(subfactionId);
         lowCohesionTicks.remove(subfactionId);
+        releaseSlot(subfactionId);
         // Remove all friction pairs involving this subfaction
         pairFriction.entrySet().removeIf(e -> {
             String[] parts = e.getKey().split("\\|");
             return parts[0].equals(subfactionId) || parts[1].equals(subfactionId);
         });
+    }
+
+    // ── Base slots ──────────────────────────────────────────────────────
+
+    /** Get all base slots in this territory (unmodifiable view). */
+    public List<BaseSlot> getBaseSlots() {
+        return Collections.unmodifiableList(baseSlots);
+    }
+
+    /** Add a base slot during territory bootstrap. */
+    public void addBaseSlot(BaseSlot slot) {
+        if (slot != null) baseSlots.add(slot);
+    }
+
+    /** Get the number of base slots (= territory capacity). */
+    public int getCapacity() {
+        return baseSlots.size();
+    }
+
+    /** Get all unclaimed base slots. */
+    public List<BaseSlot> getFreeSlots() {
+        List<BaseSlot> free = new ArrayList<>();
+        for (BaseSlot slot : baseSlots) {
+            if (!slot.isClaimed()) free.add(slot);
+        }
+        return free;
+    }
+
+    /** Get the slot claimed by a specific subfaction, or null. */
+    public BaseSlot getSlotClaimedBy(String subfactionId) {
+        for (BaseSlot slot : baseSlots) {
+            if (subfactionId.equals(slot.getClaimedBySubfactionId())) return slot;
+        }
+        return null;
+    }
+
+    /** Claim a specific slot for a subfaction. */
+    public void claimSlot(BaseSlot slot, String subfactionId) {
+        if (slot != null) slot.claim(subfactionId);
+    }
+
+    /** Release any slot claimed by a subfaction. */
+    public void releaseSlot(String subfactionId) {
+        for (BaseSlot slot : baseSlots) {
+            if (subfactionId.equals(slot.getClaimedBySubfactionId())) {
+                slot.release();
+            }
+        }
     }
 
     // ── Directed friction ─────────────────────────────────────────────

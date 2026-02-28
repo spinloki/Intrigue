@@ -106,6 +106,12 @@ public class SimOpFactory implements OpFactory {
                 targetOp != null ? targetOp.getOpId() : null, resolver, config);
     }
 
+    @Override
+    public IntrigueOp createAssaultTerritoryBaseOp(String opId, IntrigueSubfaction attacker,
+                                                   IntrigueSubfaction defender, String territoryId) {
+        return new SimAssaultTerritoryBaseOp(opId, attacker, defender, territoryId, resolver);
+    }
+
     /**
      * A lightweight RaidOp that uses abstract combat resolution.
      */
@@ -410,6 +416,18 @@ public class SimOpFactory implements OpFactory {
             this.resolver = resolver;
             setTerritoryId(territoryId);
             phases.add(new InstantPhase("Establishing base"));
+
+            // Claim a free slot immediately so concurrent evaluations see it as taken
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            if (territories != null) {
+                IntrigueTerritory t = territories.getById(territoryId);
+                if (t != null) {
+                    java.util.List<IntrigueTerritory.BaseSlot> freeSlots = t.getFreeSlots();
+                    if (!freeSlots.isEmpty()) {
+                        t.claimSlot(freeSlots.get(0), subfaction.getSubfactionId());
+                    }
+                }
+            }
         }
 
         @Override public String getOpTypeName() { return "Establish Territory Base"; }
@@ -431,9 +449,9 @@ public class SimOpFactory implements OpFactory {
                 if (territories != null) {
                     IntrigueTerritory t = territories.getById(tId);
                     if (t != null) {
+                        // Slot was already claimed in constructor
                         t.setPresence(subfactionId, IntrigueTerritory.Presence.ESTABLISHED);
                         t.setCohesion(subfactionId, 50);
-                        // Assign a synthetic base market ID so friction raids can target it
                         t.setBaseMarketId(subfactionId, "sim_terrbase_" + subfactionId + "_" + tId);
                     }
                 }
@@ -442,11 +460,14 @@ public class SimOpFactory implements OpFactory {
                     sf.setLegitimacy(sf.getLegitimacy() + 5);
                 }
             } else {
-                // Revert presence to NONE on failure
+                // Revert presence to NONE on failure, release any claimed slot
                 IntrigueTerritoryAccess territories = IntrigueServices.territories();
                 if (territories != null) {
                     IntrigueTerritory t = territories.getById(tId);
-                    if (t != null) t.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
+                    if (t != null) {
+                        t.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
+                        t.releaseSlot(subfactionId);
+                    }
                 }
                 if (sf != null) {
                     sf.setHomeCohesion(sf.getHomeCohesion() - 4);
@@ -773,6 +794,90 @@ public class SimOpFactory implements OpFactory {
                 }
             }
             // On failure: no effect - mischief fizzled
+        }
+    }
+
+    /**
+     * Sim-side AssaultTerritoryBaseOp: attacks a hostile subfaction's base to take it over.
+     * On success: defender is expelled, attacker takes the slot.
+     * On failure: attacker's presence reverts to NONE.
+     */
+    static class SimAssaultTerritoryBaseOp extends IntrigueOp {
+
+        private final String attackerSfId;
+        private final String defenderSfId;
+        private final String tId;
+        private final OpOutcomeResolver resolver;
+
+        SimAssaultTerritoryBaseOp(String opId, IntrigueSubfaction attacker,
+                                  IntrigueSubfaction defender, String territoryId,
+                                  OpOutcomeResolver resolver) {
+            super(opId, attacker.getLeaderId(), defender.getLeaderId(),
+                  attacker.getSubfactionId(), defender.getSubfactionId());
+            this.attackerSfId = attacker.getSubfactionId();
+            this.defenderSfId = defender.getSubfactionId();
+            this.tId = territoryId;
+            this.resolver = resolver;
+            setTerritoryId(territoryId);
+            phases.add(new InstantPhase("Assaulting territory base"));
+        }
+
+        @Override public String getOpTypeName() { return "Assault Territory Base"; }
+        @Override protected void onStarted() {}
+
+        @Override
+        protected OpOutcome determineOutcome() {
+            // 50% base chance, modified by relative cohesion
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            IntrigueTerritory territory = territories != null ? territories.getById(tId) : null;
+            int defCoh = territory != null ? territory.getCohesion(defenderSfId) : 50;
+            IntrigueSubfaction atk = getInitiatorSubfaction();
+            int atkCoh = atk != null ? atk.getHomeCohesion() : 50;
+            float chance = 0.50f + (atkCoh - defCoh) * 0.003f;
+            chance = Math.max(0.2f, Math.min(0.8f, chance));
+            return Math.random() < chance ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
+        }
+
+        @Override
+        protected void applyOutcome() {
+            IntrigueSubfaction attacker = getInitiatorSubfaction();
+            IntrigueSubfaction defender = IntrigueServices.subfactions().getById(defenderSfId);
+            if (attacker != null) {
+                attacker.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
+            }
+
+            IntrigueTerritoryAccess territories = IntrigueServices.territories();
+            IntrigueTerritory territory = territories != null ? territories.getById(tId) : null;
+
+            if (getOutcome() == OpOutcome.SUCCESS && territory != null) {
+                // Expel defender
+                territory.removeSubfaction(defenderSfId);
+                if (defender != null) {
+                    defender.setLegitimacy(defender.getLegitimacy() - 15);
+                }
+                // Attacker takes over — claim a free slot (the one just released)
+                java.util.List<IntrigueTerritory.BaseSlot> freeSlots = territory.getFreeSlots();
+                if (!freeSlots.isEmpty()) {
+                    territory.claimSlot(freeSlots.get(0), attackerSfId);
+                }
+                territory.setPresence(attackerSfId, IntrigueTerritory.Presence.ESTABLISHED);
+                territory.setCohesion(attackerSfId, 40);
+                territory.setBaseMarketId(attackerSfId, "sim_assault_" + attackerSfId + "_" + tId);
+                if (attacker != null) {
+                    attacker.setHomeCohesion(attacker.getHomeCohesion() - 12);
+                    attacker.setLegitimacy(attacker.getLegitimacy() + 8);
+                }
+            } else {
+                // Failed — revert attacker's presence
+                if (territory != null) {
+                    territory.setPresence(attackerSfId, IntrigueTerritory.Presence.NONE);
+                    territory.releaseSlot(attackerSfId);
+                }
+                if (attacker != null) {
+                    attacker.setHomeCohesion(attacker.getHomeCohesion() - 6);
+                    attacker.setLegitimacy(attacker.getLegitimacy() - 6);
+                }
+            }
         }
     }
 

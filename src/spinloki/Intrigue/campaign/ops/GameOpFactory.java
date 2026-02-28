@@ -69,4 +69,10 @@ public class GameOpFactory implements OpFactory {
                                        IntrigueOp targetOp) {
         return new MischiefOp(opId, initiator, victim, territoryId, targetOp);
     }
+
+    @Override
+    public IntrigueOp createAssaultTerritoryBaseOp(String opId, IntrigueSubfaction attacker,
+                                                   IntrigueSubfaction defender, String territoryId) {
+        return new AssaultTerritoryBaseOp(opId, attacker, defender, territoryId);
+    }
 }

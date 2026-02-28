@@ -17,6 +17,24 @@ public class SimTerritoryAccess implements IntrigueTerritoryAccess {
         territories.put(territory.getTerritoryId(), territory);
     }
 
+    /**
+     * Generate synthetic base slots for a territory (sim mode — no actual star systems).
+     * Creates 'capacity' slots with fake system/entity IDs spread across the territory.
+     */
+    public static void addSyntheticSlots(IntrigueTerritory territory, int capacity) {
+        for (int i = 0; i < capacity; i++) {
+            String fakeSystemId = territory.getTerritoryId() + "_system_" + i;
+            String fakeFocusId = territory.getTerritoryId() + "_focus_" + i;
+            IntrigueTerritory.BaseSlot slot = new IntrigueTerritory.BaseSlot(
+                    fakeSystemId,
+                    territory.getName() + " System " + (i + 1),
+                    fakeFocusId,
+                    500f + i * 100f,
+                    "simulated location");
+            territory.addBaseSlot(slot);
+        }
+    }
+
     public void setDecayPerTick(int decayPerTick) {
         this.decayPerTick = decayPerTick;
     }
