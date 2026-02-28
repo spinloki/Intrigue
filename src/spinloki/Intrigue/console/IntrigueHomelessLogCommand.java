@@ -15,7 +15,7 @@ import java.util.List;
  * (bootstrap assignments + periodic resolution attempts).
  * Useful for verifying that pirates, pathers, etc. eventually find a home market.
  *
- * Optional argument: "status" — also prints the current homeless/homed status of every subfaction.
+ * Optional argument: "status" - also prints the current homeless/homed status of every subfaction.
  */
 public class IntrigueHomelessLogCommand implements BaseCommand {
     @Override
@@ -53,7 +53,7 @@ public class IntrigueHomelessLogCommand implements BaseCommand {
         // Audit log
         List<String> log = mgr.getHomelessLog();
         if (log.isEmpty()) {
-            Console.showMessage("=== Homeless Log: (empty — no events recorded yet) ===");
+            Console.showMessage("=== Homeless Log: (empty - no events recorded yet) ===");
         } else {
             Console.showMessage("=== Homeless Log (" + log.size() + " entries) ===");
             for (String entry : log) {

@@ -5,7 +5,7 @@ import java.util.*;
 /**
  * Top-level container deserialized from data/config/intrigue_territories.json.
  *
- * Each TerritoryDef describes a territory template — a region of constellations
+ * Each TerritoryDef describes a territory template - a region of constellations
  * outside the core worlds where subfactions project power and pursue plot hooks.
  *
  * Includes game-independent parse/serialize methods for round-trip testing.

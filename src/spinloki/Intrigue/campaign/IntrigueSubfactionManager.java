@@ -156,7 +156,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
                     addHomelessLog(msg);
                 } else {
                     String msg = "Bootstrap: no market available for " + def.subfactionId
-                            + " (" + def.name + ", faction=" + def.factionId + ") — homeless (dormant)";
+                            + " (" + def.name + ", faction=" + def.factionId + ") - homeless (dormant)";
                     log.info(msg);
                     addHomelessLog(msg);
                 }
@@ -167,9 +167,9 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
                 market = Global.getSector().getEconomy().getMarket(homeMarketId);
                 if (market == null) {
                     log.warning("Configured market '" + homeMarketId + "' not found for subfaction "
-                            + def.subfactionId + " — bootstrapping as homeless.");
+                            + def.subfactionId + " - bootstrapping as homeless.");
                     addHomelessLog("Bootstrap: configured market '" + homeMarketId
-                            + "' not found for " + def.subfactionId + " — homeless");
+                            + "' not found for " + def.subfactionId + " - homeless");
                     homeMarketId = null;
                 }
             }
@@ -233,7 +233,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
      * Find the best unclaimed market for a faction outside core worlds.
      *
      * Only considers markets in procedurally generated (non-core) star systems.
-     * Core-world markets are never selected — factions like pirates and pathers
+     * Core-world markets are never selected - factions like pirates and pathers
      * should operate from fringe bases, not established core worlds.
      *
      * Within the eligible pool, selects the largest market (highest
@@ -304,7 +304,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
             String marketId = resolveHomeMarket(sf.getFactionId(), claimedMarketIds);
             if (marketId == null) {
-                String msg = "Resolve: still homeless — " + sf.getName()
+                String msg = "Resolve: still homeless - " + sf.getName()
                         + " [" + sf.getSubfactionId() + "] (faction=" + sf.getFactionId() + ")";
                 log.info(msg);
                 addHomelessLog(msg);
@@ -374,7 +374,7 @@ public class IntrigueSubfactionManager implements Serializable, IntrigueSubfacti
 
             person.addTag(IntrigueIds.PERSON_TAG);
             person.setFaction(faction.getId());
-            person.setMarket(market); // null is OK — homeless subfaction members
+            person.setMarket(market); // null is OK - homeless subfaction members
 
             // Register with sector important people
             Global.getSector().getImportantPeople().addPerson(person);

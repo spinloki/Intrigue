@@ -111,11 +111,11 @@ public final class OpEvaluator {
         if (isOnCooldown(subfaction)) return null;
 
         // ── Priority 0: dysfunction (infighting, expulsion, civil war) ──
-        // These fire regardless of home cohesion — they ARE the consequence of low cohesion.
+        // These fire regardless of home cohesion - they ARE the consequence of low cohesion.
         IntrigueOp dysfunctionOp = evaluateDysfunction(subfaction, opsRunner, opIdPrefix);
         if (dysfunctionOp != null) return dysfunctionOp;
 
-        // ── Priority 0b: CRITICAL patrol — legitimacy < 30, patrol beats everything else ──
+        // ── Priority 0b: CRITICAL patrol - legitimacy < 30, patrol beats everything else ──
         // When legitimacy is this low, restoring it is the single most urgent need
         // (prevents vulnerability raids at 0 legitimacy). Even urgent supplies can wait.
         boolean criticalLegitimacy = subfaction.getLegitimacy() < CRITICAL_LEGITIMACY_THRESHOLD;
@@ -125,13 +125,13 @@ public final class OpEvaluator {
         }
 
 
-        // ── Priority 1a: urgent supplies — established territory about to collapse ──
+        // ── Priority 1a: urgent supplies - established territory about to collapse ──
         // Convoys still run even when the subfaction is weak.
         IntrigueOp urgentSupplyOp = evaluateSendSupplies(subfaction, opsRunner, opIdPrefix,
                 INFIGHTING_COHESION_THRESHOLD);
         if (urgentSupplyOp != null) return urgentSupplyOp;
 
-        // ── Priority 1b: rally — consolidate home base when cohesion is low ──
+        // ── Priority 1b: rally - consolidate home base when cohesion is low ──
         // Fires regardless of MIN_COHESION_THRESHOLD so factions can recover.
         if (subfaction.getHomeCohesion() < RALLY_COHESION_THRESHOLD) {
             String opId = opsRunner.nextOpId(opIdPrefix);
@@ -149,7 +149,7 @@ public final class OpEvaluator {
         IntrigueOp supplyOp = evaluateSendSupplies(subfaction, opsRunner, opIdPrefix, 50);
         if (supplyOp != null) return supplyOp;
 
-        // ── Priority 2c: LOW patrol — legitimacy < 50, patrol before raids ──
+        // ── Priority 2c: LOW patrol - legitimacy < 50, patrol before raids ──
         boolean lowLegitimacy = !criticalLegitimacy && subfaction.getLegitimacy() < LOW_LEGITIMACY_THRESHOLD;
         if (lowLegitimacy) {
             IntrigueOp patrolOp = evaluatePatrol(subfaction, opsRunner, opIdPrefix);
@@ -195,7 +195,7 @@ public final class OpEvaluator {
             if (subfaction.getType() == SubfactionType.CRIMINAL) {
                 return diagnoseEstablishBase(subfaction, opsRunner);
             }
-            return "homeless (dormant) — waiting for a base";
+            return "homeless (dormant) - waiting for a base";
         }
 
         String leaderId = subfaction.getLeaderId();
@@ -420,7 +420,7 @@ public final class OpEvaluator {
         if (leader.isCheckedOut()) return null;
         if (opsRunner.getActiveOpCount(leaderId) >= maxConcurrentOps(subfaction)) return null;
 
-        // Lower home cohesion threshold for establishing a base — desperate factions act sooner
+        // Lower home cohesion threshold for establishing a base - desperate factions act sooner
         if (subfaction.getHomeCohesion() < MIN_COHESION_THRESHOLD / 2) return null;
 
         if (isOnCooldown(subfaction)) return null;
@@ -502,7 +502,7 @@ public final class OpEvaluator {
                 return IntrigueServices.opFactory().createExpulsionOp(opId, subfaction, territory.getTerritoryId());
             }
 
-            // Infighting: fires exactly once — on the first tick the counter increments
+            // Infighting: fires exactly once - on the first tick the counter increments
             if (lowTicks == 1) {
                 String opId = opsRunner.nextOpId(opIdPrefix);
                 return IntrigueServices.opFactory().createInfightingOp(opId, subfaction, territory.getTerritoryId());
@@ -655,7 +655,7 @@ public final class OpEvaluator {
                 if (attacker.getFactionId().equals(victim.getFactionId())) continue;
                 if (!IntrigueServices.hostility().areHostile(
                         attacker.getFactionId(), victim.getFactionId())) continue;
-                // Must have a leader (but don't check if leader is busy — this is free)
+                // Must have a leader (but don't check if leader is busy - this is free)
                 if (attacker.getLeaderId() == null) continue;
                 String opId = opsRunner.nextOpId(opIdPrefix + "_vuln");
                 IntrigueOp raid = IntrigueServices.opFactory().createRaidOp(opId, attacker, victim);
@@ -675,7 +675,7 @@ public final class OpEvaluator {
      * friction exceeds the threshold:</p>
      * <ul>
      *   <li><b>Hostile factions:</b> the initiator launches a free raid against the victim
-     *       (escalation — no need for petty sabotage when you're at war).</li>
+     *       (escalation - no need for petty sabotage when you're at war).</li>
      *   <li><b>Non-hostile factions:</b> the initiator launches a mischief op targeting
      *       a random active op of the victim. If the victim has no active op to sabotage,
      *       friction stays (not reset) and is re-checked next tick.</li>
@@ -700,7 +700,7 @@ public final class OpEvaluator {
                 String sfA = pair[0];
                 String sfB = pair[1];
 
-                // Check both directions — each can trigger independently
+                // Check both directions - each can trigger independently
                 int frictionAB = territory.getFriction(sfA, sfB);
                 int frictionBA = territory.getFriction(sfB, sfA);
 
@@ -721,7 +721,7 @@ public final class OpEvaluator {
                             initiator.getFactionId(), victim.getFactionId());
 
                     if (hostile) {
-                        // Hostile factions skip mischief — launch a free raid targeting
+                        // Hostile factions skip mischief - launch a free raid targeting
                         // the victim's base in this shared territory (the source of friction).
                         String territoryBaseId = territory.getBaseMarketId(victim.getSubfactionId());
                         boolean hasTarget = (territoryBaseId != null && !territoryBaseId.isEmpty())
@@ -749,7 +749,7 @@ public final class OpEvaluator {
                             }
                         }
                         if (victimOps.isEmpty()) {
-                            // No active op to target — friction stays, re-check next tick
+                            // No active op to target - friction stays, re-check next tick
                             continue;
                         }
 

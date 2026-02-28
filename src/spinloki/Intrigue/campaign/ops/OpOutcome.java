@@ -15,7 +15,7 @@ public enum OpOutcome implements Serializable {
     /** Op was cancelled before completion (person died, market lost, etc.). */
     ABORTED,
 
-    /** Op is still in progress — not yet resolved. */
+    /** Op is still in progress - not yet resolved. */
     PENDING
 }
 

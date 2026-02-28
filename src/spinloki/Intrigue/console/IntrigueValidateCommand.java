@@ -52,7 +52,7 @@ public class IntrigueValidateCommand implements BaseCommand {
 
         boolean fix = trimmedArgs.equalsIgnoreCase("fix");
         if (fix) {
-            Console.showMessage("(Running in FIX mode — will attempt to correct placement errors)\n");
+            Console.showMessage("(Running in FIX mode - will attempt to correct placement errors)\n");
         }
 
         int errors = 0;
@@ -212,7 +212,7 @@ public class IntrigueValidateCommand implements BaseCommand {
                             }
                         }
                         issues.add("NOT at home market " + market.getName()
-                                + " — actually at: " + actualLocation
+                                + " - actually at: " + actualLocation
                                 + " (personId=" + matchedIp.getPersonId()
                                 + ", locType=" + matchedIp.getLocationType()
                                 + ", locId=" + matchedIp.getLocationId() + ")");

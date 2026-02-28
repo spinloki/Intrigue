@@ -55,11 +55,11 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
     private boolean done = false;
     private boolean routesStarted = false;
 
-    // Two route sources — one per fleet
+    // Two route sources - one per fleet
     private String routeSourceA;
     private String routeSourceB;
 
-    // Spawned fleet references (transient — lost on save/load)
+    // Spawned fleet references (transient - lost on save/load)
     private transient CampaignFleetAPI fleetA;
     private transient CampaignFleetAPI fleetB;
 
@@ -171,7 +171,7 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     /**
      * Pick a point of interest in the territory for the fleets to meet at.
-     * Prefers planets, stations, asteroid fields — anything interesting.
+     * Prefers planets, stations, asteroid fields - anything interesting.
      */
     private SectorEntityToken pickMeetingPoint() {
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
@@ -296,7 +296,7 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
     @Override
     public void reportBattleOccurred(CampaignFleetAPI fleet, CampaignFleetAPI primaryWinner, BattleAPI battle) {
-        // Not much to do — the fleets fighting each other is expected
+        // Not much to do - the fleets fighting each other is expected
     }
 
     @Override
@@ -338,7 +338,7 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
     private void makeHostile() {
         if (fleetA == null || fleetB == null) return;
 
-        // Use $hostile memory flag — each fleet targets the other
+        // Use $hostile memory flag - each fleet targets the other
         // Store the enemy fleet's ID so they specifically target each other
         fleetA.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_HOSTILE, true);
         fleetB.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_HOSTILE, true);
@@ -358,7 +358,7 @@ public class InfightingPhase implements OpPhase, RouteFleetSpawner, FleetEventLi
 
         fleetsEngaged = true;
 
-        log.info("InfightingPhase: fleets arrived at meeting point — engaging!");
+        log.info("InfightingPhase: fleets arrived at meeting point - engaging!");
     }
 
     /**

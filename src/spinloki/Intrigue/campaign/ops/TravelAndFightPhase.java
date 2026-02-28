@@ -72,7 +72,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
     public void advance(float days) {
         if (done) return;
 
-        // ── Sim mode (no sector) — auto-complete ──
+        // ── Sim mode (no sector) - auto-complete ──
         if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("TravelAndFightPhase: no sector available (sim mode); auto-completing.");
@@ -92,7 +92,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         RouteData route = findOurRoute();
         if (route == null) {
             if (!done) {
-                // Route expired without the fleet being destroyed by player —
+                // Route expired without the fleet being destroyed by player -
                 // abstract resolution: the raid succeeded.
                 log.info("TravelAndFightPhase: route expired (abstract raid complete). Success.");
                 fleetWon = true;
@@ -213,7 +213,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
             fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
                     "Returning home");
         } else if (segIndex == 1) {
-            // At target — attack phase
+            // At target - attack phase
             fleet.addAssignment(FleetAssignment.ATTACK_LOCATION, targetEntity, 30f,
                     "Attacking " + target.getName());
             fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
@@ -270,7 +270,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         if (fleet != this.fleet) return;
 
         if (reason == FleetDespawnReason.PLAYER_FAR_AWAY) {
-            // RouteManager despawning — route continues abstractly
+            // RouteManager despawning - route continues abstractly
             return;
         }
 

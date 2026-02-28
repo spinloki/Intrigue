@@ -15,7 +15,7 @@ import java.util.*;
  */
 public class IntrigueSubfaction implements Serializable {
 
-    /** The kind of subfaction — controls which operations it can run. */
+    /** The kind of subfaction - controls which operations it can run. */
     public enum SubfactionType {
         /** Standard political subfaction: raids, diplomacy, etc. */
         POLITICAL,
@@ -36,7 +36,7 @@ public class IntrigueSubfaction implements Serializable {
     private boolean hidden = false;
 
     /**
-     * Home cohesion — the subfaction's internal cohesion at its home market.
+     * Home cohesion - the subfaction's internal cohesion at its home market.
      * Territory-specific cohesion is tracked on IntrigueTerritory, not here.
      */
     private int homeCohesion = 50;
@@ -57,7 +57,7 @@ public class IntrigueSubfaction implements Serializable {
      */
     private int lowHomeCohesionTicks = 0;
 
-    /** Convenience constructor — uses subfactionId as name, defaults to POLITICAL. */
+    /** Convenience constructor - uses subfactionId as name, defaults to POLITICAL. */
     public IntrigueSubfaction(String subfactionId, String factionId, String homeMarketId) {
         this(subfactionId, subfactionId, factionId, homeMarketId, SubfactionType.POLITICAL);
     }

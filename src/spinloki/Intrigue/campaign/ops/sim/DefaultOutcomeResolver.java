@@ -46,7 +46,7 @@ public class DefaultOutcomeResolver implements OpOutcomeResolver {
 
     @Override
     public OpOutcome resolveRaid(int attackerCohesion, int defenderCohesion, boolean attackerMerciless) {
-        // Raid uses sigmoid — modifier not applied here (no subfaction context)
+        // Raid uses sigmoid - modifier not applied here (no subfaction context)
         int attackerFP = config.baseFP + (int) (attackerCohesion * config.fpPerPower);
         int defenderFP = config.defenderBaseFP + (int) (defenderCohesion * config.defenderFpPerPower);
 

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  *
  * Op types and their required target argument:
  *   raid                   &lt;target_subfaction_id&gt;
- *   establish_base         (none — for homeless criminal subfactions)
+ *   establish_base         (none - for homeless criminal subfactions)
  *   scout_territory        &lt;territory_id&gt;
  *   establish_territory_base &lt;territory_id&gt;
  *   patrol                 &lt;territory_id&gt;
@@ -282,16 +282,16 @@ public class IntrigueStartOpCommand implements BaseCommandWithSuggestion {
         Console.showMessage("Usage: intrigue_start_op <subfaction_id> <op_type> [target]");
         Console.showMessage("");
         Console.showMessage("Op types:");
-        Console.showMessage("  raid <target_subfaction>     — Launch a raid against another subfaction");
-        Console.showMessage("  establish_base               — Establish a criminal base (homeless only)");
-        Console.showMessage("  scout_territory <territory>  — Scout a territory (NONE → SCOUTING)");
-        Console.showMessage("  establish_territory_base <territory> — Establish a territory base (SCOUTING → ESTABLISHED)");
-        Console.showMessage("  patrol <territory>           — Patrol an established territory");
-        Console.showMessage("  send_supplies <territory>    — Send a supply convoy to a territory");
-        Console.showMessage("  rally                        — Rally home base cohesion");
-        Console.showMessage("  infighting <territory>       — Trigger infighting in a territory");
-        Console.showMessage("  expulsion <territory>        — Expel the subfaction from a territory");
-        Console.showMessage("  civil_war                    — Trigger a civil war in the subfaction");
+        Console.showMessage("  raid <target_subfaction>     - Launch a raid against another subfaction");
+        Console.showMessage("  establish_base               - Establish a criminal base (homeless only)");
+        Console.showMessage("  scout_territory <territory>  - Scout a territory (NONE → SCOUTING)");
+        Console.showMessage("  establish_territory_base <territory> - Establish a territory base (SCOUTING → ESTABLISHED)");
+        Console.showMessage("  patrol <territory>           - Patrol an established territory");
+        Console.showMessage("  send_supplies <territory>    - Send a supply convoy to a territory");
+        Console.showMessage("  rally                        - Rally home base cohesion");
+        Console.showMessage("  infighting <territory>       - Trigger infighting in a territory");
+        Console.showMessage("  expulsion <territory>        - Expel the subfaction from a territory");
+        Console.showMessage("  civil_war                    - Trigger a civil war in the subfaction");
     }
 }
 

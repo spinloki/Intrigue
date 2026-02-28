@@ -57,7 +57,7 @@ public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEvent
     public void advance(float days) {
         if (done) return;
 
-        // ── Sim mode (no sector) — auto-complete as success ──
+        // ── Sim mode (no sector) - auto-complete as success ──
         if (!PhaseUtil.isSectorAvailable()) {
             if (!routeStarted) {
                 log.info("SendSuppliesPhase: no sector (sim mode); auto-completing as success.");
@@ -210,7 +210,7 @@ public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEvent
         if (fleet == null || this.fleet == null || fleet != this.fleet) return;
 
         if (reason == FleetDespawnReason.PLAYER_FAR_AWAY) {
-            // RouteManager despawning — route continues abstractly
+            // RouteManager despawning - route continues abstractly
             return;
         }
 

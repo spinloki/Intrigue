@@ -108,7 +108,7 @@ public class SimConfig {
     // ── Territory friction ──
     /**
      * Base friction gained per tick per pair of ESTABLISHED subfactions sharing a territory.
-     * Actual gain is {@code baseFrictionPerTick * (numEstablished - 1)} — more crowding means
+     * Actual gain is {@code baseFrictionPerTick * (numEstablished - 1)} - more crowding means
      * faster friction build-up for everyone.
      */
     public int baseFrictionPerTick = 2;

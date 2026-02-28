@@ -23,7 +23,7 @@ public class ExpulsionOp extends IntrigueOp {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
-        // Resolves instantly — the expulsion is a fait accompli
+        // Resolves instantly - the expulsion is a fait accompli
         phases.add(new TimedPhase("Expelled", 1f));
     }
 

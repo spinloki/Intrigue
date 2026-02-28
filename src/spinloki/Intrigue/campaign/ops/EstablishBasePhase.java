@@ -109,7 +109,7 @@ public class EstablishBasePhase implements OpPhase, Serializable {
         return createdMarketId;
     }
 
-    // ── Base creation — mirrors vanilla PirateBaseIntel ──────────────────
+    // ── Base creation - mirrors vanilla PirateBaseIntel ──────────────────
 
     private String createBase() {
         StarSystemAPI sys = systemPicker.pick();
@@ -153,7 +153,7 @@ public class EstablishBasePhase implements OpPhase, Serializable {
         EntityLocation loc = locs.pick();
         if (loc == null) return null;
 
-        // Create the station entity — same as vanilla: makeshift_station
+        // Create the station entity - same as vanilla: makeshift_station
         AddedEntity added = BaseThemeGenerator.addNonSalvageEntity(
                 sys, loc, Entities.MAKESHIFT_STATION, factionId);
         if (added == null || added.entity == null) return null;
@@ -182,14 +182,14 @@ public class EstablishBasePhase implements OpPhase, Serializable {
 
         market.addCondition(Conditions.POPULATION_3);
 
-        // Industries — core infrastructure
+        // Industries - core infrastructure
         market.addIndustry(Industries.POPULATION);
         market.addIndustry(Industries.SPACEPORT);
 
-        // Military — patrols and fleet production
+        // Military - patrols and fleet production
         market.addIndustry(Industries.MILITARYBASE);
 
-        // Structures — waystation for supply/fuel and an orbital station for defense
+        // Structures - waystation for supply/fuel and an orbital station for defense
         market.addIndustry(Industries.WAYSTATION);
         market.addIndustry(Industries.ORBITALSTATION);
         market.addIndustry(Industries.GROUNDDEFENSES);

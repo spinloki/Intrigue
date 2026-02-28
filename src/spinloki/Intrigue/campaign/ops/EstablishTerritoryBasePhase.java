@@ -322,7 +322,7 @@ public class EstablishTerritoryBasePhase implements OpPhase, RouteFleetSpawner, 
         if (fleet == null || this.fleet == null || fleet != this.fleet) return;
 
         if (reason == FleetDespawnReason.PLAYER_FAR_AWAY) {
-            // RouteManager despawning — route continues abstractly
+            // RouteManager despawning - route continues abstractly
             return;
         }
 

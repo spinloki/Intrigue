@@ -11,7 +11,7 @@ import java.util.logging.Logger;
  *
  * <p>Two fleets from the same subfaction travel to a point of interest in the
  * territory to "settle their differences." When they arrive, they become
- * hostile to each other and fight. The outcome is always FAILURE — infighting
+ * hostile to each other and fight. The outcome is always FAILURE - infighting
  * always hurts the subfaction, resulting in legitimacy loss.</p>
  */
 public class InfightingOp extends IntrigueOp {
@@ -25,6 +25,10 @@ public class InfightingOp extends IntrigueOp {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
+
+        // Intel arrow: home market -> territory
+        setIntelSourceMarketId(subfaction.getHomeMarketId());
+        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
 
         // Each dissident fleet gets roughly half the subfaction's strength
         int fleetFP = 15 + (int) (subfaction.getHomeCohesion() * 0.3f);

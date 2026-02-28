@@ -42,6 +42,10 @@ public class PatrolOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
+        // Intel arrow: home market -> territory
+        setIntelSourceMarketId(subfaction.getHomeMarketId());
+        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
+
         // Fleet strength scales with home cohesion: 20 FP at 0, 80 FP at 100
         int combatFP = 20 + (int) (subfaction.getHomeCohesion() * 0.6f);
 

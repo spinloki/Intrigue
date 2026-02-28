@@ -41,8 +41,17 @@ public abstract class IntrigueOp implements Serializable {
     /** Optional: the territory this op takes place in (null for core-world ops). */
     private String territoryId;
 
+    /** Optional: source market ID for intel arrow display (from). */
+    private String intelSourceMarketId;
+
+    /** Optional: destination system ID for intel arrow display (to). */
+    private String intelDestinationSystemId;
+
+    /** Optional: destination market ID for intel arrow display (to) - takes priority over system. */
+    private String intelDestinationMarketId;
+
     /**
-     * When true, this op is "free" — it doesn't set cooldown on the initiating
+     * When true, this op is "free" - it doesn't set cooldown on the initiating
      * subfaction and doesn't impose failure costs. Used for vulnerability raids
      * triggered when a target's legitimacy hits 0.
      */
@@ -69,7 +78,7 @@ public abstract class IntrigueOp implements Serializable {
      */
     private boolean skipIntel = false;
 
-    /** Transient intel reference — set by IntrigueOpsManager, not serialized. */
+    /** Transient intel reference - set by IntrigueOpsManager, not serialized. */
     private transient Object intel;
 
     protected IntrigueOp(String opId, String initiatorId, String targetId,
@@ -94,6 +103,18 @@ public abstract class IntrigueOp implements Serializable {
     /** Territory this op is scoped to, or null for core-world ops. */
     public String getTerritoryId() { return territoryId; }
     public void setTerritoryId(String territoryId) { this.territoryId = territoryId; }
+
+    /** Source market ID for intel arrow (from). */
+    public String getIntelSourceMarketId() { return intelSourceMarketId; }
+    public void setIntelSourceMarketId(String id) { this.intelSourceMarketId = id; }
+
+    /** Destination system ID for intel arrow (to). */
+    public String getIntelDestinationSystemId() { return intelDestinationSystemId; }
+    public void setIntelDestinationSystemId(String id) { this.intelDestinationSystemId = id; }
+
+    /** Destination market ID for intel arrow (to) - takes priority over system. */
+    public String getIntelDestinationMarketId() { return intelDestinationMarketId; }
+    public void setIntelDestinationMarketId(String id) { this.intelDestinationMarketId = id; }
 
     /** Whether this op is free (no cooldown, no failure costs). */
     public boolean isNoCost() { return noCost; }
@@ -163,7 +184,7 @@ public abstract class IntrigueOp implements Serializable {
         }
 
         if (currentPhaseIndex >= phases.size()) {
-            // All phases done — subclass decides success/failure
+            // All phases done - subclass decides success/failure
             resolve(determineOutcome());
             return;
         }

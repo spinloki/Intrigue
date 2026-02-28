@@ -9,7 +9,7 @@ import java.util.logging.Logger;
  * Consequence op: civil war erupts within a subfaction whose home cohesion
  * has been critically low for too long. Fleets spawn en-masse and fight
  * each other. When it resolves, the subfaction's home cohesion and
- * legitimacy are both reset to 50 — a clean slate after the chaos.
+ * legitimacy are both reset to 50 - a clean slate after the chaos.
  */
 public class CivilWarOp extends IntrigueOp {
 

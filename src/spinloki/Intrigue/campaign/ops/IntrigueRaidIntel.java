@@ -46,7 +46,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
     private final int totalAttackerFP;
     private final String memKey;
 
-    /** IDs of defender fleets we spawned — used for save/load re-acquisition. */
+    /** IDs of defender fleets we spawned - used for save/load re-acquisition. */
     private final List<String> defenderFleetIds = new ArrayList<>();
 
     /** Transient references to live defender fleets; rebuilt on load. */
@@ -130,7 +130,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
         params.prepDays = 3f + (100 - attacker.getHomeCohesion()) * 0.07f; // 3-10 days prep
         params.payloadDays = 20f;
 
-        // Don't use makeFleetsHostile — that makes fleets hostile to EVERYONE including the player.
+        // Don't use makeFleetsHostile - that makes fleets hostile to EVERYONE including the player.
         // The fleets inherit their faction's hostility naturally, which is sufficient since
         // OpEvaluator already requires parent factions to be hostile for cross-faction raids.
         params.makeFleetsHostile = false;
@@ -263,7 +263,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
                         targetMarket.getPrimaryEntity().getLocation().y + rng.nextFloat() * 200 - 100);
 
                 // ORBIT_AGGRESSIVE: stays anchored near the market but engages
-                // hostile fleets that approach — unlike DEFEND_LOCATION which
+                // hostile fleets that approach - unlike DEFEND_LOCATION which
                 // wanders the whole system, or ORBIT_PASSIVE which ignores threats
                 fleet.addAssignment(FleetAssignment.ORBIT_AGGRESSIVE,
                         targetMarket.getPrimaryEntity(), 120f, "defending " + targetMarket.getName());
@@ -282,7 +282,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
 
     private CampaignFleetAPI createDefenderFleet(MarketAPI market, String factionId,
                                                  String subfactionId, int combatFP) {
-        // Use FleetCreatorMission — same pipeline as attacker fleets in GenericRaidFGI.
+        // Use FleetCreatorMission - same pipeline as attacker fleets in GenericRaidFGI.
         // This ensures defender fleets are comparable in size, quality, and officer
         // count to attacker fleets for the same FP value.
         FleetCreatorMission m = new FleetCreatorMission(getRandom());
@@ -328,7 +328,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
     /**
      * Tells FGRaidAction to use our custom raid logic instead of the vanilla
      * MarketCMD.doGenericRaid / doIndustryRaid which would damage stability
-     * and disrupt industries. Intrigue raids are political — their outcomes
+     * and disrupt industries. Intrigue raids are political - their outcomes
      * are self-contained to subfaction power and relationship shifts.
      */
     @Override
@@ -344,7 +344,7 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
     @Override
     public void doCustomRaidAction(CampaignFleetAPI fleet, MarketAPI market, float raidStr) {
         log.info("Intrigue raid action at " + market.getName()
-                + " — no market damage applied (political raid).");
+                + " - no market damage applied (political raid).");
     }
 
     // ── Accessors for RaidOp ────────────────────────────────────────────

@@ -51,7 +51,7 @@ public class IntrigueDossierCmd extends BaseCommandPlugin {
             IntriguePerson ip = IntriguePeopleManager.get().getById(person.getId());
             if (ip == null) return false;
 
-            dialog.getTextPanel().addPara("— Intrigue Dossier —");
+            dialog.getTextPanel().addPara("- Intrigue Dossier -");
             dialog.getTextPanel().addPara("Role: %s", Misc.getHighlightColor(), ip.getRole().name());
 
             // Show subfaction info

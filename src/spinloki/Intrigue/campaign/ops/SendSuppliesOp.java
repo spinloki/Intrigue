@@ -34,6 +34,10 @@ public class SendSuppliesOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
+        // Intel arrow: home market -> territory
+        setIntelSourceMarketId(subfaction.getHomeMarketId());
+        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
+
         int combatFP = 15 + (int) (subfaction.getHomeCohesion() * 0.3f);
 
         this.supplyPhase = new SendSuppliesPhase(

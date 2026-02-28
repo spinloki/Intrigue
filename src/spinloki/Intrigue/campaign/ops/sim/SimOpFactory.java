@@ -49,7 +49,7 @@ public class SimOpFactory implements OpFactory {
     @Override
     public IntrigueOp createRaidOp(String opId, IntrigueSubfaction attackerSubfaction,
                                    IntrigueSubfaction targetSubfaction, String targetMarketId) {
-        // In sim mode, target market doesn't affect outcome resolution — same SimRaidOp
+        // In sim mode, target market doesn't affect outcome resolution - same SimRaidOp
         return new SimRaidOp(opId, attackerSubfaction, targetSubfaction, resolver, config);
     }
 
@@ -207,7 +207,7 @@ public class SimOpFactory implements OpFactory {
                 int cohesionLoss = config.basePowerShift / 2;
                 int legitimacyGain = config.basePowerShift / 3;
 
-                // Attacker loses home cohesion (failed operation) — skip if no-cost
+                // Attacker loses home cohesion (failed operation) - skip if no-cost
                 if (attacker != null && !isNoCost()) {
                     float lossMult = attacker.getHomeCohesion() / 100f;
                     int actual = Math.max(1, Math.round(cohesionLoss * Math.max(0.2f, lossMult)));
@@ -238,7 +238,7 @@ public class SimOpFactory implements OpFactory {
     }
 
     /**
-     * Lightweight EstablishBaseOp for sim mode — auto-succeeds after a short delay,
+     * Lightweight EstablishBaseOp for sim mode - auto-succeeds after a short delay,
      * assigns a synthetic market ID as the subfaction's home.
      */
     static class SimEstablishBaseOp extends IntrigueOp {
@@ -579,7 +579,7 @@ public class SimOpFactory implements OpFactory {
                 if (getOutcome() == OpOutcome.SUCCESS) {
                     sf.setHomeCohesion(sf.getHomeCohesion() + config.rallyCohesionGain);
                 }
-                // Failure: no change — a failed rally just wastes time
+                // Failure: no change - a failed rally just wastes time
                 sf.setLastOpTimestamp(IntrigueServices.clock().getTimestamp());
             }
         }
@@ -756,7 +756,7 @@ public class SimOpFactory implements OpFactory {
                     }
                 }
             }
-            // On failure: no effect — mischief fizzled
+            // On failure: no effect - mischief fizzled
         }
     }
 

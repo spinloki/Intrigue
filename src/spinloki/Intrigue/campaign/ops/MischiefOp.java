@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  *
  * <p>The initiator sabotages the victim's operations in a shared territory.
  * On success, the victim suffers territory cohesion and legitimacy penalties.
- * On failure, nothing happens — the mischief fizzled.</p>
+ * On failure, nothing happens - the mischief fizzled.</p>
  *
  * <p>This op is always free ({@code noCost = true}) and is triggered
  * externally when friction crosses a threshold, similar to vulnerability raids.</p>
@@ -42,6 +42,10 @@ public class MischiefOp extends IntrigueOp {
         setTerritoryId(territoryId);
         setNoCost(true);
 
+        // Intel arrow: initiator home -> victim home
+        setIntelSourceMarketId(initiator.getHomeMarketId());
+        setIntelDestinationMarketId(victim.getHomeMarketId());
+
         // Capture the initiator's friction before OpEvaluator resets it
         int capturedFriction = 0;
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
@@ -53,7 +57,7 @@ public class MischiefOp extends IntrigueOp {
         }
         this.initiatorFrictionAtCreation = capturedFriction;
 
-        // Quick op — resolves after a short phase
+        // Quick op - resolves after a short phase
         phases.add(new AssemblePhase(initiator.getHomeCohesion()));
         phases.add(new ReturnPhase(3f));
     }

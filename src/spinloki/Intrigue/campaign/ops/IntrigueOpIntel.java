@@ -3,6 +3,8 @@ package spinloki.Intrigue.campaign.ops;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
+import com.fs.starfarer.api.campaign.StarSystemAPI;
+import com.fs.starfarer.api.campaign.comm.IntelInfoPlugin;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.intel.BaseIntelPlugin;
 import com.fs.starfarer.api.ui.SectorMapAPI;
@@ -14,6 +16,8 @@ import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -45,7 +49,15 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
     private final String initiatorFactionId;
     private final String territoryName;
 
-    // Transient — re-acquired from IntrigueOpsManager on load
+    // Arrow source/destination - persisted for map display
+    private final String sourceMarketId;
+    private final String destinationMarketId;
+    private final String destinationSystemId;
+
+    /** Human-readable destination name for display (e.g. "Alpha Centauri" or "Eventide"). */
+    private final String destinationDisplayName;
+
+    // Transient - re-acquired from IntrigueOpsManager on load
     private transient IntrigueOp op;
 
     // Cached final status for after the op is cleaned up
@@ -73,6 +85,12 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
                 ? IntrigueServices.territories().getById(territoryId) : null;
         this.territoryName = terr != null ? terr.getName() : territoryId;
 
+        // Arrow display data
+        this.sourceMarketId = op.getIntelSourceMarketId();
+        this.destinationMarketId = op.getIntelDestinationMarketId();
+        this.destinationSystemId = op.getIntelDestinationSystemId();
+        this.destinationDisplayName = resolveDestinationDisplayName();
+
         setNew(true);
     }
 
@@ -81,14 +99,14 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
     /**
      * Placeholder condition for revealing intel to the player. Returns true if
      * the player's relation with the initiator's parent faction is at least -90.
-     * This is almost always true — intended to be replaced with more nuanced
+     * This is almost always true - intended to be replaced with more nuanced
      * conditions later (contacts, spy networks, etc.).
      */
     public static boolean shouldRevealToPlayer(IntrigueOp op) {
         if (!PhaseUtil.isSectorAvailable()) return false;
 
         String factionId = resolveFactionId(op.getInitiatorSubfactionId());
-        if (factionId == null) return true; // Can't determine — default to visible
+        if (factionId == null) return true; // Can't determine - default to visible
 
         FactionAPI playerFaction = Global.getSector().getPlayerFaction();
         float rel = playerFaction.getRelationship(factionId);
@@ -99,7 +117,7 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
 
     @Override
     protected String getName() {
-        return opTypeName + " — " + initiatorSubfactionName;
+        return opTypeName + " - " + initiatorSubfactionName;
     }
 
     @Override
@@ -127,6 +145,11 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
         // Territory (if any)
         if (territoryName != null) {
             info.addPara("Territory: %s", opad, tc, h, territoryName);
+        }
+
+        // Destination system (if any)
+        if (destinationDisplayName != null) {
+            info.addPara("Destination: %s", opad, tc, h, destinationDisplayName);
         }
 
         // Status
@@ -172,6 +195,10 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
         if (territoryName != null) {
             info.addPara("Territory: " + territoryName, Misc.getGrayColor(), initPad);
         }
+
+        if (destinationDisplayName != null) {
+            info.addPara("Destination: " + destinationDisplayName, Misc.getGrayColor(), initPad);
+        }
     }
 
     // ── Lifecycle ───────────────────────────────────────────────────────
@@ -184,7 +211,7 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
             cacheOutcome();
             endAfterDelay();
         } else if (op == null && !isEnding() && !isEnded()) {
-            // Op reference lost (save/load or already cleaned up) — end gracefully
+            // Op reference lost (save/load or already cleaned up) - end gracefully
             endAfterDelay();
         }
     }
@@ -228,20 +255,127 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
         return tags;
     }
 
-    // ── Map location ────────────────────────────────────────────────────
+    // ── Map location and arrows ────────────────────────────────────────
 
     @Override
     public SectorEntityToken getMapLocation(SectorMapAPI map) {
         if (!PhaseUtil.isSectorAvailable()) return null;
 
-        // Territory-scoped ops: show territory location if we can find a system
-        // For now, fall back to the initiator's home market
+        // Prefer the explicit source market
+        if (sourceMarketId != null) {
+            MarketAPI market = Global.getSector().getEconomy().getMarket(sourceMarketId);
+            if (market != null && market.getPrimaryEntity() != null) {
+                return market.getPrimaryEntity();
+            }
+        }
+
+        // Fall back to initiator's home market
         if (initiatorSubfactionId != null) {
             IntrigueSubfaction sf = IntrigueServices.subfactions().getById(initiatorSubfactionId);
             if (sf != null && sf.getHomeMarketId() != null) {
                 MarketAPI market = Global.getSector().getEconomy().getMarket(sf.getHomeMarketId());
                 if (market != null) return market.getPrimaryEntity();
             }
+        }
+        return null;
+    }
+
+    @Override
+    public List<IntelInfoPlugin.ArrowData> getArrowData(SectorMapAPI map) {
+        if (!PhaseUtil.isSectorAvailable()) return null;
+        if (isEnding() || isEnded()) return null;
+
+        SectorEntityToken from = resolveSourceEntity(map);
+        SectorEntityToken to = resolveDestinationEntity();
+
+        if (from == null || to == null) return null;
+        // Don't draw arrow if source and destination are in the same system
+        if (from.getContainingLocation() == to.getContainingLocation()) return null;
+
+        List<IntelInfoPlugin.ArrowData> result = new ArrayList<>();
+        FactionAPI faction = getFactionForUIColors();
+        IntelInfoPlugin.ArrowData arrow = new IntelInfoPlugin.ArrowData(from, to);
+        if (faction != null) {
+            arrow.color = faction.getBaseUIColor();
+        }
+        result.add(arrow);
+        return result;
+    }
+
+    private SectorEntityToken resolveSourceEntity(SectorMapAPI map) {
+        // Use the intel icon entity if available (shown on sector map)
+        if (map != null) {
+            SectorEntityToken iconEntity = map.getIntelIconEntity(this);
+            if (iconEntity != null) return iconEntity;
+        }
+        // Fall back to the source market entity
+        if (sourceMarketId != null) {
+            MarketAPI market = Global.getSector().getEconomy().getMarket(sourceMarketId);
+            if (market != null && market.getPrimaryEntity() != null) {
+                return market.getPrimaryEntity();
+            }
+        }
+        return getMapLocation(map);
+    }
+
+    private SectorEntityToken resolveDestinationEntity() {
+        // Destination market takes priority
+        if (destinationMarketId != null) {
+            MarketAPI market = Global.getSector().getEconomy().getMarket(destinationMarketId);
+            if (market != null && market.getPrimaryEntity() != null) {
+                return market.getPrimaryEntity();
+            }
+        }
+        // Then destination system - try getStarSystem first, fall back to iteration
+        if (destinationSystemId != null) {
+            StarSystemAPI system = Global.getSector().getStarSystem(destinationSystemId);
+            if (system != null) return system.getCenter();
+
+            // Fallback: iterate all systems and match by name
+            for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+                if (destinationSystemId.equals(sys.getName())
+                        || destinationSystemId.equals(sys.getBaseName())) {
+                    return sys.getCenter();
+                }
+            }
+            log.warning("IntrigueOpIntel: could not resolve destination system '" + destinationSystemId + "'");
+        }
+        return null;
+    }
+
+    /**
+     * Build a human-readable destination name at construction time.
+     * Shows the system name for system destinations, market name for market destinations.
+     */
+    private String resolveDestinationDisplayName() {
+        if (!PhaseUtil.isSectorAvailable()) return null;
+
+        // Market destination
+        if (destinationMarketId != null) {
+            MarketAPI market = Global.getSector().getEconomy().getMarket(destinationMarketId);
+            if (market != null) {
+                String name = market.getName();
+                if (market.getStarSystem() != null) {
+                    name += " (" + market.getStarSystem().getBaseName() + ")";
+                }
+                return name;
+            }
+        }
+        // System destination
+        if (destinationSystemId != null) {
+            // Try exact match first
+            StarSystemAPI system = Global.getSector().getStarSystem(destinationSystemId);
+            if (system != null) return system.getBaseName();
+
+            // Fallback iteration
+            for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+                if (destinationSystemId.equals(sys.getName())
+                        || destinationSystemId.equals(sys.getBaseName())) {
+                    return sys.getBaseName();
+                }
+            }
+            // Last resort: just return the raw ID
+            return destinationSystemId;
         }
         return null;
     }
@@ -272,7 +406,7 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
                 return;
             }
         }
-        // Op no longer active — it resolved while we were unloaded
+        // Op no longer active - it resolved while we were unloaded
     }
 
     // ── Utilities ───────────────────────────────────────────────────────
@@ -282,6 +416,45 @@ public class IntrigueOpIntel extends BaseIntelPlugin {
         IntrigueSubfaction sf = IntrigueServices.subfactions() != null
                 ? IntrigueServices.subfactions().getById(subfactionId) : null;
         return sf != null ? sf.getFactionId() : null;
+    }
+
+    /**
+     * Resolve a star system name from a territory by finding the first system
+     * in one of its constellations. Used for arrow display when the op targets
+     * a territory rather than a specific market/system.
+     * Returns null if no system can be found or the sector is not available.
+     */
+    public static String resolveSystemIdFromTerritory(String territoryId) {
+        if (territoryId == null) return null;
+        if (!PhaseUtil.isSectorAvailable()) return null;
+
+        IntrigueTerritory terr = IntrigueServices.territories() != null
+                ? IntrigueServices.territories().getById(territoryId) : null;
+        if (terr == null) {
+            log.info("resolveSystemIdFromTerritory: territory not found: " + territoryId);
+            return null;
+        }
+
+        List<String> constellationNames = terr.getConstellationNames();
+        if (constellationNames.isEmpty()) {
+            log.info("resolveSystemIdFromTerritory: territory '" + terr.getName()
+                    + "' has no constellations assigned yet.");
+            return null;
+        }
+
+        for (String constellationName : constellationNames) {
+            for (StarSystemAPI sys : Global.getSector().getStarSystems()) {
+                if (sys.getConstellation() != null
+                        && constellationName.equals(sys.getConstellation().getName())) {
+                    log.info("resolveSystemIdFromTerritory: resolved '" + terr.getName()
+                            + "' -> system '" + sys.getName() + "'");
+                    return sys.getName();
+                }
+            }
+        }
+        log.warning("resolveSystemIdFromTerritory: no matching systems for territory '"
+                + terr.getName() + "' constellations: " + constellationNames);
+        return null;
     }
 
     public String getOpId() {

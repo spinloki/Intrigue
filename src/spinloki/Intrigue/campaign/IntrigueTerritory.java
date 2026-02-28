@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * A territory — a region of constellations outside the core worlds where
+ * A territory - a region of constellations outside the core worlds where
  * subfactions project power and pursue plot hooks.
  *
  * Cohesion is tracked per-subfaction per-territory: a subfaction operating
@@ -257,7 +257,7 @@ public class IntrigueTerritory implements Serializable {
         return Collections.unmodifiableMap(pairFriction);
     }
 
-    /** Directed key: "from|to" — order matters (A→B ≠ B→A). */
+    /** Directed key: "from|to" - order matters (A→B ≠ B→A). */
     private static String directedKey(String from, String to) {
         return from + "|" + to;
     }

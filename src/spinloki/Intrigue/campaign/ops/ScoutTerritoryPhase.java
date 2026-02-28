@@ -105,7 +105,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
         if (!routesStarted) {
             startRoutes();
             if (handlers.isEmpty()) {
-                // No systems found in territory — succeed by default
+                // No systems found in territory - succeed by default
                 log.info("ScoutTerritoryPhase: no systems found in territory "
                         + territoryId + "; auto-success.");
                 succeeded = true;
@@ -167,7 +167,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
 
     private void resolveOutcome() {
         if (anyFleetSpawned) {
-            // Player was nearby — resolve based on fleet survival
+            // Player was nearby - resolve based on fleet survival
             int total = handlers.size();
             int destroyed = 0;
             for (ScoutFleetHandler h : handlers) {
@@ -178,7 +178,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
                     + destroyed + "/" + total + " destroyed → "
                     + (succeeded ? "SUCCESS" : "FAILURE"));
         } else {
-            // All routes expired abstractly — use hostile-cohesion check
+            // All routes expired abstractly - use hostile-cohesion check
             succeeded = passesHostileCohesionCheck();
             log.info("ScoutTerritoryPhase: abstract resolution (hostile-cohesion check) → "
                     + (succeeded ? "SUCCESS" : "FAILURE"));
@@ -364,7 +364,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
             // Check if route expired
             RouteData route = findOurRoute();
             if (route == null) {
-                // Route expired abstractly — scout survived
+                // Route expired abstractly - scout survived
                 done = true;
             }
             return done;

@@ -101,7 +101,7 @@ public interface OpFactory {
     IntrigueOp createInfightingOp(String opId, IntrigueSubfaction subfaction, String territoryId);
 
     /**
-     * Create an expulsion event — the subfaction is forced out of a territory
+     * Create an expulsion event - the subfaction is forced out of a territory
      * after sustained critically-low cohesion. Presence reverts to NONE.
      */
     IntrigueOp createExpulsionOp(String opId, IntrigueSubfaction subfaction, String territoryId);

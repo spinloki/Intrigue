@@ -10,7 +10,7 @@ import java.util.logging.Logger;
  * Operation: a homeless criminal subfaction scouts and establishes a hidden base
  * outside the core worlds.
  *
- * This is a "self-op" — there is no target subfaction. The initiator's leader
+ * This is a "self-op" - there is no target subfaction. The initiator's leader
  * goes out, finds a suitable unclaimed planet in a non-core system, and sets up
  * a hidden market there.
  *

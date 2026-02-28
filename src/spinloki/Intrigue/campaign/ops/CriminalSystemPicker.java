@@ -19,9 +19,9 @@ import java.util.logging.Logger;
  *
  * <ul>
  *   <li>Excludes core worlds (THEME_CORE, THEME_CORE_POPULATED).</li>
- *   <li>Weights systems closer to the core more heavily — criminals want to prey
+ *   <li>Weights systems closer to the core more heavily - criminals want to prey
  *       on trade routes, not hide in deep space.</li>
- *   <li>Prefers systems with few or no salvageables — less player traffic means
+ *   <li>Prefers systems with few or no salvageables - less player traffic means
  *       the base stays hidden longer.</li>
  *   <li>Skips systems with existing markets (already occupied).</li>
  *   <li>Skips hidden/special systems.</li>
@@ -83,13 +83,13 @@ public class CriminalSystemPicker implements SystemPicker {
             int salvageCount = system.getEntitiesWithTag(Tags.SALVAGEABLE).size();
             float salvageMult;
             if (salvageCount == 0) {
-                salvageMult = 2.0f;     // empty system — ideal
+                salvageMult = 2.0f;     // empty system - ideal
             } else if (salvageCount <= 3) {
-                salvageMult = 1.0f;     // light salvage — fine
+                salvageMult = 1.0f;     // light salvage - fine
             } else if (salvageCount <= 8) {
-                salvageMult = 0.4f;     // moderate — less desirable
+                salvageMult = 0.4f;     // moderate - less desirable
             } else {
-                salvageMult = 0.1f;     // heavily populated with salvage — avoid
+                salvageMult = 0.1f;     // heavily populated with salvage - avoid
             }
 
             // ── Distance weight ─────────────────────────────────────
@@ -150,7 +150,7 @@ public class CriminalSystemPicker implements SystemPicker {
         } else if (system.hasTag(Tags.THEME_RUINS)) {
             return 5f;
         } else if (system.hasTag(Tags.THEME_CORE_UNPOPULATED)) {
-            return 1f;  // fringe core — risky but close to trade
+            return 1f;  // fringe core - risky but close to trade
         }
         return 0f;
     }

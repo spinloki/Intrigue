@@ -19,7 +19,7 @@ import java.util.*;
 
 /**
  * Integration test that runs the REAL OpEvaluator and RaidOp code
- * against sim-side SPI implementations — proving the DI works
+ * against sim-side SPI implementations - proving the DI works
  * with the subfaction model.
  *
  * Run via: java SimIntegrationTest
@@ -53,7 +53,7 @@ public class SimIntegrationTest {
         System.out.printf("Results: %d passed, %d failed%n", passed, failed);
         System.out.println("═══════════════════════════════════════════════════");
 
-        // Informational — not a pass/fail test
+        // Informational - not a pass/fail test
         runLongSimStats();
 
         System.exit(failed > 0 ? 1 : 0);
@@ -204,7 +204,7 @@ public class SimIntegrationTest {
             }
             subfactions.addSubfaction(sf);
         }
-        // Territories — load from intrigue_territories.json if available, else hardcoded fallback
+        // Territories - load from intrigue_territories.json if available, else hardcoded fallback
         SimTerritoryAccess territories = new SimTerritoryAccess();
         String territoriesPath = System.getProperty("intrigue.territories");
         if (territoriesPath != null) {
@@ -226,7 +226,7 @@ public class SimIntegrationTest {
             System.out.printf("  Loaded %d territories from: %s%n",
                     terrConfig.territories.size(), territoriesPath);
         } else {
-            // Hardcoded fallback — two territories, all non-criminal factions interested
+            // Hardcoded fallback - two territories, all non-criminal factions interested
             IntrigueTerritory remnantFrontier = new IntrigueTerritory(
                     "territory_remnant_frontier", "Remnant Frontier",
                     TerritoryConfig.Tier.HIGH, "Remnant activity has spiked.");
@@ -337,7 +337,7 @@ public class SimIntegrationTest {
 
             int powerBefore = sfHeg1.getPower();
 
-            // Evaluate — sf_heg1 should create an op (MERCILESS leader, power 60)
+            // Evaluate - sf_heg1 should create an op (MERCILESS leader, power 60)
             IntrigueOp op = OpEvaluator.evaluate(sfHeg1, ops, "test");
             assertNotNull("Should create an op", op);
             assertEquals("Op type", "Raid", op.getOpTypeName());
@@ -374,7 +374,7 @@ public class SimIntegrationTest {
             if (op.getTargetSubfactionId() != null) {
                 assertEquals("Target must be cross-faction", "sf_tri", op.getTargetSubfactionId());
             }
-            // Territory ops have no target — constraint is trivially satisfied
+            // Territory ops have no target - constraint is trivially satisfied
         });
     }
 
@@ -526,7 +526,7 @@ public class SimIntegrationTest {
             SimClock clock = setupSim();
             SimOpRunner ops = (SimOpRunner) IntrigueServices.ops();
 
-            // sf_heg1 is hegemony — interested in "Remnant Frontier"
+            // sf_heg1 is hegemony - interested in "Remnant Frontier"
             IntrigueSubfaction sfHeg1 = IntrigueServices.subfactions().getById("sf_heg1");
             IntrigueTerritory remnant = IntrigueServices.territories().getById("territory_remnant_frontier");
             assertNotNull("remnant territory", remnant);
@@ -562,7 +562,7 @@ public class SimIntegrationTest {
                 assertEquals("presence after scout success", IntrigueTerritory.Presence.SCOUTING,
                         remnant.getPresence(sfHeg1.getSubfactionId()));
 
-                // Now evaluate again — should produce an Establish Territory Base op
+                // Now evaluate again - should produce an Establish Territory Base op
                 clock.advanceDays(60); // clear cooldown
                 IntrigueOp op2 = OpEvaluator.evaluate(sfHeg1, ops, "test");
                 assertNotNull("Should produce establish op", op2);
@@ -583,7 +583,7 @@ public class SimIntegrationTest {
                 // Should have territory cohesion set
                 assertTrue("territory cohesion > 0", remnant.getCohesion(sfHeg1.getSubfactionId()) > 0);
             } else {
-                // It produced a raid op instead — that's fine, just check territory is still NONE
+                // It produced a raid op instead - that's fine, just check territory is still NONE
                 assertEquals("presence unchanged", IntrigueTerritory.Presence.NONE,
                         remnant.getPresence(sfHeg1.getSubfactionId()));
             }
@@ -607,7 +607,7 @@ public class SimIntegrationTest {
 
             int legitimacyBefore = sfHeg1.getLegitimacy();
 
-            // Evaluate — with ESTABLISHED presence, should produce a Patrol op
+            // Evaluate - with ESTABLISHED presence, should produce a Patrol op
             clock.advanceDays(60);
             IntrigueOp op = OpEvaluator.evaluate(sfHeg1, ops, "test");
             assertNotNull("Should produce an op", op);
@@ -823,7 +823,7 @@ public class SimIntegrationTest {
                 }
             }
             for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
-                // Evaluate up to maxConcurrentOps — each call may return a new op
+                // Evaluate up to maxConcurrentOps - each call may return a new op
                 // until the subfaction runs out of capacity or has nothing to do
                 for (int slot = 0; slot < OpEvaluator.MAX_CONCURRENT_OPS; slot++) {
                     IntrigueOp op = OpEvaluator.evaluate(sf, ops, "sim");

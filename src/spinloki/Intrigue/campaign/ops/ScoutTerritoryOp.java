@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  * Operation: a subfaction scouts a territory to establish initial presence.
  *
  * This is a "self-op" scoped to a territory. On start, the territory presence
- * is set to SCOUTING. On success, it remains SCOUTING — the subfaction can
+ * is set to SCOUTING. On success, it remains SCOUTING - the subfaction can
  * then launch an EstablishTerritoryBaseOp to advance to ESTABLISHED.
  *
  * On failure, presence reverts to NONE.
@@ -35,6 +35,10 @@ public class ScoutTerritoryOp extends IntrigueOp {
               null);
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
+
+        // Intel arrow: home market -> territory
+        setIntelSourceMarketId(subfaction.getHomeMarketId());
+        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
 
         int combatFP = 10 + (int) (subfaction.getHomeCohesion() * 0.2f);
 
@@ -102,7 +106,7 @@ public class ScoutTerritoryOp extends IntrigueOp {
         IntrigueTerritory territory = territories != null ? territories.getById(getTerritoryId()) : null;
 
         if (result == OpOutcome.SUCCESS) {
-            // Presence stays at SCOUTING — next step is EstablishTerritoryBaseOp
+            // Presence stays at SCOUTING - next step is EstablishTerritoryBaseOp
             if (subfaction != null) {
                 // Minor home cohesion cost (sent scouts out) but legitimacy gain (expanding influence)
                 subfaction.setHomeCohesion(subfaction.getHomeCohesion() - COHESION_COST);

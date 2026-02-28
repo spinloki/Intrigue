@@ -50,6 +50,6 @@ public class SimPeopleAccess implements IntriguePeopleAccess {
 
     @Override
     public void syncMemory(String personId) {
-        // No-op in sim mode — no PersonAPI memory to sync.
+        // No-op in sim mode - no PersonAPI memory to sync.
     }
 }

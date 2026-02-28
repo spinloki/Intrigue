@@ -45,6 +45,10 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
 
+        // Intel arrow: home market -> territory
+        setIntelSourceMarketId(subfaction.getHomeMarketId());
+        setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
+
         // Phase 1: send an escort fleet to the territory
         int escortFP = 20 + (int) (subfaction.getHomeCohesion() * 0.4f);
         int supplyFP = 15 + (int) (subfaction.getHomeCohesion() * 0.2f);
@@ -153,7 +157,7 @@ public class EstablishTerritoryBaseOp extends IntrigueOp {
             log.info("  SUCCESS: " + subfactionId + " ESTABLISHED in " + territory.getName()
                     + " (territory cohesion=" + INITIAL_TERRITORY_COHESION + ")");
         } else {
-            // Revert presence to NONE — the effort failed
+            // Revert presence to NONE - the effort failed
             if (territory != null) {
                 territory.setPresence(subfactionId, IntrigueTerritory.Presence.NONE);
             }
