@@ -22,9 +22,11 @@ public class SendSuppliesOp extends IntrigueOp {
     private static final int COHESION_GAIN = 8;
     private static final int COHESION_LOSS = 10;
     private static final float TRAVEL_DAYS = 25f;
+    private static final int SABOTAGE_COHESION_GAIN_REDUCTION = 4;
 
     private final String subfactionId;
     private final SendSuppliesPhase supplyPhase;
+    private boolean sabotaged = false;
 
     public SendSuppliesOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
         super(opId,
@@ -53,6 +55,24 @@ public class SendSuppliesOp extends IntrigueOp {
     @Override
     public String getOpTypeName() {
         return "Send Supplies";
+    }
+
+    // ── Mischief targeting ────────────────────────────────────────────
+
+    @Override
+    public boolean canBeTargetedByMischief() {
+        return !isResolved();
+    }
+
+    @Override
+    public String describeMischiefEffect() {
+        return "Interdicting supply convoys to disrupt deliveries";
+    }
+
+    @Override
+    public void applyMischiefSabotage() {
+        sabotaged = true;
+        log.info("SendSuppliesOp " + getOpId() + " sabotaged — cohesion gain will be reduced");
     }
 
     @Override
@@ -98,12 +118,16 @@ public class SendSuppliesOp extends IntrigueOp {
         String territoryName = territory != null ? territory.getName() : getTerritoryId();
 
         if (result == OpOutcome.SUCCESS) {
+            int gain = sabotaged
+                    ? Math.max(0, COHESION_GAIN - SABOTAGE_COHESION_GAIN_REDUCTION)
+                    : COHESION_GAIN;
             if (territory != null) {
                 territory.setCohesion(subfactionId,
-                        territory.getCohesion(subfactionId) + COHESION_GAIN);
+                        territory.getCohesion(subfactionId) + gain);
             }
             log.info("SendSuppliesOp resolved SUCCESS: " + subfactionId
-                    + " territory cohesion +" + COHESION_GAIN
+                    + " territory cohesion +" + gain
+                    + (sabotaged ? " (sabotaged, reduced from +" + COHESION_GAIN + ")" : "")
                     + " (" + territoryName + ")");
         } else {
             if (territory != null) {

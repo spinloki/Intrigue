@@ -126,6 +126,14 @@ public class SimConfig {
     public int frictionRelDrainCap = 3;
     /** Friction threshold at which a mischief op is triggered. */
     public int frictionThreshold = 60;
+    /**
+     * Divisor for threat-based friction bonus. When a neighbor has higher territory
+     * cohesion, extra friction is gained: {@code max(0, (theirCoh - myCoh) / divisor)}.
+     * Lower values = more aggressive friction toward dominant subfactions.
+     */
+    public int frictionThreatDivisor = 15;
+    /** Weight applied to target's home cohesion advantage (above 50) when scoring raid targets. */
+    public float raidThreatWeight = 0.25f;
     /** Probability that a mischief op succeeds. */
     public float mischiefSuccessProb = 0.6f;
     /** Territory cohesion penalty inflicted on victim when mischief succeeds. */
@@ -199,6 +207,8 @@ public class SimConfig {
         c.frictionRelDrainDivisor = frictionRelDrainDivisor;
         c.frictionRelDrainCap = frictionRelDrainCap;
         c.frictionThreshold = frictionThreshold;
+        c.frictionThreatDivisor = frictionThreatDivisor;
+        c.raidThreatWeight = raidThreatWeight;
         c.mischiefSuccessProb = mischiefSuccessProb;
         c.mischiefCohesionPenalty = mischiefCohesionPenalty;
         c.mischiefLegitimacyPenalty = mischiefLegitimacyPenalty;

@@ -42,6 +42,13 @@ public final class OpEvaluator {
     /** Success chance penalty applied to an op targeted by mischief (0.15 = 15%). */
     public static final float MISCHIEF_TARGET_SUCCESS_PENALTY = 0.15f;
 
+    /**
+     * Weight applied to the target's home cohesion advantage (above 50) when
+     * scoring raid targets. High-cohesion subfactions are perceived as threats
+     * and attract more aggressive attention from rivals.
+     */
+    public static final float THREAT_WEIGHT = 0.25f;
+
     /** Hard cap on concurrent ops per subfaction. */
     public static final int MAX_CONCURRENT_OPS = 3;
 
@@ -374,6 +381,9 @@ public final class OpEvaluator {
 
         // High attacker home cohesion gives confidence to act
         score += (attacker.getHomeCohesion() - 50) * 0.2f;
+
+        // Threat: high-cohesion targets look dangerous and should be cut down
+        score += Math.max(0, target.getHomeCohesion() - 50) * THREAT_WEIGHT;
 
         // Cross-faction hostility base
         score += 12f;
@@ -739,17 +749,18 @@ public final class OpEvaluator {
                         // Reset only the initiator's directed friction
                         territory.resetFriction(initId, victId);
                     } else {
-                        // Non-hostile: mischief, but only if the victim has an active op to sabotage
+                        // Non-hostile: mischief, but only if the victim has a targetable active op
                         List<IntrigueOp> victimOps = new ArrayList<>();
                         for (IntrigueOp op : activeOps) {
                             if (op.isResolved()) continue;
                             String opSfId = op.getInitiatorSubfactionId();
-                            if (opSfId != null && opSfId.equals(victim.getSubfactionId())) {
+                            if (opSfId != null && opSfId.equals(victim.getSubfactionId())
+                                    && op.canBeTargetedByMischief()) {
                                 victimOps.add(op);
                             }
                         }
                         if (victimOps.isEmpty()) {
-                            // No active op to target - friction stays, re-check next tick
+                            // No targetable op - friction stays, re-check next tick
                             continue;
                         }
 
@@ -760,8 +771,9 @@ public final class OpEvaluator {
                         if (mischiefOp != null) {
                             mischiefOp.setNoCost(true);
                             ops.add(mischiefOp);
-                            // Apply a success penalty to the targeted op
+                            // Apply the generic success penalty AND the op-specific sabotage
                             targetOp.addMischiefPenalty(MISCHIEF_TARGET_SUCCESS_PENALTY);
+                            targetOp.applyMischiefSabotage();
                         }
                         // Reset only the initiator's directed friction
                         territory.resetFriction(initId, victId);

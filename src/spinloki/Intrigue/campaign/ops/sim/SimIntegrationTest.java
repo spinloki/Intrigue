@@ -683,6 +683,10 @@ public class SimIntegrationTest {
         System.out.printf("    Friction base/tick:            %d (×crowding)%n", config.baseFrictionPerTick);
         System.out.printf("    Friction rel drain divisor:    %d (cap %d)%n", config.frictionRelDrainDivisor, config.frictionRelDrainCap);
         System.out.printf("    Friction threshold (mischief): %d%n", config.frictionThreshold);
+        System.out.printf("    Friction threat divisor:       %d (bonus = max(0, Δcoh / %d))%n",
+                config.frictionThreatDivisor, config.frictionThreatDivisor);
+        System.out.printf("    Raid threat weight:            %.2f (score += max(0, targetCoh-50) × %.2f)%n",
+                OpEvaluator.THREAT_WEIGHT, OpEvaluator.THREAT_WEIGHT);
         System.out.printf("    Mischief success:              %.0f%%%n", config.mischiefSuccessProb * 100);
         System.out.printf("    Mischief cohesion penalty:     %d%n", config.mischiefCohesionPenalty);
         System.out.printf("    Mischief legitimacy penalty:   %d%n", config.mischiefLegitimacyPenalty);
@@ -927,24 +931,34 @@ public class SimIntegrationTest {
                     IntrigueSubfaction sfB = IntrigueServices.subfactions().getById(pair[1]);
                     if (sfA == null || sfB == null) continue;
                     int baseGain = config.baseFrictionPerTick * crowdingMult;
-                    // A→B direction
+
+                    // Territory cohesion for threat calculation
+                    int cohA = territory.getCohesion(pair[0]);
+                    int cohB = territory.getCohesion(pair[1]);
+
+                    // A→B direction (threat: B dominates → A gets extra friction toward B)
+                    int threatAB = (config.frictionThreatDivisor > 0)
+                            ? Math.max(0, (cohB - cohA) / config.frictionThreatDivisor) : 0;
                     Integer relAB = sfA.getRelTo(pair[1]);
                     int rAB = (relAB != null) ? relAB : 0;
                     int drainAB = 0;
                     if (rAB > 0 && config.frictionRelDrainDivisor > 0) {
                         drainAB = Math.min(rAB / config.frictionRelDrainDivisor, config.frictionRelDrainCap);
                     }
-                    int netAB = Math.max(0, baseGain - drainAB);
+                    int netAB = Math.max(0, baseGain + threatAB - drainAB);
                     territory.setFriction(pair[0], pair[1],
                             territory.getFriction(pair[0], pair[1]) + netAB);
-                    // B→A direction
+
+                    // B→A direction (threat: A dominates → B gets extra friction toward A)
+                    int threatBA = (config.frictionThreatDivisor > 0)
+                            ? Math.max(0, (cohA - cohB) / config.frictionThreatDivisor) : 0;
                     Integer relBA = sfB.getRelTo(pair[0]);
                     int rBA = (relBA != null) ? relBA : 0;
                     int drainBA = 0;
                     if (rBA > 0 && config.frictionRelDrainDivisor > 0) {
                         drainBA = Math.min(rBA / config.frictionRelDrainDivisor, config.frictionRelDrainCap);
                     }
-                    int netBA = Math.max(0, baseGain - drainBA);
+                    int netBA = Math.max(0, baseGain + threatBA - drainBA);
                     territory.setFriction(pair[1], pair[0],
                             territory.getFriction(pair[1], pair[0]) + netBA);
                 }

@@ -173,6 +173,38 @@ public abstract class IntrigueOp implements Serializable {
     /** True if mischief sabotage flipped this op's outcome from SUCCESS to FAILURE. */
     public boolean wasSabotagedByMischief() { return sabotagedByMischief; }
 
+    // ── Mischief targeting ──────────────────────────────────────────────
+
+    /**
+     * Whether this op can currently be targeted by mischief. Only certain op
+     * types are valid targets (e.g. patrols, supply convoys, rallies). Ops
+     * that return {@code true} must also override {@link #describeMischiefEffect()}
+     * and {@link #applyMischiefSabotage()}.
+     *
+     * <p>Default: {@code false} — most ops are not targetable.</p>
+     */
+    public boolean canBeTargetedByMischief() { return false; }
+
+    /**
+     * A human-readable description of the mischief fleet's disruptive action
+     * against this op. Used for fleet assignment text and intel tooltips.
+     *
+     * <p>Default: {@code null} — not targetable.</p>
+     */
+    public String describeMischiefEffect() { return null; }
+
+    /**
+     * Apply the op-specific sabotage effect. Called when a mischief op targeting
+     * this op succeeds. Each targetable op defines its own response — e.g.
+     * reduced cohesion gain for supplies, extra legitimacy loss for patrols.
+     *
+     * <p>This is called in addition to the generic
+     * {@link #addMischiefPenalty(float)} applied by the evaluator.</p>
+     *
+     * <p>Default: no-op.</p>
+     */
+    public void applyMischiefSabotage() {}
+
     // ── Convenience lookups ─────────────────────────────────────────────
 
     protected IntriguePerson getInitiator() {

@@ -23,6 +23,8 @@ public class IntriguePacerScript implements EveryFrameScript {
     private static final int BASE_FRICTION_PER_TICK = 2;
     private static final int FRICTION_REL_DRAIN_DIVISOR = 10;
     private static final int FRICTION_REL_DRAIN_CAP = 3;
+    /** Divisor for threat-based friction bonus: bonus = max(0, (theirCoh - myCoh)) / divisor. */
+    private static final int FRICTION_THREAT_DIVISOR = 15;
 
     @Override
     public boolean isDone() { return false; }
@@ -141,25 +143,33 @@ public class IntriguePacerScript implements EveryFrameScript {
 
                     int baseGain = BASE_FRICTION_PER_TICK * crowdingMult;
 
+                    // Territory cohesion for threat calculation
+                    int cohA = territory.getCohesion(pair[0]);
+                    int cohB = territory.getCohesion(pair[1]);
+
                     // A→B friction (uses A's view of relationship with B)
+                    // Threat bonus: if B has higher territory cohesion, A is more annoyed
+                    int threatAB = Math.max(0, (cohB - cohA) / FRICTION_THREAT_DIVISOR);
                     Integer relAB = sfA.getRelTo(pair[1]);
                     int rAB = (relAB != null) ? relAB : 0;
                     int drainAB = 0;
                     if (rAB > 0 && FRICTION_REL_DRAIN_DIVISOR > 0) {
                         drainAB = Math.min(rAB / FRICTION_REL_DRAIN_DIVISOR, FRICTION_REL_DRAIN_CAP);
                     }
-                    int netAB = Math.max(0, baseGain - drainAB);
+                    int netAB = Math.max(0, baseGain + threatAB - drainAB);
                     int curAB = territory.getFriction(pair[0], pair[1]);
                     territory.setFriction(pair[0], pair[1], curAB + netAB);
 
                     // B→A friction (uses B's view of relationship with A)
+                    // Threat bonus: if A has higher territory cohesion, B is more annoyed
+                    int threatBA = Math.max(0, (cohA - cohB) / FRICTION_THREAT_DIVISOR);
                     Integer relBA = sfB.getRelTo(pair[0]);
                     int rBA = (relBA != null) ? relBA : 0;
                     int drainBA = 0;
                     if (rBA > 0 && FRICTION_REL_DRAIN_DIVISOR > 0) {
                         drainBA = Math.min(rBA / FRICTION_REL_DRAIN_DIVISOR, FRICTION_REL_DRAIN_CAP);
                     }
-                    int netBA = Math.max(0, baseGain - drainBA);
+                    int netBA = Math.max(0, baseGain + threatBA - drainBA);
                     int curBA = territory.getFriction(pair[1], pair[0]);
                     territory.setFriction(pair[1], pair[0], curBA + netBA);
 

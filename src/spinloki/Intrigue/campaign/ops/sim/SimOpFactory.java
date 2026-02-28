@@ -477,6 +477,10 @@ public class SimOpFactory implements OpFactory {
         @Override public String getOpTypeName() { return "Patrol"; }
         @Override protected void onStarted() {}
 
+        @Override public boolean canBeTargetedByMischief() { return !isResolved(); }
+        @Override public String describeMischiefEffect() { return "Broadcasting confusing signals to disrupt patrols"; }
+        @Override public void applyMischiefSabotage() { addMischiefPenalty(0.15f); }
+
         @Override
         protected OpOutcome determineOutcome() {
             return resolver.resolvePatrol(getInitiatorSubfaction(), tId);
@@ -520,6 +524,10 @@ public class SimOpFactory implements OpFactory {
 
         @Override public String getOpTypeName() { return "Send Supplies"; }
         @Override protected void onStarted() {}
+
+        @Override public boolean canBeTargetedByMischief() { return !isResolved(); }
+        @Override public String describeMischiefEffect() { return "Interdicting supply convoys to disrupt deliveries"; }
+        @Override public void applyMischiefSabotage() { addMischiefPenalty(0.15f); }
 
         @Override
         protected OpOutcome determineOutcome() {
@@ -566,6 +574,14 @@ public class SimOpFactory implements OpFactory {
 
         @Override public String getOpTypeName() { return "Rally"; }
         @Override protected void onStarted() {}
+
+        @Override public boolean canBeTargetedByMischief() { return !isResolved(); }
+        @Override public String describeMischiefEffect() {
+            IntrigueSubfaction sf = getInitiatorSubfaction();
+            String name = sf != null ? sf.getName() : getInitiatorSubfactionId();
+            return "Disrupting " + name + "'s rally";
+        }
+        @Override public void applyMischiefSabotage() { addMischiefPenalty(0.15f); }
 
         @Override
         protected OpOutcome determineOutcome() {

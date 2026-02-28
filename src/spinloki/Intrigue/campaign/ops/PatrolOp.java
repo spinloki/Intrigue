@@ -24,10 +24,12 @@ public class PatrolOp extends IntrigueOp {
 
     private static final int LEGITIMACY_GAIN = 3;
     private static final int LEGITIMACY_LOSS = 4;
+    private static final int SABOTAGE_EXTRA_LEGITIMACY_LOSS = 3;
     private static final float PATROL_DAYS = 20f;
 
     private final String subfactionId;
     private final PatrolPhase patrolPhase;
+    private boolean sabotaged = false;
 
     /**
      * @param opId        unique operation ID
@@ -62,6 +64,24 @@ public class PatrolOp extends IntrigueOp {
     @Override
     public String getOpTypeName() {
         return "Patrol";
+    }
+
+    // ── Mischief targeting ────────────────────────────────────────────
+
+    @Override
+    public boolean canBeTargetedByMischief() {
+        return !isResolved();
+    }
+
+    @Override
+    public String describeMischiefEffect() {
+        return "Broadcasting confusing signals to disrupt patrols";
+    }
+
+    @Override
+    public void applyMischiefSabotage() {
+        sabotaged = true;
+        log.info("PatrolOp " + getOpId() + " sabotaged — increased legitimacy loss on failure");
     }
 
     @Override
@@ -115,11 +135,15 @@ public class PatrolOp extends IntrigueOp {
                     + " legitimacy +" + LEGITIMACY_GAIN
                     + " (territory " + territoryName + ")");
         } else {
+            int loss = sabotaged
+                    ? LEGITIMACY_LOSS + SABOTAGE_EXTRA_LEGITIMACY_LOSS
+                    : LEGITIMACY_LOSS;
             if (subfaction != null) {
-                subfaction.setLegitimacy(subfaction.getLegitimacy() - LEGITIMACY_LOSS);
+                subfaction.setLegitimacy(subfaction.getLegitimacy() - loss);
             }
             log.info("PatrolOp resolved FAILURE: " + subfactionId
-                    + " patrol fleet destroyed, legitimacy -" + LEGITIMACY_LOSS
+                    + " patrol fleet destroyed, legitimacy -" + loss
+                    + (sabotaged ? " (sabotaged, extra -" + SABOTAGE_EXTRA_LEGITIMACY_LOSS + ")" : "")
                     + " (territory " + territoryName + ")");
         }
 
