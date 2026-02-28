@@ -17,6 +17,8 @@ import java.util.*;
  */
 public class IntrigueOpsManager implements EveryFrameScript, Serializable, IntrigueOpRunner {
 
+    private static final long serialVersionUID = 1L;
+
     private final List<IntrigueOp> activeOps = new ArrayList<>();
     private int nextOpSeq = 1;
 

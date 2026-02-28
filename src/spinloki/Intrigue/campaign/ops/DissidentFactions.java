@@ -30,6 +30,15 @@ public final class DissidentFactions {
     private DissidentFactions() {}
 
     /**
+     * Clear the per-session initialization state. Must be called on each game
+     * load so that dissident-faction hostility is re-established for the new
+     * save instead of carrying over stale state from a previous session.
+     */
+    public static void reset() {
+        initialized.clear();
+    }
+
+    /**
      * Get the dissident faction ID for a given parent faction.
      */
     public static String getDissidentFactionId(String parentFactionId) {

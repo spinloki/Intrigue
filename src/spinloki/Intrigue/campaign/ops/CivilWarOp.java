@@ -20,6 +20,7 @@ import java.util.logging.Logger;
  */
 public class CivilWarOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(CivilWarOp.class.getName());
 
     private final String subfactionId;
@@ -49,7 +50,8 @@ public class CivilWarOp extends IntrigueOp {
     }
 
     @Override
-    public void createIntelDetails(TooltipMakerAPI info, float opad) {
+    public void createIntelDetails(Object infoObj, float opad) {
+        TooltipMakerAPI info = (TooltipMakerAPI) infoObj;
         java.awt.Color h = Misc.getHighlightColor();
         java.awt.Color tc = Misc.getTextColor();
 

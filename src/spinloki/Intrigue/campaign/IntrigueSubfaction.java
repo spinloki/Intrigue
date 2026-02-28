@@ -15,6 +15,8 @@ import java.util.*;
  */
 public class IntrigueSubfaction implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     /** The kind of subfaction - controls which operations it can run. */
     public enum SubfactionType {
         /** Standard political subfaction: raids, diplomacy, etc. */

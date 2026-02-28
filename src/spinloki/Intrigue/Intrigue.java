@@ -68,6 +68,7 @@ public class Intrigue extends BaseModPlugin {
 
     @Override
     public void onNewGameAfterEconomyLoad() {
+        DissidentFactions.reset();
         initServices();
         IntrigueSubfactionManager.get().bootstrapIfNeeded();
         IntrigueTerritoryManager.get().bootstrapIfNeeded();
@@ -77,6 +78,7 @@ public class Intrigue extends BaseModPlugin {
 
     @Override
     public void onGameLoad(boolean newGame) {
+        DissidentFactions.reset();
         initServices();
         IntriguePeopleManager.get().refreshAll();
         ensureScripts();
@@ -129,9 +131,6 @@ public class Intrigue extends BaseModPlugin {
         if (!(existing instanceof IntrigueOpsManager)) {
             IntrigueOpsManager mgr = IntrigueOpsManager.get();
             Global.getSector().addScript(mgr);
-        } else {
-            // Ensure the existing manager is registered as a script
-            Global.getSector().addScript((IntrigueOpsManager) existing);
         }
     }
 

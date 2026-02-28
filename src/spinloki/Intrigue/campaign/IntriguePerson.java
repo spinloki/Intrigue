@@ -6,6 +6,8 @@ import java.util.*;
 
 public class IntriguePerson implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     public enum LocationType {
         HOME,      // at home market (normal)
         MARKET,    // temporarily at a different market

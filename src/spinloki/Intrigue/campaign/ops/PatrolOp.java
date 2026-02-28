@@ -19,6 +19,7 @@ import java.util.logging.Logger;
  */
 public class PatrolOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(PatrolOp.class.getName());
 
     private static final int LEGITIMACY_GAIN = 3;

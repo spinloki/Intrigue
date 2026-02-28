@@ -9,6 +9,8 @@ package spinloki.Intrigue.campaign.ops;
  */
 public class AssemblePhase implements OpPhase {
 
+    private static final long serialVersionUID = 1L;
+
     private final float durationDays;
     private float elapsed = 0f;
 

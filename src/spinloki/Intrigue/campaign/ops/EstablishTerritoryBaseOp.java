@@ -25,6 +25,7 @@ import java.util.logging.Logger;
  */
 public class EstablishTerritoryBaseOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(EstablishTerritoryBaseOp.class.getName());
 
     private static final int INITIAL_TERRITORY_COHESION = 50;

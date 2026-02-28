@@ -35,6 +35,7 @@ import java.util.logging.Logger;
  */
 public class EstablishBasePhase implements OpPhase, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(EstablishBasePhase.class.getName());
 
     private static final float SETUP_DAYS = 45f;

@@ -17,6 +17,7 @@ import java.util.logging.Logger;
  */
 public class FGIPhase implements OpPhase, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(FGIPhase.class.getName());
 
     private final String attackerSubfactionId;

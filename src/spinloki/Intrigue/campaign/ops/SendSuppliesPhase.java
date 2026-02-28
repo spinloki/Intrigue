@@ -28,6 +28,7 @@ import java.util.logging.Logger;
  */
 public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(SendSuppliesPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_supply_";
 

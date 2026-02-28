@@ -23,6 +23,7 @@ import java.util.logging.Logger;
  */
 public class RaidOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(RaidOp.class.getName());
 
     private static final int BASE_COHESION_SHIFT = 8;

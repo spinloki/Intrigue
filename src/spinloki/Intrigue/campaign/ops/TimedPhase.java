@@ -7,6 +7,7 @@ import java.io.Serializable;
  * Used as a placeholder for ops that don't yet have concrete game-side phases.
  */
 public class TimedPhase implements OpPhase, Serializable {
+    private static final long serialVersionUID = 1L;
     private final String label;
     private final float duration;
     private float elapsed = 0f;

@@ -14,6 +14,7 @@ import java.util.logging.Logger;
  */
 public class ExpulsionOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(ExpulsionOp.class.getName());
     private static final int LEGITIMACY_LOSS = 20;
 

@@ -17,6 +17,8 @@ import java.util.*;
  */
 public class CivilWarPhase extends FactionBattlePhase {
 
+    private static final long serialVersionUID = 1L;
+
     /** Track which POIs have been claimed by a pair to avoid duplicates. */
     private final Set<String> claimedPOIs = new HashSet<>();
 

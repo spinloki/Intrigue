@@ -31,6 +31,7 @@ import java.util.logging.Logger;
  */
 public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEventListener {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(TravelAndFightPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_raid_";
 

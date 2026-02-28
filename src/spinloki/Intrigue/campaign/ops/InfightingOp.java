@@ -16,6 +16,7 @@ import java.util.logging.Logger;
  */
 public class InfightingOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(InfightingOp.class.getName());
     private static final int LEGITIMACY_LOSS = 8;
 

@@ -19,6 +19,7 @@ import java.util.logging.Logger;
  */
 public class RallyOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(RallyOp.class.getName());
     private static final int COHESION_GAIN = 10;
     private static final float RALLY_DAYS = 15f;

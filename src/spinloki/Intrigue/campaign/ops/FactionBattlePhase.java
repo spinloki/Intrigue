@@ -31,6 +31,7 @@ import java.util.logging.Logger;
  */
 public abstract class FactionBattlePhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(FactionBattlePhase.class.getName());
 
     private static final String MEM_ENEMY_KEY = "$intrigueBattleEnemy";
@@ -56,6 +57,7 @@ public abstract class FactionBattlePhase implements OpPhase, RouteFleetSpawner, 
 
     /** Tracks a single pair of opposing fleets. */
     protected static class FleetPair implements Serializable {
+        private static final long serialVersionUID = 1L;
         public String routeSourceA;
         public String routeSourceB;
         public transient CampaignFleetAPI fleetA;

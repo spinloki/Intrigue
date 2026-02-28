@@ -19,6 +19,7 @@ import java.util.logging.Logger;
  */
 public class ScoutTerritoryOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(ScoutTerritoryOp.class.getName());
 
     private static final int COHESION_COST = 5;

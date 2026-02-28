@@ -19,6 +19,8 @@ import java.util.*;
  */
 public class IntrigueTerritory implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Presence level of a subfaction in a territory.
      * Progresses: NONE → SCOUTING → ESTABLISHED.

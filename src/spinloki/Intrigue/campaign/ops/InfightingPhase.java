@@ -20,6 +20,8 @@ import java.util.*;
  */
 public class InfightingPhase extends FactionBattlePhase {
 
+    private static final long serialVersionUID = 1L;
+
     private final String territoryId;
 
     public InfightingPhase(String factionId, String sourceMarketId,

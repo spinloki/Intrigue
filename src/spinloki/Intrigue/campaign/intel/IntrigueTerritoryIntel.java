@@ -30,6 +30,8 @@ import java.util.Set;
  */
 public class IntrigueTerritoryIntel extends BaseIntelPlugin implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private final String territoryId;
     private final String territoryName;
     private final List<String> constellationNames;

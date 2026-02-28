@@ -42,6 +42,7 @@ import java.util.logging.Logger;
  */
 public class ScoutTerritoryPhase implements OpPhase, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(ScoutTerritoryPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_scout_";
 

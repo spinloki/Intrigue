@@ -25,6 +25,7 @@ import java.util.logging.Logger;
  * destroyed, which counts as failure.</p>
  */
 public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(PatrolPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_patrol_";
     private final String factionId;

@@ -20,6 +20,7 @@ import java.util.logging.Logger;
  */
 public class EstablishBaseOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(EstablishBaseOp.class.getName());
 
     private static final int POWER_GAIN_ON_SUCCESS = 10;

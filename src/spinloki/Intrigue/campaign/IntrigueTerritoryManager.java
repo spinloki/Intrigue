@@ -25,6 +25,7 @@ import java.util.logging.Logger;
  */
 public class IntrigueTerritoryManager implements Serializable, IntrigueTerritoryAccess {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(IntrigueTerritoryManager.class.getName());
 
     private final Map<String, IntrigueTerritory> territories = new LinkedHashMap<>();

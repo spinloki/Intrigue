@@ -16,6 +16,7 @@ import java.util.logging.Logger;
  */
 public class SendSuppliesOp extends IntrigueOp {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(SendSuppliesOp.class.getName());
 
     private static final int COHESION_GAIN = 8;

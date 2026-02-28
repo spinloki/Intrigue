@@ -15,6 +15,8 @@ import java.util.*;
 
 public class IntriguePeopleManager implements Serializable, IntriguePeopleAccess {
 
+    private static final long serialVersionUID = 1L;
+
     private final Map<String, IntriguePerson> people = new LinkedHashMap<>();
     private int nextId = 1;
     private boolean bootstrapped = false;

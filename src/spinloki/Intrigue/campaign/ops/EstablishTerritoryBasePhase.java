@@ -36,6 +36,7 @@ import java.util.logging.Logger;
  */
 public class EstablishTerritoryBasePhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(EstablishTerritoryBasePhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_establish_terr_";
 

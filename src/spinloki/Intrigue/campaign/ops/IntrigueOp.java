@@ -1,6 +1,5 @@
 package spinloki.Intrigue.campaign.ops;
 
-import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import spinloki.Intrigue.campaign.IntriguePerson;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
@@ -25,6 +24,8 @@ import java.util.List;
  * The op is advanced each frame by {@link IntrigueOpsManager}.
  */
 public abstract class IntrigueOp implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     public enum Stage {
         PROPOSED,
@@ -135,10 +136,14 @@ public abstract class IntrigueOp implements Serializable {
      * into the intel panel description. Default implementation does nothing.
      * Subclasses can override to add custom sections (market info, etc.).
      *
-     * @param info the tooltip to append content to
+     * <p>The {@code info} parameter is a {@code TooltipMakerAPI} passed as
+     * {@code Object} so that this base class stays free of game UI imports
+     * and can be compiled by the sim test harness.</p>
+     *
+     * @param info the tooltip to append content to (cast to TooltipMakerAPI)
      * @param opad standard paragraph padding
      */
-    public void createIntelDetails(com.fs.starfarer.api.ui.TooltipMakerAPI info, float opad) {
+    public void createIntelDetails(Object info, float opad) {
         // Default: no extra details
     }
 

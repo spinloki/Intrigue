@@ -37,6 +37,7 @@ import java.util.logging.Logger;
  */
 public class RallyPhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(RallyPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_rally_";
 

@@ -28,6 +28,7 @@ import java.util.logging.Logger;
  */
 public class IntrigueSubfactionManager implements Serializable, IntrigueSubfactionAccess {
 
+    private static final long serialVersionUID = 1L;
     private static final Logger log = Logger.getLogger(IntrigueSubfactionManager.class.getName());
 
     private final Map<String, IntrigueSubfaction> subfactions = new LinkedHashMap<>();
