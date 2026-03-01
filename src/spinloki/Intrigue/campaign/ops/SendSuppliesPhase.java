@@ -13,6 +13,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 
 import java.io.Serializable;
 import java.util.logging.Logger;
@@ -148,30 +149,18 @@ public class SendSuppliesPhase implements OpPhase, RouteFleetSpawner, FleetEvent
         fleet = created;
         fleet.setName(subfactionName + " Supply Convoy");
 
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
+        IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
         fleet.getMemoryWithoutUpdate().set("$intrigueSupplyConvoy", true);
-
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        sourceEntity.getContainingLocation().addEntity(fleet);
-        fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
-
+        IntrigueFleetUtil.makeFocused(fleet);
         fleet.addEventListener(this);
 
-        float remainingDays = travelDays;
-        RouteSegment current = route.getCurrent();
-        if (current != null) {
-            remainingDays = Math.max(1f, current.daysMax - current.elapsed);
-        }
-
-        // Travel out, patrol briefly, then return and despawn
-        fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, sourceEntity, remainingDays,
-                "Delivering supplies for " + subfactionName);
-        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                "Returning home");
+        // Let the route AI handle placement and assignment chain
+        fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                "Delivering supplies for " + subfactionName,
+                "Delivering supplies for " + subfactionName));
 
         log.info("SendSuppliesPhase.spawnFleet: spawned convoy (" + combatFP + " FP) at "
-                + source.getName() + " for " + remainingDays + " days.");
+                + source.getName() + " for " + travelDays + " days.");
 
         return fleet;
     }

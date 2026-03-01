@@ -16,6 +16,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
 import com.fs.starfarer.api.util.IntervalUtil;
 import com.fs.starfarer.api.util.Misc;
+import spinloki.Intrigue.campaign.ops.IntrigueRouteAssignmentAI;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 
@@ -408,47 +409,18 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
 
             fleet = created;
             fleet.setName(subfactionName + (isMainPatrol ? " Garrison Patrol" : " Patrol"));
-            fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-            fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
+            IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
             fleet.getMemoryWithoutUpdate().set("$intrigueAmbientPatrol", true);
             if (!isMainPatrol) {
                 fleet.getMemoryWithoutUpdate().set("$intrigueSatellitePatrol", true);
             }
-
-            // Determine patrol location
-            SectorEntityToken patrolTarget;
-            if (targetSystemId != null) {
-                StarSystemAPI targetSys = Global.getSector().getStarSystem(targetSystemId);
-                if (targetSys != null) {
-                    targetSys.addEntity(fleet);
-                    patrolTarget = targetSys.getCenter();
-                    fleet.setLocation(patrolTarget.getLocation().x, patrolTarget.getLocation().y);
-                } else {
-                    SectorEntityToken baseEntity = source.getPrimaryEntity();
-                    baseEntity.getContainingLocation().addEntity(fleet);
-                    fleet.setLocation(baseEntity.getLocation().x, baseEntity.getLocation().y);
-                    patrolTarget = baseEntity;
-                }
-            } else {
-                // Main patrol — stay in the base system
-                SectorEntityToken baseEntity = source.getPrimaryEntity();
-                baseEntity.getContainingLocation().addEntity(fleet);
-                fleet.setLocation(baseEntity.getLocation().x, baseEntity.getLocation().y);
-                patrolTarget = baseEntity;
-            }
-
+            IntrigueFleetUtil.makeFocused(fleet);
             fleet.addEventListener(this);
 
-            float remainingDays = patrolDays;
-            RouteSegment current = route.getCurrent();
-            if (current != null) {
-                remainingDays = Math.max(1f, current.daysMax - current.elapsed);
-            }
-
-            fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, patrolTarget, remainingDays,
-                    "Patrolling on behalf of " + subfactionName);
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN,
-                    source.getPrimaryEntity(), 120f, "Returning to base");
+            // Let the route AI handle placement and assignment chain
+            fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                    "Traveling to patrol area for " + subfactionName,
+                    "Patrolling on behalf of " + subfactionName));
 
             log.info("AmbientPatrol: spawned " + (isMainPatrol ? "main" : "satellite")
                     + " patrol (" + combatFP + " FP) for " + subfactionName);

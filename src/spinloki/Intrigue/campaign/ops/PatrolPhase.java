@@ -12,6 +12,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 import java.io.Serializable;
 import java.util.logging.Logger;
 /**
@@ -122,24 +123,18 @@ public class PatrolPhase implements OpPhase, RouteFleetSpawner, FleetEventListen
         }
         fleet = created;
         fleet.setName(subfactionName + " Patrol");
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
+        IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
         fleet.getMemoryWithoutUpdate().set("$intriguePatrol", true);
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        sourceEntity.getContainingLocation().addEntity(fleet);
-        fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
+        IntrigueFleetUtil.makeFocused(fleet);
         fleet.addEventListener(this);
-        float remainingDays = patrolDays;
-        RouteSegment current = route.getCurrent();
-        if (current != null) {
-            remainingDays = Math.max(1f, current.daysMax - current.elapsed);
-        }
-        fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, sourceEntity, remainingDays,
-                "Patrolling on behalf of " + subfactionName);
-        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                "Returning home");
+
+        // Let the route AI handle placement and assignment chain
+        fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                "Traveling to patrol area",
+                "Patrolling on behalf of " + subfactionName));
+
         log.info("PatrolPhase.spawnFleet: spawned patrol (" + combatFP + " FP) at "
-                + source.getName() + " for " + remainingDays + " days.");
+                + source.getName() + " for " + patrolDays + " days.");
         return fleet;
     }
     @Override

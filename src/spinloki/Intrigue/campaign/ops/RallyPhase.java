@@ -346,7 +346,6 @@ public class RallyPhase implements OpPhase, RouteFleetSpawner, FleetEventListene
         created.getMemoryWithoutUpdate().set("$intrigueRally", true);
 
         // Rally fleets are big, slow parade formations
-        // so they're consistently slow and disruptors can easily outrun them
         created.getStats().getFleetwideMaxBurnMod().modifyMult("intrigue_rally_slow", 0.5f);
 
         // Stay focused on the parade — don't get distracted by random hostiles
@@ -357,36 +356,20 @@ public class RallyPhase implements OpPhase, RouteFleetSpawner, FleetEventListene
             created.addAbility(Abilities.EMERGENCY_BURN);
         }
 
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        sourceEntity.getContainingLocation().addEntity(created);
-        created.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
         created.addEventListener(this);
 
-        // Build a touring parade route through random POIs in the system.
-        // Each fleet visits a shuffled sequence of rally points, spending
-        // a few days at each one before moving on. This spreads them out
-        // across the entire system instead of clustering at the home market.
-        List<SectorEntityToken> rallyPoints = collectRallyPoints(sourceEntity);
-        Collections.shuffle(rallyPoints);
-
-        // Each stop: travel to it, then orbit briefly showing off
-        float daysPerStop = Math.max(2f, rallyDays / Math.max(1, rallyPoints.size()));
-        for (SectorEntityToken point : rallyPoints) {
-            created.addAssignment(FleetAssignment.GO_TO_LOCATION, point, 15f,
-                    "Parading toward " + point.getName());
-            created.addAssignment(FleetAssignment.ORBIT_PASSIVE, point, daysPerStop,
-                    getAssignmentText());
-        }
-
-        created.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                "Returning home");
+        // Let the route AI handle placement, then build a custom touring
+        // parade route through random POIs in the system
+        created.addScript(new IntrigueRouteAssignmentAI(created, route,
+                "Heading to rally point",
+                getAssignmentText()));
 
         if (fleets == null) fleets = new ArrayList<>();
         fleets.add(created);
 
         log.info("RallyPhase.spawnFleet: spawned rally fleet #" + (index + 1)
                 + " (" + combatFPPerFleet + " FP) at " + source.getName()
-                + " touring " + rallyPoints.size() + " points over " + rallyDays + " days.");
+                + " for " + rallyDays + " days.");
         return created;
     }
 

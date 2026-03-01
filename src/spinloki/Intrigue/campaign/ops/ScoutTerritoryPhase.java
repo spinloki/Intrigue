@@ -14,6 +14,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
 import com.fs.starfarer.api.impl.campaign.ids.Tags;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
@@ -325,6 +326,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
                     extra, this);
 
             // Travel to system, patrol, return
+            // Use vanilla's auto-calculated travel time (dist/1500 + 6 days for cross-system)
             if (targetSys != null
                     && targetSys != sourceEntity.getContainingLocation()) {
                 route.addSegment(new RouteSegment(1, sourceEntity, patrolTarget));
@@ -398,51 +400,21 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
 
             fleet = created;
             fleet.setName(subfactionName + " Scouts");
-            fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-            fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
+            IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
             fleet.getMemoryWithoutUpdate().set("$intrigueScout", true);
-
-            // Place at route's current position
-            RouteSegment current = route.getCurrent();
-            LocationAPI loc = current != null
-                    ? current.getCurrentContainingLocation() : null;
-            SectorEntityToken sourceEntity = source.getPrimaryEntity();
-
-            if (loc != null) {
-                loc.addEntity(fleet);
-                SectorEntityToken dest = current.getDestination();
-                if (dest != null) {
-                    fleet.setLocation(dest.getLocation().x, dest.getLocation().y);
-                } else {
-                    fleet.setLocation(sourceEntity.getLocation().x,
-                            sourceEntity.getLocation().y);
-                }
-            } else {
-                sourceEntity.getContainingLocation().addEntity(fleet);
-                fleet.setLocation(sourceEntity.getLocation().x,
-                        sourceEntity.getLocation().y);
-            }
-
+            IntrigueFleetUtil.makeFocused(fleet);
             fleet.addEventListener(this);
 
-            StarSystemAPI targetSys = findTargetSystem();
-            SectorEntityToken patrolTarget = (targetSys != null)
-                    ? targetSys.getCenter() : sourceEntity;
-
-            float remainingDays = patrolDays;
-            if (current != null) {
-                remainingDays = Math.max(1f, current.daysMax - current.elapsed);
-            }
-
-            fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, patrolTarget,
-                    remainingDays, "Scouting for " + subfactionName);
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN,
-                    sourceEntity, 120f, "Returning home");
+            // Let the route AI handle placement and assignment chain
+            // Route segments: travel to target system → patrol → travel home
+            fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                    "Traveling to scout area",
+                    "Scouting for " + subfactionName));
 
             parent.notifyFleetSpawned();
             log.info("ScoutFleetHandler.spawnFleet: spawned scout (" + combatFP
                     + " FP) targeting "
-                    + (targetSys != null ? targetSys.getBaseName() : "source"));
+                    + (findTargetSystem() != null ? findTargetSystem().getBaseName() : "source"));
             return fleet;
         }
 

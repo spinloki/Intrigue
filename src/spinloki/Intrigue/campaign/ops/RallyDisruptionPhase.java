@@ -327,8 +327,8 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
             RouteData route = RouteManager.getInstance().addRoute(
                     rs, sourceMarket, (long) (Math.random() * Long.MAX_VALUE),
                     extra, this);
-            // Travel from source to rally location (min 10 days), then loiter and disrupt
-            route.addSegment(new RouteSegment(1, 15f, sourceEntity, rallyEntity));
+            // Travel from source to rally location (vanilla auto-calc), then loiter and disrupt
+            route.addSegment(new RouteSegment(1, sourceEntity, rallyEntity));
             route.addSegment(new RouteSegment(1, DISRUPTION_DAYS, rallyEntity));
             routeSources.add(rs);
         }
@@ -387,41 +387,6 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
         IntrigueFleetUtil.tagIntrigueFleet(created, initiatorSubfactionName);
         created.getMemoryWithoutUpdate().set("$intrigueMischiefFleet", true);
 
-        // Place fleet at the route's current segment origin
-        RouteSegment current = route.getCurrent();
-        boolean stillTraveling = false;
-        LocationAPI spawnLoc;
-        float spawnX, spawnY;
-
-        SectorEntityToken sourceEntity = sourceMarket.getPrimaryEntity();
-        SectorEntityToken rallyEntity = rallyMarket.getPrimaryEntity();
-
-        if (current != null && current.from != null && current.to != null
-                && current.from != current.to) {
-            // Still on the travel segment (from != to means it's the travel leg)
-            stillTraveling = true;
-            spawnLoc = current.from.getContainingLocation();
-            spawnX = current.from.getLocation().x;
-            spawnY = current.from.getLocation().y;
-        } else if (current != null && current.from != null) {
-            // On the loiter segment at the rally market
-            spawnLoc = current.from.getContainingLocation();
-            spawnX = current.from.getLocation().x;
-            spawnY = current.from.getLocation().y;
-        } else {
-            // Fallback: spawn at source
-            stillTraveling = true;
-            spawnLoc = sourceEntity.getContainingLocation();
-            spawnX = sourceEntity.getLocation().x;
-            spawnY = sourceEntity.getLocation().y;
-        }
-
-        spawnLoc.addEntity(created);
-        created.setLocation(
-                spawnX + (float)(Math.random() * 400 - 200),
-                spawnY + (float)(Math.random() * 400 - 200));
-        created.addEventListener(this);
-
         // Transponder on — they're being brazen about it
         created.setTransponderOn(true);
 
@@ -433,15 +398,15 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
             created.addAbility(Abilities.EMERGENCY_BURN);
         }
 
-        // If still traveling, assign travel first; otherwise go straight to harassing
-        if (stillTraveling) {
-            created.addAssignment(FleetAssignment.GO_TO_LOCATION, rallyEntity, 30f,
-                    "Heading to " + victimSubfactionName + "'s rally");
-        }
-        created.addAssignment(FleetAssignment.PATROL_SYSTEM, rallyEntity, DISRUPTION_DAYS,
-                "Looking for " + victimSubfactionName + "'s rally fleets to heckle");
-        created.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                "Heading home, satisfied with a job well done");
+        created.addEventListener(this);
+
+        // Let the route AI handle placement and base assignment chain
+        // Route segments: travel from source to rally → loiter/harass at rally
+        // The retargetDisruptors() method in advance() dynamically overrides
+        // assignments for flee/chase behavior
+        created.addScript(new IntrigueRouteAssignmentAI(created, route,
+                "Heading to " + victimSubfactionName + "'s rally",
+                "Looking for " + victimSubfactionName + "'s rally fleets to heckle"));
 
         // Attach proximity-based hostile music
         String musicId = HostileProximityMusicScript.getHostileMusicIdForFaction(initiatorFactionId);

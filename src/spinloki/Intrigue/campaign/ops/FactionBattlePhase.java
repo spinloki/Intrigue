@@ -12,7 +12,9 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.OptionalFleetData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
+import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
 import com.fs.starfarer.api.impl.campaign.ids.MemFlags;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 
 import java.io.Serializable;
 import java.util.*;
@@ -387,18 +389,13 @@ public abstract class FactionBattlePhase implements OpPhase, RouteFleetSpawner, 
         }
 
         fleet.setName(fleetName);
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
-        fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_FLEET_DO_NOT_GET_SIDETRACKED, true);
-        fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE, true);
+        IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
+        IntrigueFleetUtil.makeFocused(fleet);
         fleet.setTransponderOn(true);
-
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        sourceEntity.getContainingLocation().addEntity(fleet);
-        fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
         fleet.addEventListener(this);
 
         // Resolve meeting point
+        SectorEntityToken sourceEntity = source.getPrimaryEntity();
         SectorEntityToken target = sourceEntity;
         if (pair != null) {
             if (pair.meetingPoint == null && pair.meetingSystemId != null) {
@@ -420,12 +417,11 @@ public abstract class FactionBattlePhase implements OpPhase, RouteFleetSpawner, 
             }
         }
 
-        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, systemEntry,
-                travelDays() * 0.7f, travelToSystemText(systemName, otherFleetName));
-        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, target,
-                travelDays() * 0.3f, travelToTargetText(targetName, otherFleetName));
-        fleet.addAssignment(FleetAssignment.ORBIT_PASSIVE, target,
-                fightDays(), waitText(targetName, otherFleetName));
+        // Use the route AI for proper placement and travel handling,
+        // with custom text for this battle's context
+        fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                travelToSystemText(systemName, otherFleetName),
+                waitText(targetName, otherFleetName)));
 
         log.info(logTag() + ".spawnFleet: spawned " + fleetName
                 + " (" + fleetFP + " FP) heading to " + target.getName());

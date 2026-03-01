@@ -14,6 +14,8 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
 import com.fs.starfarer.api.impl.campaign.ids.Tags;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
+import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
@@ -232,58 +234,19 @@ public class EstablishTerritoryBasePhase implements OpPhase, RouteFleetSpawner, 
         fleet = created;
         fleet.setName(subfactionName + " Establishment Fleet");
 
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
+        IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
         fleet.getMemoryWithoutUpdate().set("$intrigueEstablishment", true);
-
-        // Place at the route's current interpolated position
-        RouteSegment current = route.getCurrent();
-        LocationAPI loc = current != null ? current.getCurrentContainingLocation() : null;
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-
-        if (loc != null) {
-            loc.addEntity(fleet);
-            SectorEntityToken dest = current.getDestination();
-            if (dest != null) {
-                fleet.setLocation(dest.getLocation().x, dest.getLocation().y);
-            } else {
-                fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
-            }
-        } else {
-            sourceEntity.getContainingLocation().addEntity(fleet);
-            fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
-        }
-
+        IntrigueFleetUtil.makeFocused(fleet);
         fleet.addEventListener(this);
 
-        // Determine assignments based on current segment
-        SectorEntityToken targetEntity = pickTargetInTerritory();
-        if (targetEntity == null) targetEntity = sourceEntity;
-
-        int segIndex = route.getCurrentIndex();
-        if (segIndex <= 0) {
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, targetEntity, 120f,
-                    "Travelling to establishment site");
-            fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, targetEntity, establishDays,
-                    "Establishing base for " + subfactionName);
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        } else if (segIndex == 1) {
-            float remainingDays = establishDays;
-            if (current != null) {
-                remainingDays = Math.max(1f, current.daysMax - current.elapsed);
-            }
-            fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, targetEntity, remainingDays,
-                    "Establishing base for " + subfactionName);
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        } else {
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        }
+        // Let the route AI handle placement and assignment chain
+        // Route segments: travel to target → establish (loiter) → return
+        fleet.addScript(new IntrigueRouteAssignmentAI(fleet, route,
+                "Travelling to establishment site",
+                "Establishing base for " + subfactionName));
 
         log.info("EstablishTerritoryBasePhase.spawnFleet: spawned establishment fleet ("
-                + escortFP + " escort + " + supplyFP + " supply FP) at segment " + segIndex);
+                + escortFP + " escort + " + supplyFP + " supply FP).");
 
         return fleet;
     }

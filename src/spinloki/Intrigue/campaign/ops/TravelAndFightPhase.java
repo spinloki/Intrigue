@@ -13,6 +13,7 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 
 import java.util.logging.Logger;
 
@@ -178,55 +179,21 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         fleet = created;
         fleet.setName(subfactionName + " Raid Fleet");
 
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", subfactionName);
-
-        // Place the fleet at the route's current interpolated location
-        RouteSegment current = route.getCurrent();
-        LocationAPI loc = current != null ? current.getCurrentContainingLocation() : null;
-        SectorEntityToken sourceEntity = source.getPrimaryEntity();
-        SectorEntityToken targetEntity = target.getPrimaryEntity();
-
-        if (loc != null) {
-            loc.addEntity(fleet);
-            if (current.isInSystem()) {
-                SectorEntityToken dest = current.getDestination();
-                fleet.setLocation(dest.getLocation().x, dest.getLocation().y);
-            } else {
-                fleet.setLocation(route.getInterpolatedHyperLocation().x,
-                                  route.getInterpolatedHyperLocation().y);
-            }
-        } else {
-            sourceEntity.getContainingLocation().addEntity(fleet);
-            fleet.setLocation(sourceEntity.getLocation().x, sourceEntity.getLocation().y);
-        }
-
+        IntrigueFleetUtil.tagIntrigueFleet(fleet, subfactionName);
+        IntrigueFleetUtil.makeFocused(fleet);
         fleet.addEventListener(this);
 
-        // Determine remaining assignments based on which segment we're in
-        int segIndex = route.getCurrentIndex();
-        if (segIndex <= 0) {
-            // Still in travel-to-target phase
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION, targetEntity, 120f,
-                    "Travelling to " + target.getName());
-            fleet.addAssignment(FleetAssignment.ATTACK_LOCATION, targetEntity, 30f,
-                    "Attacking " + target.getName());
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        } else if (segIndex == 1) {
-            // At target - attack phase
-            fleet.addAssignment(FleetAssignment.ATTACK_LOCATION, targetEntity, 30f,
-                    "Attacking " + target.getName());
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        } else {
-            // Returning home
-            fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
-                    "Returning home");
-        }
+        SectorEntityToken targetEntity = target.getPrimaryEntity();
+
+        // Let the route AI handle placement and assignment chain
+        // Route segments: travel to target → attack (loiter) → return
+        fleet.addScript(new IntrigueAttackAssignmentAI(fleet, route,
+                "Travelling to " + target.getName(),
+                "Attacking " + target.getName(),
+                targetEntity));
 
         log.info("TravelAndFightPhase.spawnFleet: spawned raid fleet (" + combatFP + " FP)"
-                + " at segment " + segIndex + " (player nearby).");
+                + " (player nearby).");
 
         return fleet;
     }
