@@ -1,6 +1,7 @@
 package spinloki.Intrigue;
 
 import com.fs.starfarer.api.BaseModPlugin;
+import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
 import com.thoughtworks.xstream.XStream;
 import spinloki.Intrigue.campaign.GameFactionHostilityChecker;
@@ -49,6 +50,7 @@ public class Intrigue extends BaseModPlugin {
         x.alias("ScoutTerritoryPhase", ScoutTerritoryPhase.class);
         x.alias("EstablishTerritoryBaseOp", EstablishTerritoryBaseOp.class);
         x.alias("AssaultTerritoryBaseOp", AssaultTerritoryBaseOp.class);
+        x.alias("UpgradePresenceOp", UpgradePresenceOp.class);
         x.alias("SlotSystemPicker", SlotSystemPicker.class);
         x.alias("BaseSlot", IntrigueTerritory.BaseSlot.class);
         x.alias("PatrolOp", PatrolOp.class);
@@ -64,6 +66,8 @@ public class Intrigue extends BaseModPlugin {
         x.alias("CivilWarPhase", CivilWarPhase.class);
         x.alias("RallyOp", RallyOp.class);
         x.alias("RallyPhase", RallyPhase.class);
+        x.alias("MischiefOp", MischiefOp.class);
+        x.alias("RallyDisruptionPhase", RallyDisruptionPhase.class);
         x.alias("IntrigueSubfaction", IntrigueSubfaction.class);
         x.alias("IntrigueSubfactionManager", IntrigueSubfactionManager.class);
         x.alias("IntrigueTerritory", IntrigueTerritory.class);
@@ -134,11 +138,19 @@ public class Intrigue extends BaseModPlugin {
     }
 
     private void ensureOpsManagerScript() {
-        Map<String, Object> data = Global.getSector().getPersistentData();
-        Object existing = data.get(IntrigueIds.PERSIST_OPS_MANAGER_KEY);
+        IntrigueOpsManager mgr = IntrigueOpsManager.get();
 
-        if (!(existing instanceof IntrigueOpsManager)) {
-            IntrigueOpsManager mgr = IntrigueOpsManager.get();
+        // Always check that the manager is registered as a script.
+        // After save/load or recompile, it may exist in persistent data
+        // but not in the sector's EveryFrameScript list.
+        boolean found = false;
+        for (EveryFrameScript script : Global.getSector().getScripts()) {
+            if (script == mgr) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             Global.getSector().addScript(mgr);
         }
     }

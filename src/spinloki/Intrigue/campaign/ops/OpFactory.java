@@ -140,4 +140,15 @@ public interface OpFactory {
      */
     IntrigueOp createAssaultTerritoryBaseOp(String opId, IntrigueSubfaction attacker,
                                             IntrigueSubfaction defender, String territoryId);
+
+    /**
+     * Create an upgrade presence op to advance a subfaction's territory presence tier.
+     * Sends a large convoy to upgrade the base's station and military infrastructure.
+     *
+     * @param opId        unique operation ID
+     * @param subfaction  the subfaction upgrading its presence
+     * @param territoryId the territory being upgraded
+     * @return an IntrigueOp, or null if the op cannot be created
+     */
+    IntrigueOp createUpgradePresenceOp(String opId, IntrigueSubfaction subfaction, String territoryId);
 }

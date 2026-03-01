@@ -91,7 +91,7 @@ public class SendSuppliesOp extends IntrigueOp {
         if (territories != null) {
             IntrigueTerritory territory = territories.getById(getTerritoryId());
             if (territory == null) return true;
-            if (territory.getPresence(subfactionId) != IntrigueTerritory.Presence.ESTABLISHED) {
+            if (!territory.getPresence(subfactionId).isEstablishedOrHigher()) {
                 return true;
             }
         }

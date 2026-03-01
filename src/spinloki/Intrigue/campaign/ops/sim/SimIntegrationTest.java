@@ -696,6 +696,8 @@ public class SimIntegrationTest {
         System.out.printf("    Mischief cohesion penalty:     %d%n", config.mischiefCohesionPenalty);
         System.out.printf("    Mischief legitimacy penalty:   %d%n", config.mischiefLegitimacyPenalty);
         System.out.printf("    Mischief target op penalty:    %.0f%%%n", config.mischiefTargetSuccessPenalty * 100);
+        System.out.printf("    Upgrade to FORTIFIED:          ≥%d territory cohesion%n", OpEvaluator.FORTIFY_COHESION_THRESHOLD);
+        System.out.printf("    Upgrade to DOMINANT:           ≥%d territory cohesion%n", OpEvaluator.DOMINATE_COHESION_THRESHOLD);
         System.out.println();
 
         SimClock clock;
@@ -743,13 +745,14 @@ public class SimIntegrationTest {
             statTracking.put(sf.getSubfactionId(), new int[]{c, c, c, l, l, l, 1});
         }
 
-        // Territory cohesion tracking: sfId -> { territoryId -> [min, max, sum, samples] }
+        // Territory cohesion tracking: sfId -> { territoryId -> [minCoh, maxCoh, sumCoh, samples, maxPresenceOrdinal] }
         Map<String, Map<String, int[]>> terrStatTracking = new LinkedHashMap<>();
         for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
             Map<String, int[]> perTerr = new LinkedHashMap<>();
             for (IntrigueTerritory t : IntrigueServices.territories().getAll()) {
                 int c = t.getCohesion(sf.getSubfactionId());
-                perTerr.put(t.getTerritoryId(), new int[]{c, c, c, 1});
+                int p = t.getPresence(sf.getSubfactionId()).ordinal();
+                perTerr.put(t.getTerritoryId(), new int[]{c, c, c, 1, p});
             }
             terrStatTracking.put(sf.getSubfactionId(), perTerr);
         }
@@ -919,9 +922,11 @@ public class SimIntegrationTest {
             for (IntrigueTerritory territory : IntrigueServices.territories().getAll()) {
                 for (IntrigueSubfaction sf : IntrigueServices.subfactions().getAll()) {
                     String sfId = sf.getSubfactionId();
-                    if (territory.getPresence(sfId) == IntrigueTerritory.Presence.ESTABLISHED) {
+                    IntrigueTerritory.Presence presence = territory.getPresence(sfId);
+                    if (presence.isEstablishedOrHigher()) {
                         int before = territory.getCohesion(sfId);
-                        territory.setCohesion(sfId, before - config.territoryCohesionDecayPerTick);
+                        int scaledDecay = Math.round(config.territoryCohesionDecayPerTick * presence.decayMultiplier());
+                        territory.setCohesion(sfId, before - scaledDecay);
 
                         int after = territory.getCohesion(sfId);
                         // Track low-cohesion ticks for infighting/expulsion
@@ -941,7 +946,12 @@ public class SimIntegrationTest {
                     IntrigueSubfaction sfA = IntrigueServices.subfactions().getById(pair[0]);
                     IntrigueSubfaction sfB = IntrigueServices.subfactions().getById(pair[1]);
                     if (sfA == null || sfB == null) continue;
-                    int baseGain = config.baseFrictionPerTick * crowdingMult;
+
+                    // Scale friction by the higher presence tier in the pair
+                    float presMultA = territory.getPresence(pair[0]).frictionMultiplier();
+                    float presMultB = territory.getPresence(pair[1]).frictionMultiplier();
+                    float presMult = Math.max(presMultA, presMultB);
+                    int baseGain = Math.round(config.baseFrictionPerTick * crowdingMult * presMult);
 
                     // Territory cohesion for threat calculation
                     int cohA = territory.getCohesion(pair[0]);
@@ -991,7 +1001,7 @@ public class SimIntegrationTest {
                 List<String> drainTargets = new ArrayList<>();
                 drainTargets.add("__home__"); // sentinel for home cohesion
                 for (IntrigueTerritory terr : IntrigueServices.territories().getAll()) {
-                    if (terr.getPresence(sf.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
+                    if (terr.getPresence(sf.getSubfactionId()).isEstablishedOrHigher()) {
                         drainTargets.add(terr.getTerritoryId());
                     }
                 }
@@ -1036,11 +1046,13 @@ public class SimIntegrationTest {
                 Map<String, int[]> perTerr = terrStatTracking.get(sfId);
                 for (IntrigueTerritory terr : IntrigueServices.territories().getAll()) {
                     int tc = terr.getCohesion(sfId);
+                    int po = terr.getPresence(sfId).ordinal();
                     int[] ts = perTerr.get(terr.getTerritoryId());
                     ts[0] = Math.min(ts[0], tc);
                     ts[1] = Math.max(ts[1], tc);
                     ts[2] += tc;
                     ts[3]++;
+                    ts[4] = Math.max(ts[4], po);
                 }
             }
 
@@ -1123,9 +1135,11 @@ public class SimIntegrationTest {
                 int endCoh = t.getCohesion(id);
                 int[] tst = terrStats.get(t.getTerritoryId());
                 int tSamples = tst[3];
-                System.out.printf("    Territory %-22s  presence: %-11s \u2192 %-11s  cohesion: %3d \u2192 %3d  (%+d)  min=%d avg=%d max=%d%n",
+                IntrigueTerritory.Presence maxP = IntrigueTerritory.Presence.values()[tst[4]];
+                String maxPTag = (maxP.ordinal() > endP.ordinal()) ? String.format("  (peak: %s)", maxP) : "";
+                System.out.printf("    Territory %-22s  presence: %-11s \u2192 %-11s  cohesion: %3d \u2192 %3d  (%+d)  min=%d avg=%d max=%d%s%n",
                         t.getName(), startP, endP, startCoh, endCoh, endCoh - startCoh,
-                        tst[0], tst[2] / tSamples, tst[1]);
+                        tst[0], tst[2] / tSamples, tst[1], maxPTag);
             }
 
             // Op breakdown

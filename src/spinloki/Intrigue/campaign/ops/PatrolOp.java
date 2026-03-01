@@ -104,7 +104,7 @@ public class PatrolOp extends IntrigueOp {
             IntrigueTerritory territory = territories.getById(getTerritoryId());
             if (territory == null) return true;
             // Abort if we lost presence in the territory
-            if (territory.getPresence(subfactionId) != IntrigueTerritory.Presence.ESTABLISHED) {
+            if (!territory.getPresence(subfactionId).isEstablishedOrHigher()) {
                 return true;
             }
         }

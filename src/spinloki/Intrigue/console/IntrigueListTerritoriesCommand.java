@@ -56,7 +56,7 @@ public class IntrigueListTerritoriesCommand implements BaseCommand {
                     int cohesion = t.getCohesion(sfId);
                     sb.append("\n    ").append(sfId)
                       .append(" | presence=").append(presence);
-                    if (presence == IntrigueTerritory.Presence.ESTABLISHED) {
+                    if (presence.isEstablishedOrHigher()) {
                         sb.append(" | cohesion=").append(cohesion);
                     }
                 }

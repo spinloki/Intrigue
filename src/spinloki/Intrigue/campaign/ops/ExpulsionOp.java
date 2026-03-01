@@ -8,9 +8,9 @@ import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 import java.util.logging.Logger;
 
 /**
- * Consequence op: a subfaction is expelled from a territory after sustained
- * critically-low cohesion. Presence reverts to NONE and legitimacy takes
- * a massive hit.
+ * Consequence op: a subfaction's presence is demoted by one tier after sustained
+ * critically-low cohesion. DOMINANT→FORTIFIED→ESTABLISHED→NONE (skips SCOUTING).
+ * Legitimacy takes a significant hit.
  */
 public class ExpulsionOp extends IntrigueOp {
 
@@ -24,13 +24,13 @@ public class ExpulsionOp extends IntrigueOp {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
         this.subfactionId = subfaction.getSubfactionId();
         setTerritoryId(territoryId);
-        // Resolves instantly - the expulsion is a fait accompli
-        phases.add(new TimedPhase("Expelled", 1f));
+        // Resolves instantly - the demotion is a fait accompli
+        phases.add(new TimedPhase("Presence failing", 1f));
     }
 
     @Override public String getOpTypeName() { return "Expulsion"; }
     @Override protected void onStarted() {
-        log.info("Expulsion imminent for " + subfactionId + " from territory " + getTerritoryId());
+        log.info("Presence demotion imminent for " + subfactionId + " in territory " + getTerritoryId());
     }
 
     @Override protected OpOutcome determineOutcome() { return OpOutcome.FAILURE; }
@@ -43,8 +43,10 @@ public class ExpulsionOp extends IntrigueOp {
         if (territories != null) {
             IntrigueTerritory territory = territories.getById(getTerritoryId());
             if (territory != null) {
-                territory.removeSubfaction(subfactionId);
-                log.info("Expulsion: " + subfactionId + " removed from " + territory.getName());
+                IntrigueTerritory.Presence before = territory.getPresence(subfactionId);
+                IntrigueTerritory.Presence after = territory.demotePresence(subfactionId);
+                log.info("Expulsion: " + subfactionId + " in " + territory.getName()
+                        + " demoted " + before + " → " + after);
             }
         }
 

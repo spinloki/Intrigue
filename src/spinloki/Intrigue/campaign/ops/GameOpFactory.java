@@ -75,4 +75,9 @@ public class GameOpFactory implements OpFactory {
                                                    IntrigueSubfaction defender, String territoryId) {
         return new AssaultTerritoryBaseOp(opId, attacker, defender, territoryId);
     }
+
+    @Override
+    public IntrigueOp createUpgradePresenceOp(String opId, IntrigueSubfaction subfaction, String territoryId) {
+        return new UpgradePresenceOp(opId, subfaction, territoryId);
+    }
 }

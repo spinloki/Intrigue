@@ -112,10 +112,12 @@ public class IntriguePacerScript implements EveryFrameScript {
             int decayAmount = territoryAccess.getDecayPerTick();
             for (IntrigueTerritory territory : territoryAccess.getAll()) {
                 for (String sfId : new ArrayList<>(territory.getActiveSubfactionIds())) {
-                    // Only decay cohesion for ESTABLISHED presence
-                    if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+                    // Only decay cohesion for established+ presence
+                    IntrigueTerritory.Presence presence = territory.getPresence(sfId);
+                    if (!presence.isEstablishedOrHigher()) continue;
                     int before = territory.getCohesion(sfId);
-                    territory.setCohesion(sfId, before - decayAmount);
+                    int scaledDecay = Math.round(decayAmount * presence.decayMultiplier());
+                    territory.setCohesion(sfId, before - scaledDecay);
                     int after = territory.getCohesion(sfId);
                     if (verbose && after != before) {
                         result.append("\n  Territory decay: ").append(territory.getName())
@@ -141,7 +143,12 @@ public class IntriguePacerScript implements EveryFrameScript {
                     IntrigueSubfaction sfB = subfactions.getById(pair[1]);
                     if (sfA == null || sfB == null) continue;
 
-                    int baseGain = BASE_FRICTION_PER_TICK * crowdingMult;
+                    // Scale friction by the higher presence tier in the pair
+                    float presMultA = territory.getPresence(pair[0]).frictionMultiplier();
+                    float presMultB = territory.getPresence(pair[1]).frictionMultiplier();
+                    float presMult = Math.max(presMultA, presMultB);
+
+                    int baseGain = Math.round(BASE_FRICTION_PER_TICK * crowdingMult * presMult);
 
                     // Territory cohesion for threat calculation
                     int cohA = territory.getCohesion(pair[0]);

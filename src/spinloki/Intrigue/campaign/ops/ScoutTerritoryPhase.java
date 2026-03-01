@@ -206,7 +206,7 @@ public class ScoutTerritoryPhase implements OpPhase, Serializable {
             if (otherSfId.equals(subfactionId)) continue;
 
             IntrigueTerritory.Presence presence = territory.getPresence(otherSfId);
-            if (presence != IntrigueTerritory.Presence.ESTABLISHED) continue;
+            if (!presence.isEstablishedOrHigher()) continue;
 
             IntrigueSubfaction otherSf = IntrigueServices.subfactions().getById(otherSfId);
             if (otherSf == null) continue;

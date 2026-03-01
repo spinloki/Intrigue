@@ -23,7 +23,7 @@ public class IntrigueTerritory implements Serializable {
 
     /**
      * Presence level of a subfaction in a territory.
-     * Progresses: NONE → SCOUTING → ESTABLISHED.
+     * Progresses: NONE → SCOUTING → ESTABLISHED → FORTIFIED → DOMINANT.
      */
     public enum Presence {
         /** No activity in this territory. */
@@ -31,7 +31,73 @@ public class IntrigueTerritory implements Serializable {
         /** A scouting op is in progress or has completed; the subfaction is probing the region. */
         SCOUTING,
         /** A base has been established; full operations are unlocked. */
-        ESTABLISHED
+        ESTABLISHED,
+        /** The base is fortified: upgraded station, stronger patrols, more friction. */
+        FORTIFIED,
+        /** Full dominance: star fortress, maximum patrols, massive friction. */
+        DOMINANT;
+
+        /** True if this presence level is ESTABLISHED or higher. */
+        public boolean isEstablishedOrHigher() {
+            return ordinal() >= ESTABLISHED.ordinal();
+        }
+
+        /** The next tier above this one, or null if already at max. */
+        public Presence next() {
+            Presence[] vals = values();
+            int nextOrd = ordinal() + 1;
+            return nextOrd < vals.length ? vals[nextOrd] : null;
+        }
+
+        /** Patrol strength multiplier for this presence tier. */
+        public float patrolMultiplier() {
+            switch (this) {
+                case FORTIFIED: return 1.6f;
+                case DOMINANT:  return 2.5f;
+                default:        return 1.0f;
+            }
+        }
+
+        /** Max satellite patrol count for this presence tier. */
+        public int maxSatellitePatrols() {
+            switch (this) {
+                case FORTIFIED: return 4;
+                case DOMINANT:  return 6;
+                default:        return 3;
+            }
+        }
+
+        /** Friction multiplier for this presence tier. Higher tiers cause more friction. */
+        public float frictionMultiplier() {
+            switch (this) {
+                case FORTIFIED: return 1.5f;
+                case DOMINANT:  return 2.5f;
+                default:        return 1.0f;
+            }
+        }
+
+        /** Cohesion decay multiplier. Higher tiers cost more cohesion per tick to maintain. */
+        public float decayMultiplier() {
+            switch (this) {
+                case FORTIFIED: return 1.5f;
+                case DOMINANT:  return 2.0f;
+                default:        return 1.0f;
+            }
+        }
+
+        /**
+         * The previous tier below this one.
+         * Returns NONE if this is ESTABLISHED (skips SCOUTING — a faction with a base either has it or doesn't).
+         * Returns NONE for SCOUTING and NONE itself.
+         */
+        public Presence previous() {
+            switch (this) {
+                case DOMINANT:    return FORTIFIED;
+                case FORTIFIED:   return ESTABLISHED;
+                case ESTABLISHED: return NONE;  // skip SCOUTING — lose the base entirely
+                default:          return NONE;
+            }
+        }
     }
 
     private final String territoryId;
@@ -332,7 +398,7 @@ public class IntrigueTerritory implements Serializable {
     public List<String[]> getEstablishedPairs() {
         List<String> established = new ArrayList<>();
         for (Map.Entry<String, Presence> e : subfactionPresence.entrySet()) {
-            if (e.getValue() == Presence.ESTABLISHED) {
+            if (e.getValue().isEstablishedOrHigher()) {
                 established.add(e.getKey());
             }
         }
@@ -350,7 +416,7 @@ public class IntrigueTerritory implements Serializable {
     public int getEstablishedCount() {
         int count = 0;
         for (Presence p : subfactionPresence.values()) {
-            if (p == Presence.ESTABLISHED) count++;
+            if (p.isEstablishedOrHigher()) count++;
         }
         return count;
     }
@@ -381,7 +447,29 @@ public class IntrigueTerritory implements Serializable {
         lowCohesionTicks.remove(subfactionId);
     }
 
-    /** All subfaction IDs that have any presence (SCOUTING or ESTABLISHED) in this territory. */
+    /**
+     * Demote a subfaction's presence by one tier (DOMINANT→FORTIFIED→ESTABLISHED→NONE).
+     * SCOUTING is skipped — if ESTABLISHED would drop, it goes straight to NONE.
+     *
+     * <p>If the result is NONE, the subfaction is fully removed (slot released, base
+     * market cleared, cohesion zeroed, friction cleared). Otherwise only the presence
+     * tier changes and the low-cohesion tick counter is reset.</p>
+     *
+     * @return the new presence level after demotion
+     */
+    public Presence demotePresence(String subfactionId) {
+        Presence current = getPresence(subfactionId);
+        Presence demoted = current.previous();
+        if (demoted == Presence.NONE) {
+            removeSubfaction(subfactionId);
+        } else {
+            setPresence(subfactionId, demoted);
+            resetLowCohesionTicks(subfactionId);
+        }
+        return demoted;
+    }
+
+    /** All subfaction IDs that have any presence (SCOUTING or higher) in this territory. */
     public Set<String> getActiveSubfactionIds() {
         Set<String> result = new LinkedHashSet<>();
         for (Map.Entry<String, Presence> e : subfactionPresence.entrySet()) {

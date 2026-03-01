@@ -9,19 +9,19 @@ import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
 import java.util.logging.Logger;
 
 /**
- * Operation: assault an enemy subfaction's territory base to take it over.
+ * Operation: assault an enemy subfaction's territory base to weaken their hold.
  *
  * <p>Triggered when a subfaction wants to establish in a territory but all base
- * slots are claimed. The attacker targets the ESTABLISHED subfaction in that
+ * slots are claimed. The attacker targets the subfaction in that
  * territory (from a hostile faction) with the lowest territory cohesion.</p>
  *
- * <p>On success: the defender is expelled from the territory (presence → NONE,
- * slot released), and the attacker's presence advances to ESTABLISHED with
- * the captured slot. On failure: the attacker's presence reverts to NONE.</p>
+ * <p>On success: the defender's presence is demoted by one tier
+ * (DOMINANT→FORTIFIED→ESTABLISHED→NONE). If the defender drops to NONE, their
+ * slot is freed and the attacker claims it, advancing to ESTABLISHED. If the
+ * defender merely drops a tier (e.g. FORTIFIED→ESTABLISHED), the attacker
+ * doesn't get a slot yet — the assault weakened the defender but didn't dislodge them.</p>
  *
- * <p>Uses a single combat phase — the attacker's fleet raids the defender's
- * territory base market. This is a more aggressive and costly operation than
- * a normal establish-base op.</p>
+ * <p>On failure: the attacker's presence reverts to NONE.</p>
  */
 public class AssaultTerritoryBaseOp extends IntrigueOp {
 
@@ -87,7 +87,7 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
         if (territory == null) return true;
 
         // Abort if the defender is no longer established (someone else took them out)
-        if (territory.getPresence(defenderSubfactionId) != IntrigueTerritory.Presence.ESTABLISHED) {
+        if (!territory.getPresence(defenderSubfactionId).isEstablishedOrHigher()) {
             log.info("AssaultTerritoryBaseOp " + getOpId()
                     + " aborted: defender " + defenderSubfactionId + " no longer established.");
             return true;
@@ -128,23 +128,26 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
         String territoryName = territory != null ? territory.getName() : getTerritoryId();
 
         if (result == OpOutcome.SUCCESS && territory != null) {
-            // Expel the defender
-            territory.removeSubfaction(defenderSubfactionId);
+            // Demote the defender by one tier
+            IntrigueTerritory.Presence defenderBefore = territory.getPresence(defenderSubfactionId);
+            IntrigueTerritory.Presence defenderAfter = territory.demotePresence(defenderSubfactionId);
             if (defender != null) {
                 defender.setLegitimacy(defender.getLegitimacy() - DEFENDER_LEGITIMACY_LOSS);
             }
 
-            // Attacker takes over — claim a free slot (the one just released)
-            java.util.List<IntrigueTerritory.BaseSlot> freeSlots = territory.getFreeSlots();
-            if (!freeSlots.isEmpty()) {
-                territory.claimSlot(freeSlots.get(0), attackerSubfactionId);
+            // If the defender was fully removed (demoted to NONE), attacker claims the freed slot
+            if (defenderAfter == IntrigueTerritory.Presence.NONE) {
+                java.util.List<IntrigueTerritory.BaseSlot> freeSlots = territory.getFreeSlots();
+                if (!freeSlots.isEmpty()) {
+                    territory.claimSlot(freeSlots.get(0), attackerSubfactionId);
+                }
+                territory.setPresence(attackerSubfactionId, IntrigueTerritory.Presence.ESTABLISHED);
+                territory.setCohesion(attackerSubfactionId, INITIAL_TERRITORY_COHESION);
+                territory.setBaseMarketId(attackerSubfactionId,
+                        "assault_base_" + attackerSubfactionId + "_" + System.currentTimeMillis());
             }
-
-            territory.setPresence(attackerSubfactionId, IntrigueTerritory.Presence.ESTABLISHED);
-            territory.setCohesion(attackerSubfactionId, INITIAL_TERRITORY_COHESION);
-            // Set a synthetic base market ID (real market creation would be in game-side variant)
-            territory.setBaseMarketId(attackerSubfactionId,
-                    "assault_base_" + attackerSubfactionId + "_" + System.currentTimeMillis());
+            // If the defender was only demoted (e.g. FORTIFIED→ESTABLISHED), they keep their slot.
+            // The attacker weakened them but didn't dislodge them yet.
 
             if (attacker != null) {
                 attacker.setHomeCohesion(attacker.getHomeCohesion() - HOME_COHESION_COST);
@@ -152,7 +155,8 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
             }
 
             log.info("AssaultTerritoryBaseOp SUCCESS: " + attackerSubfactionId
-                    + " took over from " + defenderSubfactionId + " in " + territoryName);
+                    + " demoted " + defenderSubfactionId + " from " + defenderBefore + " to " + defenderAfter
+                    + " in " + territoryName);
         } else {
             // Failed assault — revert attacker's presence, keep defender
             if (territory != null) {

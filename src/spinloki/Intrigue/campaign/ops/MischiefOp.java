@@ -58,9 +58,20 @@ public class MischiefOp extends IntrigueOp {
         }
         this.initiatorFrictionAtCreation = capturedFriction;
 
-        // Quick op - resolves after a short phase
-        phases.add(new AssemblePhase(initiator.getHomeCohesion()));
-        phases.add(new ReturnPhase(3f));
+        // Phase selection: if targeting a rally, spawn a disruption fleet;
+        // otherwise use abstract assemble + return phases.
+        if (targetOp instanceof RallyOp) {
+            phases.add(new RallyDisruptionPhase(
+                    initiator.getFactionId(),
+                    initiator.getName(),
+                    victim.getName(),
+                    victim.getHomeMarketId(),
+                    initiator.getHomeCohesion()));
+            phases.add(new ReturnPhase(3f));
+        } else {
+            phases.add(new AssemblePhase(initiator.getHomeCohesion()));
+            phases.add(new ReturnPhase(3f));
+        }
     }
 
     @Override

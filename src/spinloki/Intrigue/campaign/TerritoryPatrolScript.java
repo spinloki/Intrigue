@@ -113,7 +113,7 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
 
         for (IntrigueTerritory territory : territories.getAll()) {
             for (String sfId : territory.getActiveSubfactionIds()) {
-                if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+                if (!territory.getPresence(sfId).isEstablishedOrHigher()) continue;
                 String baseMarketId = territory.getBaseMarketId(sfId);
                 if (baseMarketId == null || baseMarketId.isEmpty()) continue;
 
@@ -156,16 +156,20 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
         if (baseMarket == null || baseMarket.getPrimaryEntity() == null) return null;
 
         int terrCohesion = territory.getCohesion(sfId);
+        IntrigueTerritory.Presence presence = territory.getPresence(sfId);
+        float presenceMult = presence.patrolMultiplier();
+        int maxSatellites = presence.maxSatellitePatrols();
+
         PatrolSlot slot = new PatrolSlot(territory.getTerritoryId(), sfId,
                 sf.getFactionId(), sf.getName(), baseMarketId);
 
-        // Main patrol in the base system
-        int mainFP = BASE_MAIN_FP + Math.round(terrCohesion * MAIN_FP_COHESION_SCALE);
+        // Main patrol in the base system — scaled by presence tier
+        int mainFP = Math.round((BASE_MAIN_FP + terrCohesion * MAIN_FP_COHESION_SCALE) * presenceMult);
         slot.createMainRoute(baseMarket, mainFP);
 
-        // Satellite patrols in nearby systems
-        List<StarSystemAPI> nearbySystems = findNearbyTerritorySystems(territory, baseMarket);
-        int satFP = BASE_SAT_FP + Math.round(terrCohesion * SAT_FP_COHESION_SCALE);
+        // Satellite patrols in nearby systems — count and FP scale with tier
+        List<StarSystemAPI> nearbySystems = findNearbyTerritorySystems(territory, baseMarket, maxSatellites);
+        int satFP = Math.round((BASE_SAT_FP + terrCohesion * SAT_FP_COHESION_SCALE) * presenceMult);
         for (StarSystemAPI sys : nearbySystems) {
             slot.createSatelliteRoute(baseMarket, sys, satFP);
         }
@@ -175,10 +179,10 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
 
     /**
      * Find systems in the territory's constellations that are not the base system.
-     * Returns up to {@link #MAX_SATELLITE_PATROLS} systems.
+     * Returns up to {@code maxSatellites} systems.
      */
     private static List<StarSystemAPI> findNearbyTerritorySystems(
-            IntrigueTerritory territory, MarketAPI baseMarket) {
+            IntrigueTerritory territory, MarketAPI baseMarket, int maxSatellites) {
         String baseSystemId = null;
         LocationAPI baseLoc = baseMarket.getPrimaryEntity().getContainingLocation();
         if (baseLoc instanceof StarSystemAPI) {
@@ -195,9 +199,9 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
                 }
             }
         }
-        if (result.size() > MAX_SATELLITE_PATROLS) {
+        if (result.size() > maxSatellites) {
             Collections.shuffle(result);
-            result = new ArrayList<>(result.subList(0, MAX_SATELLITE_PATROLS));
+            result = new ArrayList<>(result.subList(0, maxSatellites));
         }
         return result;
     }
@@ -211,7 +215,7 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
     /**
      * Tracks the active patrol routes for one subfaction in one territory.
      */
-    static class PatrolSlot implements Serializable {
+    public static class PatrolSlot implements Serializable {
         private static final long serialVersionUID = 1L;
 
         final String territoryId;
@@ -340,7 +344,7 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
         }
     }
 
-    static class SatelliteRouteEntry implements Serializable {
+    public static class SatelliteRouteEntry implements Serializable {
         private static final long serialVersionUID = 1L;
         final String routeSource;
         final String targetSystemId;
@@ -360,7 +364,7 @@ public class TerritoryPatrolScript implements EveryFrameScript, Serializable {
      * <p>When a fleet is destroyed, applies cohesion and legitimacy penalties
      * to the owning subfaction.</p>
      */
-    static class AmbientPatrolSpawner implements RouteFleetSpawner, FleetEventListener, Serializable {
+    public static class AmbientPatrolSpawner implements RouteFleetSpawner, FleetEventListener, Serializable {
         private static final long serialVersionUID = 1L;
 
         private final String factionId;

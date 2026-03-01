@@ -42,6 +42,11 @@ public final class OpEvaluator {
     /** Success chance penalty applied to an op targeted by mischief (0.15 = 15%). */
     public static final float MISCHIEF_TARGET_SUCCESS_PENALTY = 0.15f;
 
+    /** Territory cohesion threshold to upgrade ESTABLISHED → FORTIFIED. */
+    public static final int FORTIFY_COHESION_THRESHOLD = 75;
+    /** Territory cohesion threshold to upgrade FORTIFIED → DOMINANT. */
+    public static final int DOMINATE_COHESION_THRESHOLD = 90;
+
     /**
      * Weight applied to the target's home cohesion advantage (above 50) when
      * scoring raid targets. High-cohesion subfactions are perceived as threats
@@ -61,7 +66,7 @@ public final class OpEvaluator {
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         if (territories != null) {
             for (IntrigueTerritory t : territories.getAll()) {
-                if (t.getPresence(subfaction.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
+                if (t.getPresence(subfaction.getSubfactionId()).isEstablishedOrHigher()) {
                     total += t.getCohesion(subfaction.getSubfactionId());
                 }
             }
@@ -501,7 +506,7 @@ public final class OpEvaluator {
 
         for (IntrigueTerritory territory : territories.getAll()) {
             if (!territory.isFactionInterested(factionId)) continue;
-            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+            if (!territory.getPresence(sfId).isEstablishedOrHigher()) continue;
 
             int lowTicks = territory.getLowCohesionTicks(sfId);
             int cohesion = territory.getCohesion(sfId);
@@ -536,11 +541,31 @@ public final class OpEvaluator {
         if (territories == null) return null;
 
         String factionId = subfaction.getFactionId();
+        String sfId = subfaction.getSubfactionId();
 
+        // Pass 1: check for upgrade opportunities (highest priority — invest in existing holdings)
         for (IntrigueTerritory territory : territories.getAll()) {
             if (!territory.isFactionInterested(factionId)) continue;
 
-            IntrigueTerritory.Presence presence = territory.getPresence(subfaction.getSubfactionId());
+            IntrigueTerritory.Presence presence = territory.getPresence(sfId);
+            if (presence == IntrigueTerritory.Presence.ESTABLISHED
+                    || presence == IntrigueTerritory.Presence.FORTIFIED) {
+                int terrCoh = territory.getCohesion(sfId);
+                int threshold = (presence == IntrigueTerritory.Presence.ESTABLISHED)
+                        ? FORTIFY_COHESION_THRESHOLD : DOMINATE_COHESION_THRESHOLD;
+                if (terrCoh >= threshold) {
+                    String opId = opsRunner.nextOpId(opIdPrefix);
+                    return IntrigueServices.opFactory().createUpgradePresenceOp(
+                            opId, subfaction, territory.getTerritoryId());
+                }
+            }
+        }
+
+        // Pass 2: expand into new territories (scout, establish, assault)
+        for (IntrigueTerritory territory : territories.getAll()) {
+            if (!territory.isFactionInterested(factionId)) continue;
+
+            IntrigueTerritory.Presence presence = territory.getPresence(sfId);
 
             if (presence == IntrigueTerritory.Presence.NONE) {
                 String opId = opsRunner.nextOpId(opIdPrefix);
@@ -551,7 +576,6 @@ public final class OpEvaluator {
             if (presence == IntrigueTerritory.Presence.SCOUTING) {
                 // Check if there are free base slots
                 if (!territory.getFreeSlots().isEmpty()) {
-                    // Free slot available — normal establish base op
                     String opId = opsRunner.nextOpId(opIdPrefix);
                     return IntrigueServices.opFactory().createEstablishTerritoryBaseOp(
                             opId, subfaction, territory.getTerritoryId());
@@ -565,7 +589,6 @@ public final class OpEvaluator {
                     return IntrigueServices.opFactory().createAssaultTerritoryBaseOp(
                             opId, subfaction, assaultTarget, territory.getTerritoryId());
                 }
-                // No valid assault targets — skip this territory
             }
         }
 
@@ -583,7 +606,7 @@ public final class OpEvaluator {
         int lowestCohesion = Integer.MAX_VALUE;
 
         for (String sfId : territory.getActiveSubfactionIds()) {
-            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+            if (!territory.getPresence(sfId).isEstablishedOrHigher()) continue;
 
             IntrigueSubfaction candidate = IntrigueServices.subfactions().getById(sfId);
             if (candidate == null) continue;
@@ -622,7 +645,7 @@ public final class OpEvaluator {
 
         for (IntrigueTerritory territory : territories.getAll()) {
             if (!territory.isFactionInterested(factionId)) continue;
-            if (territory.getPresence(sfId) != IntrigueTerritory.Presence.ESTABLISHED) continue;
+            if (!territory.getPresence(sfId).isEstablishedOrHigher()) continue;
 
             int coh = territory.getCohesion(sfId);
             if (coh < threshold && coh < lowestCohesion) {
@@ -654,7 +677,7 @@ public final class OpEvaluator {
 
         for (IntrigueTerritory territory : territories.getAll()) {
             if (!territory.isFactionInterested(factionId)) continue;
-            if (territory.getPresence(subfaction.getSubfactionId()) == IntrigueTerritory.Presence.ESTABLISHED) {
+            if (territory.getPresence(subfaction.getSubfactionId()).isEstablishedOrHigher()) {
                 String opId = opsRunner.nextOpId(opIdPrefix);
                 return IntrigueServices.opFactory().createPatrolOp(
                         opId, subfaction, territory.getTerritoryId());

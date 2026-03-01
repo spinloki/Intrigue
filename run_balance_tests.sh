@@ -5,16 +5,16 @@
 # Must compile from src/ to avoid javac picking up the com/ Starsector API stubs.
 #
 # Usage:
-#   ./run_balance_tests.sh                          # normal mode
+#   ./run_balance_tests.sh                          # uses config files (default)
+#   ./run_balance_tests.sh --no-config              # hardcoded 3-subfaction mode
 #   ./run_balance_tests.sh -v                       # verbose mode (per-tick op log)
 #   ./run_balance_tests.sh --player                 # player randomly helps OR hurts factions
 #   ./run_balance_tests.sh --player-help            # player only helps factions
 #   ./run_balance_tests.sh --player-hurt            # player only hurts factions
 #   ./run_balance_tests.sh --player-interval=20     # player reconsiders every 20 ticks (default 10)
 #   ./run_balance_tests.sh --ticks=500              # run for 500 ticks (default 200)
-#   ./run_balance_tests.sh --config               # use data/config/intrigue_subfactions.json
-#   ./run_balance_tests.sh --config=/path/to/file  # use custom config file
-#   Flags combine: ./run_balance_tests.sh -v --config --player-help --ticks=400
+#   ./run_balance_tests.sh --config=/path/to/file   # use custom config file
+#   Flags combine: ./run_balance_tests.sh -v --player-help --ticks=400
 
 set -e
 
@@ -34,9 +34,8 @@ Options:
   -v, --verbose               Verbose mode: print per-tick op log with
                               probability details
   --ticks=N                   Run the simulation for N ticks (default: 200)
-  --config                    Load subfactions and territories from the default
-                              config files (data/config/intrigue_subfactions.json
-                              and data/config/intrigue_territories.json)
+  --no-config                 Use hardcoded 3-subfaction mode instead of
+                              loading from config files
   --config=/path/to/file      Load subfactions from a custom config file
                               (territories loaded from intrigue_territories.json
                               in the same directory, if present)
@@ -50,10 +49,11 @@ Player Simulation:
                               (default: 10)
 
 Examples:
-  ./run_balance_tests.sh                              # normal mode
+  ./run_balance_tests.sh                              # config mode (default)
+  ./run_balance_tests.sh --no-config                  # hardcoded 3-subfaction mode
   ./run_balance_tests.sh -v                           # verbose per-tick log
-  ./run_balance_tests.sh --config --ticks=400         # 400 ticks with config
-  ./run_balance_tests.sh -v --config --player-hurt    # verbose, config, player hurts
+  ./run_balance_tests.sh --ticks=400                  # 400 ticks with config
+  ./run_balance_tests.sh -v --player-hurt             # verbose, config, player hurts
   ./run_balance_tests.sh --player --player-interval=5 # player acts every 5 ticks
 EOF
     exit 0
@@ -63,7 +63,7 @@ VERBOSE=false
 PLAYER_MODE=""
 PLAYER_INTERVAL=""
 SIM_TICKS=""
-CONFIG_PATH=""
+CONFIG_PATH="__default__"
 for arg in "$@"; do
     case "$arg" in
         -h|--help) show_help ;;
@@ -75,6 +75,7 @@ for arg in "$@"; do
         --ticks=*) SIM_TICKS="${arg#--ticks=}" ;;
         --config=*) CONFIG_PATH="${arg#--config=}" ;;
         --config) CONFIG_PATH="__default__" ;;
+        --no-config) CONFIG_PATH="" ;;
     esac
 done
 
