@@ -50,6 +50,7 @@ public class Intrigue extends BaseModPlugin {
         x.alias("ScoutTerritoryPhase", ScoutTerritoryPhase.class);
         x.alias("EstablishTerritoryBaseOp", EstablishTerritoryBaseOp.class);
         x.alias("AssaultTerritoryBaseOp", AssaultTerritoryBaseOp.class);
+        x.alias("EvacuationPhase", EvacuationPhase.class);
         x.alias("UpgradePresenceOp", UpgradePresenceOp.class);
         x.alias("SlotSystemPicker", SlotSystemPicker.class);
         x.alias("BaseSlot", IntrigueTerritory.BaseSlot.class);

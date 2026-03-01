@@ -41,6 +41,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
     private final String targetMarketId;
     private final int combatFP;
     private final String subfactionName;
+    private final boolean despawnAtTarget;
 
     private boolean done = false;
     private boolean fleetWon = false;
@@ -63,11 +64,27 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
      */
     public TravelAndFightPhase(String initiatorFactionId, String sourceMarketId,
                                String targetMarketId, int combatFP, String subfactionName) {
+        this(initiatorFactionId, sourceMarketId, targetMarketId, combatFP, subfactionName, false);
+    }
+
+    /**
+     * @param initiatorFactionId faction that owns the fleet
+     * @param sourceMarketId     market where the fleet spawns
+     * @param targetMarketId     market to attack
+     * @param combatFP           fleet points for combat ships
+     * @param subfactionName     display name of the subfaction (for fleet labeling)
+     * @param despawnAtTarget    if true, the fleet despawns at the target on success
+     *                           instead of returning home (e.g. capturing a base)
+     */
+    public TravelAndFightPhase(String initiatorFactionId, String sourceMarketId,
+                               String targetMarketId, int combatFP, String subfactionName,
+                               boolean despawnAtTarget) {
         this.initiatorFactionId = initiatorFactionId;
         this.sourceMarketId = sourceMarketId;
         this.targetMarketId = targetMarketId;
         this.combatFP = combatFP;
         this.subfactionName = subfactionName != null ? subfactionName : "Intrigue";
+        this.despawnAtTarget = despawnAtTarget;
     }
 
     @Override
@@ -133,8 +150,10 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         route.addSegment(new RouteSegment(1, sourceEntity, targetEntity));
         // Segment 2: attack at target for 30 days
         route.addSegment(new RouteSegment(2, 30f, targetEntity));
-        // Segment 3: return to source
-        route.addSegment(new RouteSegment(3, targetEntity, sourceEntity));
+        // Segment 3: return to source (unless the fleet should despawn at the target)
+        if (!despawnAtTarget) {
+            route.addSegment(new RouteSegment(3, targetEntity, sourceEntity));
+        }
 
         routeStarted = true;
         log.info("TravelAndFightPhase: registered route '" + routeSource + "' from "
@@ -276,6 +295,7 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
             int seg = route.getCurrentIndex();
             if (seg <= 0) return "Fleet en route to target";
             if (seg == 1) return "Fleet attacking target";
+            if (despawnAtTarget) return "Fleet securing position";
             return "Fleet returning home";
         }
         return "Fleet en route / in combat";

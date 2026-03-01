@@ -15,17 +15,20 @@ import java.util.logging.Logger;
  * slots are claimed. The attacker targets the subfaction in that
  * territory (from a hostile faction) with the lowest territory cohesion.</p>
  *
+ * <p>Sends an attack fleet from the attacker's home market to the defender's
+ * territory base. If the fleet survives (route expires without the player
+ * destroying it, or player destroys the defenders), the assault succeeds.
+ * If the fleet is destroyed by the player, it fails.</p>
+ *
  * <p>On success: the defender's presence is demoted by one tier
  * (DOMINANT→FORTIFIED→ESTABLISHED→NONE). If the defender drops to NONE, their
- * slot is freed and the attacker claims it, advancing to ESTABLISHED. If the
- * defender merely drops a tier (e.g. FORTIFIED→ESTABLISHED), the attacker
- * doesn't get a slot yet — the assault weakened the defender but didn't dislodge them.</p>
+ * slot is freed and the attacker claims it, advancing to ESTABLISHED.</p>
  *
  * <p>On failure: the attacker's presence reverts to NONE.</p>
  */
 public class AssaultTerritoryBaseOp extends IntrigueOp {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
     private static final Logger log = Logger.getLogger(AssaultTerritoryBaseOp.class.getName());
 
     private static final int INITIAL_TERRITORY_COHESION = 40;
@@ -36,6 +39,9 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
 
     private final String attackerSubfactionId;
     private final String defenderSubfactionId;
+
+    /** The fleet combat phase, or null if we fell back to a timed stub. */
+    private final TravelAndFightPhase combatPhase;
 
     /**
      * @param opId               unique operation ID
@@ -58,8 +64,61 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
         setIntelSourceMarketId(attacker.getHomeMarketId());
         setIntelDestinationSystemId(IntrigueOpIntel.resolveSystemIdFromTerritory(territoryId));
 
-        // Single timed phase (in real game, this would be a fleet combat phase)
-        phases.add(new TimedPhase("Assaulting territory base", 30f));
+        // Fleet strength scales with attacker cohesion
+        int combatFP = 30 + (int) (attacker.getHomeCohesion() * 1.0f);
+
+        // Try to resolve the defender's base market for the fleet to attack
+        String targetMarketId = resolveDefenderBaseMarket(defender, territoryId);
+
+        if (targetMarketId != null) {
+            this.combatPhase = new TravelAndFightPhase(
+                    attacker.getFactionId(),
+                    attacker.getHomeMarketId(),
+                    targetMarketId,
+                    combatFP,
+                    attacker.getName(),
+                    true);  // despawn at target — fleet stays at the captured base
+            phases.add(combatPhase);
+        } else {
+            // No valid market to attack — fall back to abstract timed phase
+            log.warning("AssaultTerritoryBaseOp: no valid defender base market for "
+                    + defenderSubfactionId + " in territory " + territoryId
+                    + "; using abstract resolution.");
+            this.combatPhase = null;
+            phases.add(new TimedPhase("Assaulting territory base", 30f));
+        }
+    }
+
+    /**
+     * Resolve the defender's base market in the territory. First checks the
+     * territory's recorded base market, then falls back to the defender's
+     * home market.
+     */
+    private static String resolveDefenderBaseMarket(IntrigueSubfaction defender,
+                                                    String territoryId) {
+        IntrigueTerritoryAccess territories = IntrigueServices.territories();
+        if (territories != null) {
+            IntrigueTerritory territory = territories.getById(territoryId);
+            if (territory != null) {
+                String baseMarketId = territory.getBaseMarketId(defender.getSubfactionId());
+                if (baseMarketId != null && !baseMarketId.isEmpty()) {
+                    // Verify it's a real market (not a synthetic placeholder ID)
+                    if (PhaseUtil.isSectorAvailable()) {
+                        com.fs.starfarer.api.campaign.econ.MarketAPI market =
+                                com.fs.starfarer.api.Global.getSector().getEconomy().getMarket(baseMarketId);
+                        if (market != null && market.getPrimaryEntity() != null) {
+                            return baseMarketId;
+                        }
+                    }
+                }
+            }
+        }
+        // Fall back to defender's home market
+        String homeMarketId = defender.getHomeMarketId();
+        if (homeMarketId != null && !homeMarketId.isEmpty()) {
+            return homeMarketId;
+        }
+        return null;
     }
 
     @Override
@@ -98,7 +157,12 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
 
     @Override
     protected OpOutcome determineOutcome() {
-        // Base success chance: 50%, modified by relative cohesion
+        // If we had a real fleet phase, use its result
+        if (combatPhase != null) {
+            return combatPhase.didFleetWin() ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
+        }
+
+        // Abstract fallback: base success chance 50%, modified by relative cohesion
         IntrigueTerritoryAccess territories = IntrigueServices.territories();
         IntrigueTerritory territory = territories != null ? territories.getById(getTerritoryId()) : null;
 
@@ -106,7 +170,6 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
         IntrigueSubfaction attacker = getInitiatorSubfaction();
         int atkCoh = attacker != null ? attacker.getHomeCohesion() : 50;
 
-        // Higher attacker cohesion and lower defender cohesion = better odds
         float chance = 0.50f + (atkCoh - defCoh) * 0.003f;
         chance = Math.max(0.2f, Math.min(0.8f, chance));
 
