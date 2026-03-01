@@ -5,6 +5,7 @@ import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
+import spinloki.Intrigue.campaign.spi.WarAwareness;
 
 import java.util.logging.Logger;
 
@@ -69,6 +70,15 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
 
         // Try to resolve the defender's base market for the fleet to attack
         String targetMarketId = resolveDefenderBaseMarket(defender, territoryId);
+
+        // Scale fleet size by how well-defended the target system is
+        if (targetMarketId != null) {
+            WarAwareness wa = IntrigueServices.warAwareness();
+            if (wa != null) {
+                combatFP = wa.scaleFPByDanger(combatFP,
+                        attacker.getFactionId(), targetMarketId);
+            }
+        }
 
         if (targetMarketId != null) {
             this.combatPhase = new TravelAndFightPhase(
@@ -168,10 +178,27 @@ public class AssaultTerritoryBaseOp extends IntrigueOp {
 
         int defCoh = territory != null ? territory.getCohesion(defenderSubfactionId) : 50;
         IntrigueSubfaction attacker = getInitiatorSubfaction();
+        IntrigueSubfaction defender = IntrigueServices.subfactions().getById(defenderSubfactionId);
         int atkCoh = attacker != null ? attacker.getHomeCohesion() : 50;
 
         float chance = 0.50f + (atkCoh - defCoh) * 0.003f;
-        chance = Math.max(0.2f, Math.min(0.8f, chance));
+
+        // Factor in vanilla military balance in the target system
+        String targetMarketId = defender != null
+                ? resolveDefenderBaseMarket(defender, getTerritoryId()) : null;
+        if (targetMarketId != null && attacker != null) {
+            WarAwareness wa = IntrigueServices.warAwareness();
+            if (wa != null) {
+                // Military balance: attacker superiority → bonus, outnumbered → penalty
+                chance += wa.computeStrengthModifier(attacker.getFactionId(), targetMarketId);
+
+                // Station defense near the target
+                chance += wa.computeStationDefenseModifier(
+                        defenderSubfactionId, targetMarketId);
+            }
+        }
+
+        chance = Math.max(0.1f, Math.min(0.85f, chance));
 
         return Math.random() < chance ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
     }

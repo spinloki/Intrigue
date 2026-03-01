@@ -8,6 +8,7 @@ import spinloki.Intrigue.campaign.IntrigueTerritory;
 import spinloki.Intrigue.campaign.spi.IntrigueOpRunner;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueTerritoryAccess;
+import spinloki.Intrigue.campaign.spi.WarAwareness;
 
 import java.util.*;
 
@@ -419,7 +420,22 @@ public final class OpEvaluator {
             score -= 10f;
         }
 
+        // ── System danger modifier (vanilla military awareness) ─────
+        // Heavily defended target systems are less attractive to raid.
+        // In sim mode, dangerScoreModifier returns 0 (no effect).
+        score += dangerScoreModifier(attacker.getFactionId(), target.getHomeMarketId());
+
         return score;
+    }
+
+    /**
+     * Returns a raid-score modifier based on how well-defended the target system is.
+     * Uses the WarAwareness SPI (game-side: vanilla WarSimScript, sim-side: no-op).
+     */
+    private static float dangerScoreModifier(String attackerFactionId, String targetMarketId) {
+        WarAwareness wa = IntrigueServices.warAwareness();
+        if (wa == null) return 0f;
+        return wa.dangerScoreModifier(attackerFactionId, targetMarketId);
     }
 
     // ── Establish Base evaluation (for homeless CRIMINAL subfactions) ──

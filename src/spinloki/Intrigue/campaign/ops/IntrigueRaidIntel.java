@@ -75,6 +75,16 @@ public class IntrigueRaidIntel extends GenericRaidFGI {
         // before the attacker fleets even finish assembling
         spawnDefenderFleets();
 
+        // Trigger vanilla military response: the defender's parent faction patrols
+        // in the target system mobilize to intercept the incoming raid
+        spinloki.Intrigue.campaign.spi.WarAwareness wa =
+                spinloki.Intrigue.campaign.spi.IntrigueServices.warAwareness();
+        if (wa != null) {
+            wa.triggerMilitaryResponse(
+                    defenderFactionId, targetMarketId,
+                    40f + (float) (Math.random() * 20f));
+        }
+
         log.info("IntrigueRaidIntel created: " + attackerSubfactionName
                 + " → " + defender.getName()
                 + " (" + combatFP + " FP)");

@@ -158,6 +158,18 @@ public class TravelAndFightPhase implements OpPhase, RouteFleetSpawner, FleetEve
         routeStarted = true;
         log.info("TravelAndFightPhase: registered route '" + routeSource + "' from "
                 + source.getName() + " to " + target.getName() + " (" + combatFP + " FP).");
+
+        // Trigger vanilla military response: the target market's faction's patrols
+        // mobilize to defend against the incoming assault/raid
+        if (target.getFaction() != null) {
+            spinloki.Intrigue.campaign.spi.WarAwareness wa =
+                    spinloki.Intrigue.campaign.spi.IntrigueServices.warAwareness();
+            if (wa != null) {
+                wa.triggerMilitaryResponse(
+                        target.getFactionId(), targetMarketId,
+                        30f + (float) (Math.random() * 20f));
+            }
+        }
     }
 
     private RouteData findOurRoute() {

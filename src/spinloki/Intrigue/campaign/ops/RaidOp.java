@@ -6,6 +6,7 @@ import spinloki.Intrigue.campaign.IntrigueSubfaction;
 import spinloki.Intrigue.campaign.spi.IntriguePeopleAccess;
 import spinloki.Intrigue.campaign.spi.IntrigueServices;
 import spinloki.Intrigue.campaign.spi.IntrigueSubfactionAccess;
+import spinloki.Intrigue.campaign.spi.WarAwareness;
 
 import java.util.logging.Logger;
 
@@ -63,6 +64,13 @@ public class RaidOp extends IntrigueOp {
 
         // Determine fleet strength from subfaction home cohesion: 30 FP at 0, 150 FP at 100
         int combatFP = 30 + (int) (cohesion * 1.2f);
+
+        // Scale fleet size by how well-defended the target system is
+        WarAwareness wa = IntrigueServices.warAwareness();
+        if (wa != null) {
+            combatFP = wa.scaleFPByDanger(combatFP,
+                    attackerSubfaction.getFactionId(), targetMarketId);
+        }
 
         // Single phase: FGIPhase handles prep, travel, combat, and return
         fgiPhase = new FGIPhase(

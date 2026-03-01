@@ -105,7 +105,8 @@ public class Intrigue extends BaseModPlugin {
                 new GameOpFactory(),
                 IntrigueSubfactionManager.get(),
                 new GameFactionHostilityChecker(),
-                IntrigueTerritoryManager.get()
+                IntrigueTerritoryManager.get(),
+                new GameWarAwareness()
         );
     }
 

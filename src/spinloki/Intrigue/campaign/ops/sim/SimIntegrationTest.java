@@ -153,7 +153,8 @@ public class SimIntegrationTest {
         IntrigueServices.init(clock, people, ops, opFactory, subfactions,
                 // Sim hostility: different factions are always hostile
                 (a, b) -> a != null && b != null && !a.equals(b),
-                territories);
+                territories,
+                new SimWarAwareness());
         return clock;
     }
     /**
@@ -251,7 +252,8 @@ public class SimIntegrationTest {
         }
         IntrigueServices.init(clock, people, ops, opFactory, subfactions,
                 (a, b) -> a != null && b != null && !a.equals(b),
-                territories);
+                territories,
+                new SimWarAwareness());
         System.out.printf("  Loaded %d subfactions (%d factions) from: %s%n",
                 config.subfactions.size(), allFactionIds.size(), configPath);
         return clock;

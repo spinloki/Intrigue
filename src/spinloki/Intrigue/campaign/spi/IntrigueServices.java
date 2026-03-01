@@ -20,6 +20,7 @@ public final class IntrigueServices {
     private static IntrigueSubfactionAccess subfactions;
     private static FactionHostilityChecker hostility;
     private static IntrigueTerritoryAccess territories;
+    private static WarAwareness warAwareness;
 
     private IntrigueServices() {}
 
@@ -31,6 +32,18 @@ public final class IntrigueServices {
                             IntrigueSubfactionAccess subfactions,
                             FactionHostilityChecker hostility,
                             IntrigueTerritoryAccess territories) {
+        init(clock, people, ops, opFactory, subfactions, hostility, territories, null);
+    }
+
+    /**
+     * Full init including war awareness.
+     */
+    public static void init(IntrigueClock clock, IntriguePeopleAccess people,
+                            IntrigueOpRunner ops, OpFactory opFactory,
+                            IntrigueSubfactionAccess subfactions,
+                            FactionHostilityChecker hostility,
+                            IntrigueTerritoryAccess territories,
+                            WarAwareness warAwareness) {
         IntrigueServices.clock = clock;
         IntrigueServices.people = people;
         IntrigueServices.ops = ops;
@@ -38,23 +51,25 @@ public final class IntrigueServices {
         IntrigueServices.subfactions = subfactions;
         IntrigueServices.hostility = hostility;
         IntrigueServices.territories = territories;
+        IntrigueServices.warAwareness = warAwareness;
         log.info("IntrigueServices initialized: clock=" + clock.getClass().getSimpleName()
                 + ", people=" + people.getClass().getSimpleName()
                 + ", ops=" + ops.getClass().getSimpleName()
                 + ", opFactory=" + opFactory.getClass().getSimpleName()
                 + ", subfactions=" + subfactions.getClass().getSimpleName()
                 + ", hostility=" + hostility.getClass().getSimpleName()
-                + ", territories=" + (territories != null ? territories.getClass().getSimpleName() : "null"));
+                + ", territories=" + (territories != null ? territories.getClass().getSimpleName() : "null")
+                + ", warAwareness=" + (warAwareness != null ? warAwareness.getClass().getSimpleName() : "null"));
     }
 
     /**
-     * Backward-compatible init without territories (for sim/test code).
+     * Backward-compatible init without territories or war awareness (for sim/test code).
      */
     public static void init(IntrigueClock clock, IntriguePeopleAccess people,
                             IntrigueOpRunner ops, OpFactory opFactory,
                             IntrigueSubfactionAccess subfactions,
                             FactionHostilityChecker hostility) {
-        init(clock, people, ops, opFactory, subfactions, hostility, null);
+        init(clock, people, ops, opFactory, subfactions, hostility, null, null);
     }
 
     public static IntrigueClock clock() {
@@ -92,6 +107,11 @@ public final class IntrigueServices {
         return territories;
     }
 
+    /** Returns war awareness, or null if not wired. */
+    public static WarAwareness warAwareness() {
+        return warAwareness;
+    }
+
     /** Returns true if all core services have been initialized. */
     public static boolean isInitialized() {
         return clock != null && people != null && ops != null && opFactory != null && subfactions != null && hostility != null;
@@ -106,5 +126,6 @@ public final class IntrigueServices {
         subfactions = null;
         hostility = null;
         territories = null;
+        warAwareness = null;
     }
 }

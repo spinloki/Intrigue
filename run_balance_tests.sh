@@ -130,6 +130,7 @@ cd "$SRC_DIR"
   spinloki/Intrigue/campaign/spi/IntrigueOpRunner.java \
   spinloki/Intrigue/campaign/spi/IntrigueServices.java \
   spinloki/Intrigue/campaign/spi/FactionHostilityChecker.java \
+  spinloki/Intrigue/campaign/spi/WarAwareness.java \
   spinloki/Intrigue/campaign/ops/OpPhase.java \
   spinloki/Intrigue/campaign/ops/OpOutcome.java \
   spinloki/Intrigue/campaign/ops/IntrigueOp.java \
@@ -143,6 +144,7 @@ cd "$SRC_DIR"
   spinloki/Intrigue/campaign/ops/sim/SimTerritoryAccess.java \
   spinloki/Intrigue/campaign/ops/sim/SimOpRunner.java \
   spinloki/Intrigue/campaign/ops/sim/SimConfig.java \
+  spinloki/Intrigue/campaign/ops/sim/SimWarAwareness.java \
   spinloki/Intrigue/campaign/ops/sim/OpOutcomeResolver.java \
   spinloki/Intrigue/campaign/ops/sim/DefaultOutcomeResolver.java \
   spinloki/Intrigue/campaign/ops/sim/SimOpFactory.java \
