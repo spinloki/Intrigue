@@ -13,22 +13,29 @@ import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteFleetSpawner;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
+import com.fs.starfarer.api.impl.campaign.ids.Abilities;
+import com.fs.starfarer.api.util.IntervalUtil;
+import com.fs.starfarer.api.util.Misc;
 import spinloki.Intrigue.campaign.HostileProximityMusicScript;
+import spinloki.Intrigue.campaign.IntrigueFleetUtil;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * Phase for mischief ops targeting rallies: spawns a small fleet belonging
- * to the mischief initiator that flies around the rally location, disrupting
- * the rally. The fleet's assignment text reads "Disrupting [target]'s rally."
+ * Phase for mischief ops targeting rallies: spawns multiple disruptor fleets
+ * belonging to the mischief initiator that aggressively chase and harass
+ * rally fleets in the target system.
  *
- * <p>When the player is nearby and the fleet is spawned, a
- * {@link HostileProximityMusicScript} is attached so the mischief faction's
- * hostile encounter music plays with proximity-based volume falloff.</p>
+ * <p>Disruptor fleets actively seek out rally fleets (tagged with
+ * {@code $intrigueRally}) and orbit them aggressively, buzzing the
+ * formation. Their assignment text reads
+ * "Disrupting [target]'s rally."</p>
  *
- * <p>If the fleet is never spawned (player is far away or sim mode), the
- * phase auto-completes abstractly.</p>
+ * <p>Each spawned fleet gets a {@link HostileProximityMusicScript} for
+ * proximity-based hostile audio.</p>
  */
 public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEventListener, Serializable {
 
@@ -36,40 +43,47 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
     private static final Logger log = Logger.getLogger(RallyDisruptionPhase.class.getName());
     private static final String ROUTE_SOURCE_PREFIX = "intrigue_mischief_rally_";
 
-    /** How long the mischief fleet harasses the rally. */
-    private static final float DISRUPTION_DAYS = 10f;
-    /** Base FP for the mischief disruption fleet (small nuisance fleet). */
+    /** How long the mischief fleets harass the rally. */
+    private static final float DISRUPTION_DAYS = 20f;
+    /** Base FP per disruptor fleet. */
     private static final int BASE_FP = 8;
+    /** Number of disruptor fleets — slightly more than the rally fleet count. */
+    static final int FLEET_COUNT = 7;
 
     private final String initiatorFactionId;
     private final String initiatorSubfactionName;
     private final String victimSubfactionName;
+    private final String sourceMarketId;
     private final String rallyMarketId;
-    private final int combatFP;
+    private final int combatFPPerFleet;
 
     private boolean done = false;
-    private boolean routeStarted = false;
-    private transient CampaignFleetAPI fleet;
-    private String routeSource;
+    private boolean routesStarted = false;
+    private final List<String> routeSources = new ArrayList<>();
+    private transient List<CampaignFleetAPI> fleets = new ArrayList<>();
+    /** Interval for re-targeting disruptors toward rally fleets. */
+    private transient IntervalUtil retargetInterval;
 
     /**
      * @param initiatorFactionId      base faction ID of the mischief initiator
      * @param initiatorSubfactionName display name of the mischief initiator
-     * @param victimSubfactionName    display name of the rally's subfaction (for flavor text)
-     * @param rallyMarketId           market ID where the rally is taking place
+     * @param victimSubfactionName    display name of the rally's subfaction
+     * @param sourceMarketId          market ID where disruptors spawn (initiator's home)
+     * @param rallyMarketId           market ID where the rally is taking place (destination)
      * @param initiatorCohesion       initiator's home cohesion (scales fleet size)
      */
     public RallyDisruptionPhase(String initiatorFactionId,
                                 String initiatorSubfactionName,
                                 String victimSubfactionName,
+                                String sourceMarketId,
                                 String rallyMarketId,
                                 int initiatorCohesion) {
         this.initiatorFactionId = initiatorFactionId;
         this.initiatorSubfactionName = initiatorSubfactionName;
         this.victimSubfactionName = victimSubfactionName;
+        this.sourceMarketId = sourceMarketId;
         this.rallyMarketId = rallyMarketId;
-        // Small fleet, slightly stronger with higher cohesion
-        this.combatFP = BASE_FP + (int) (initiatorCohesion * 0.1f);
+        this.combatFPPerFleet = BASE_FP + (int) (initiatorCohesion * 0.1f);
     }
 
     // ── Phase lifecycle ─────────────────────────────────────────────────
@@ -79,55 +93,255 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
         if (done) return;
 
         if (!PhaseUtil.isSectorAvailable()) {
-            if (!routeStarted) {
+            if (!routesStarted) {
                 log.info("RallyDisruptionPhase: no sector (sim mode); auto-completing.");
                 done = true;
             }
             return;
         }
 
-        if (!routeStarted) {
-            startRoute();
+        if (!routesStarted) {
+            startRoutes();
             return;
         }
 
-        RouteData route = findOurRoute();
-        if (route == null && !done) {
-            log.info("RallyDisruptionPhase: route expired (abstract disruption complete).");
+        // Check if all routes have expired
+        int activeRoutes = 0;
+        for (String rs : routeSources) {
+            if (findRoute(rs) != null) activeRoutes++;
+        }
+        if (activeRoutes == 0 && !done) {
             done = true;
+            log.info("RallyDisruptionPhase: all disruption routes expired.");
+            return;
+        }
+
+        // Periodically re-target disruptors toward nearby rally fleets
+        if (retargetInterval == null) retargetInterval = new IntervalUtil(0.3f, 0.8f);
+        retargetInterval.advance(days);
+        if (retargetInterval.intervalElapsed()) {
+            retargetDisruptors();
         }
     }
 
-    private void startRoute() {
+    /**
+     * Disruptor behavior: loiter near rally fleets being provocative, but
+     * flee when a rally fleet is actively chasing them (detected via the
+     * {@code $intrigueRallyChasing} memory flag set by rally fleets).
+     */
+    private void retargetDisruptors() {
+        if (fleets == null) fleets = new ArrayList<>();
+        for (CampaignFleetAPI disruptor : fleets) {
+            if (disruptor == null || !disruptor.isAlive()) continue;
+
+            // First priority: is a rally fleet chasing us and actually close? Run!
+            CampaignFleetAPI chaser = findChasingRallyFleet(disruptor);
+            if (chaser != null) {
+                float dist = Misc.getDistance(disruptor, chaser);
+                if (dist < 600f) {
+                    FleetAssignment currentAssign = disruptor.getCurrentAssignment() != null
+                            ? disruptor.getCurrentAssignment().getAssignment() : null;
+                    if (currentAssign != FleetAssignment.GO_TO_LOCATION) {
+                        disruptor.clearAssignments();
+                        // Pop emergency burn to get away fast
+                        activateEmergencyBurn(disruptor);
+                        // Flee to a random remote corner of the system
+                        SectorEntityToken hideout = pickRemoteEntity(disruptor);
+                        if (hideout != null) {
+                            disruptor.addAssignment(FleetAssignment.GO_TO_LOCATION,
+                                    hideout, 5f,
+                                    "Running away from angry rally fleet");
+                            disruptor.addAssignment(FleetAssignment.ORBIT_PASSIVE,
+                                    hideout, 3f,
+                                    "Catching their breath before going back for more");
+                            // Then circle back to harass again
+                            SectorEntityToken rallyPoint = getFallbackEntity();
+                            if (rallyPoint != null) {
+                                disruptor.addAssignment(FleetAssignment.GO_TO_LOCATION,
+                                        rallyPoint, 10f,
+                                        "Circling back for another pass");
+                                disruptor.addAssignment(FleetAssignment.PATROL_SYSTEM,
+                                        rallyPoint, DISRUPTION_DAYS,
+                                        "Looking for " + victimSubfactionName + "'s rally fleets to heckle");
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // No one chasing us — find the nearest rally fleet and loiter near it
+            CampaignFleetAPI nearestRally = findNearestRallyFleet(disruptor);
+            if (nearestRally != null) {
+                float dist = Misc.getDistance(disruptor, nearestRally);
+                FleetAssignment currentAssign = disruptor.getCurrentAssignment() != null
+                        ? disruptor.getCurrentAssignment().getAssignment() : null;
+
+                if (dist < 1500f) {
+                    // Close enough — orbit provocatively
+                    if (currentAssign != FleetAssignment.ORBIT_AGGRESSIVE) {
+                        disruptor.clearAssignments();
+                        disruptor.addAssignment(FleetAssignment.ORBIT_AGGRESSIVE,
+                                nearestRally, 2f,
+                                "Broadcasting rude music at " + victimSubfactionName + "'s rally");
+                        SectorEntityToken fallback = getFallbackEntity();
+                        if (fallback != null) {
+                            disruptor.addAssignment(FleetAssignment.PATROL_SYSTEM,
+                                    fallback, DISRUPTION_DAYS,
+                                    "Circling back for another pass");
+                        }
+                    }
+                } else {
+                    // Move toward the rally fleet
+                    if (currentAssign != FleetAssignment.GO_TO_LOCATION) {
+                        disruptor.clearAssignments();
+                        disruptor.addAssignment(FleetAssignment.GO_TO_LOCATION,
+                                nearestRally, 5f,
+                                "Scouting for rally fleets to annoy");
+                        SectorEntityToken fallback = getFallbackEntity();
+                        if (fallback != null) {
+                            disruptor.addAssignment(FleetAssignment.PATROL_SYSTEM,
+                                    fallback, DISRUPTION_DAYS,
+                                    "Circling back for another pass");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Find the nearest rally fleet that is actively chasing disruptors.
+     */
+    private CampaignFleetAPI findChasingRallyFleet(CampaignFleetAPI disruptor) {
+        CampaignFleetAPI nearest = null;
+        float nearestDist = Float.MAX_VALUE;
+        for (CampaignFleetAPI other : disruptor.getContainingLocation().getFleets()) {
+            if (!other.getMemoryWithoutUpdate().getBoolean("$intrigueRallyChasing")) continue;
+            if (!other.isAlive()) continue;
+            float dist = Misc.getDistance(disruptor, other);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = other;
+            }
+        }
+        return nearest;
+    }
+
+    private CampaignFleetAPI findNearestRallyFleet(CampaignFleetAPI disruptor) {
+        CampaignFleetAPI nearest = null;
+        float nearestDist = Float.MAX_VALUE;
+        for (CampaignFleetAPI other : disruptor.getContainingLocation().getFleets()) {
+            if (!other.getMemoryWithoutUpdate().getBoolean("$intrigueRally")) continue;
+            if (!other.isAlive()) continue;
+            float dist = Misc.getDistance(disruptor, other);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = other;
+            }
+        }
+        return nearest;
+    }
+
+    private SectorEntityToken getFallbackEntity() {
+        MarketAPI m = Global.getSector().getEconomy().getMarket(rallyMarketId);
+        return m != null ? m.getPrimaryEntity() : null;
+    }
+
+    /**
+     * Pick a random entity in the system that's far from the disruptor,
+     * so they scatter across the whole system when fleeing. Prefers
+     * planets, jump points, and stations.
+     */
+    private SectorEntityToken pickRemoteEntity(CampaignFleetAPI disruptor) {
+        LocationAPI loc = disruptor.getContainingLocation();
+        if (loc == null) return getFallbackEntity();
+
+        List<SectorEntityToken> candidates = new ArrayList<>();
+        for (SectorEntityToken entity : loc.getAllEntities()) {
+            if (entity == disruptor) continue;
+            if (entity instanceof CampaignFleetAPI) continue;
+            // Planets, jump points, stations, markets — anything notable
+            if (entity instanceof com.fs.starfarer.api.campaign.PlanetAPI
+                    || entity.hasTag("jump_point")
+                    || entity.hasTag("station")
+                    || entity.getMarket() != null) {
+                // Prefer entities that are at least somewhat far from us
+                float dist = Misc.getDistance(disruptor, entity);
+                if (dist > 2000f) {
+                    candidates.add(entity);
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            // Fall back to anything far away at all
+            for (SectorEntityToken entity : loc.getAllEntities()) {
+                if (entity == disruptor) continue;
+                if (entity instanceof CampaignFleetAPI) continue;
+                float dist = Misc.getDistance(disruptor, entity);
+                if (dist > 1000f) {
+                    candidates.add(entity);
+                }
+            }
+        }
+
+        if (candidates.isEmpty()) return getFallbackEntity();
+        return candidates.get((int) (Math.random() * candidates.size()));
+    }
+
+    /** Activate emergency burn if available and not on cooldown. */
+    private void activateEmergencyBurn(CampaignFleetAPI fleet) {
+        if (!fleet.hasAbility(Abilities.EMERGENCY_BURN)) return;
+        com.fs.starfarer.api.characters.AbilityPlugin eb = fleet.getAbility(Abilities.EMERGENCY_BURN);
+        if (eb != null && !eb.isActiveOrInProgress() && !eb.isOnCooldown()) {
+            eb.activate();
+        }
+    }
+
+    private void startRoutes() {
+        MarketAPI sourceMarket = Global.getSector().getEconomy().getMarket(sourceMarketId);
         MarketAPI rallyMarket = Global.getSector().getEconomy().getMarket(rallyMarketId);
+        if (sourceMarket == null || sourceMarket.getPrimaryEntity() == null) {
+            log.warning("RallyDisruptionPhase: source market missing; aborting.");
+            done = true;
+            return;
+        }
         if (rallyMarket == null || rallyMarket.getPrimaryEntity() == null) {
             log.warning("RallyDisruptionPhase: rally market missing; aborting.");
             done = true;
             return;
         }
 
-        routeSource = ROUTE_SOURCE_PREFIX + rallyMarketId + "_"
-                + Global.getSector().getClock().getTimestamp();
-
-        OptionalFleetData extra = new OptionalFleetData(rallyMarket, initiatorFactionId);
-        extra.fp = (float) combatFP;
-        extra.fleetType = FleetTypes.PATROL_SMALL;
-
+        SectorEntityToken sourceEntity = sourceMarket.getPrimaryEntity();
         SectorEntityToken rallyEntity = rallyMarket.getPrimaryEntity();
-        RouteData route = RouteManager.getInstance().addRoute(
-                routeSource, rallyMarket, (long) (Math.random() * Long.MAX_VALUE),
-                extra, this);
-        route.addSegment(new RouteSegment(1, DISRUPTION_DAYS, rallyEntity));
+        long baseSeed = Global.getSector().getClock().getTimestamp();
 
-        routeStarted = true;
-        log.info("RallyDisruptionPhase: registered disruption route at "
-                + rallyMarket.getName() + " for " + DISRUPTION_DAYS + " days ("
-                + combatFP + " FP).");
+        for (int i = 0; i < FLEET_COUNT; i++) {
+            String rs = ROUTE_SOURCE_PREFIX + sourceMarketId + "_" + baseSeed + "_" + i;
+
+            OptionalFleetData extra = new OptionalFleetData(sourceMarket, initiatorFactionId);
+            extra.fp = (float) combatFPPerFleet;
+            extra.fleetType = FleetTypes.PATROL_SMALL;
+
+            RouteData route = RouteManager.getInstance().addRoute(
+                    rs, sourceMarket, (long) (Math.random() * Long.MAX_VALUE),
+                    extra, this);
+            // Travel from source to rally location (min 10 days), then loiter and disrupt
+            route.addSegment(new RouteSegment(1, 15f, sourceEntity, rallyEntity));
+            route.addSegment(new RouteSegment(1, DISRUPTION_DAYS, rallyEntity));
+            routeSources.add(rs);
+        }
+
+        routesStarted = true;
+        if (fleets == null) fleets = new ArrayList<>();
+        log.info("RallyDisruptionPhase: registered " + FLEET_COUNT + " disruption routes from "
+                + sourceMarket.getName() + " to " + rallyMarket.getName()
+                + " for " + DISRUPTION_DAYS + " days (" + combatFPPerFleet + " FP each).");
     }
 
-    private RouteData findOurRoute() {
-        if (routeSource == null) return null;
-        for (RouteData rd : RouteManager.getInstance().getRoutesForSource(routeSource)) {
+    private RouteData findRoute(String rs) {
+        for (RouteData rd : RouteManager.getInstance().getRoutesForSource(rs)) {
             return rd;
         }
         return null;
@@ -137,15 +351,20 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
 
     @Override
     public CampaignFleetAPI spawnFleet(RouteData route) {
-        MarketAPI rallyMarket = route.getMarket();
+        MarketAPI sourceMarket = route.getMarket();
+        if (sourceMarket == null || sourceMarket.getPrimaryEntity() == null) {
+            log.warning("RallyDisruptionPhase.spawnFleet: source market missing.");
+            return null;
+        }
+        MarketAPI rallyMarket = Global.getSector().getEconomy().getMarket(rallyMarketId);
         if (rallyMarket == null || rallyMarket.getPrimaryEntity() == null) {
             log.warning("RallyDisruptionPhase.spawnFleet: rally market missing.");
             return null;
         }
 
         FleetParamsV3 params = new FleetParamsV3(
-                rallyMarket, FleetTypes.PATROL_SMALL,
-                combatFP, 0f, 0f, 0f, 0f, 0f, 0f);
+                sourceMarket, FleetTypes.PATROL_SMALL,
+                combatFPPerFleet, 0f, 0f, 0f, 0f, 0f, 0f);
         params.factionId = initiatorFactionId;
 
         CampaignFleetAPI created = FleetFactoryV3.createFleet(params);
@@ -154,41 +373,87 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
             return null;
         }
 
-        fleet = created;
-        fleet.setName(initiatorSubfactionName + " Disruptors");
-        fleet.getMemoryWithoutUpdate().set("$intrigueFleet", true);
-        fleet.getMemoryWithoutUpdate().set("$intrigueSubfaction", initiatorSubfactionName);
-        fleet.getMemoryWithoutUpdate().set("$intrigueMischiefFleet", true);
-
-        SectorEntityToken rallyEntity = rallyMarket.getPrimaryEntity();
-        rallyEntity.getContainingLocation().addEntity(fleet);
-        fleet.setLocation(rallyEntity.getLocation().x, rallyEntity.getLocation().y);
-        fleet.addEventListener(this);
-
-        // Transponder off — they're causing trouble
-        fleet.setTransponderOn(false);
-
-        float remainingDays = DISRUPTION_DAYS;
-        RouteSegment current = route.getCurrent();
-        if (current != null) {
-            remainingDays = Math.max(1f, current.daysMax - current.elapsed);
+        // Determine index
+        int index = 0;
+        String routeSourceId = route.getSource() != null ? route.getSource().toString() : "";
+        for (int i = 0; i < routeSources.size(); i++) {
+            if (routeSources.get(i).equals(routeSourceId)) {
+                index = i;
+                break;
+            }
         }
 
-        String assignmentText = "Disrupting " + victimSubfactionName + "'s rally";
-        fleet.addAssignment(FleetAssignment.PATROL_SYSTEM, rallyEntity, remainingDays,
-                assignmentText);
-        fleet.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, rallyEntity, 120f,
-                "Withdrawing");
+        created.setName(initiatorSubfactionName + " Disruptors " + (index + 1));
+        IntrigueFleetUtil.tagIntrigueFleet(created, initiatorSubfactionName);
+        created.getMemoryWithoutUpdate().set("$intrigueMischiefFleet", true);
 
-        // ── Attach proximity-based hostile music ────────────────────────
+        // Place fleet at the route's current segment origin
+        RouteSegment current = route.getCurrent();
+        boolean stillTraveling = false;
+        LocationAPI spawnLoc;
+        float spawnX, spawnY;
+
+        SectorEntityToken sourceEntity = sourceMarket.getPrimaryEntity();
+        SectorEntityToken rallyEntity = rallyMarket.getPrimaryEntity();
+
+        if (current != null && current.from != null && current.to != null
+                && current.from != current.to) {
+            // Still on the travel segment (from != to means it's the travel leg)
+            stillTraveling = true;
+            spawnLoc = current.from.getContainingLocation();
+            spawnX = current.from.getLocation().x;
+            spawnY = current.from.getLocation().y;
+        } else if (current != null && current.from != null) {
+            // On the loiter segment at the rally market
+            spawnLoc = current.from.getContainingLocation();
+            spawnX = current.from.getLocation().x;
+            spawnY = current.from.getLocation().y;
+        } else {
+            // Fallback: spawn at source
+            stillTraveling = true;
+            spawnLoc = sourceEntity.getContainingLocation();
+            spawnX = sourceEntity.getLocation().x;
+            spawnY = sourceEntity.getLocation().y;
+        }
+
+        spawnLoc.addEntity(created);
+        created.setLocation(
+                spawnX + (float)(Math.random() * 400 - 200),
+                spawnY + (float)(Math.random() * 400 - 200));
+        created.addEventListener(this);
+
+        // Transponder on — they're being brazen about it
+        created.setTransponderOn(true);
+
+        // Don't get sidetracked chasing other fleets or picking fights
+        IntrigueFleetUtil.makeFocused(created);
+
+        // Give them emergency burn so they can flee from the big rally fleets
+        if (!created.hasAbility(Abilities.EMERGENCY_BURN)) {
+            created.addAbility(Abilities.EMERGENCY_BURN);
+        }
+
+        // If still traveling, assign travel first; otherwise go straight to harassing
+        if (stillTraveling) {
+            created.addAssignment(FleetAssignment.GO_TO_LOCATION, rallyEntity, 30f,
+                    "Heading to " + victimSubfactionName + "'s rally");
+        }
+        created.addAssignment(FleetAssignment.PATROL_SYSTEM, rallyEntity, DISRUPTION_DAYS,
+                "Looking for " + victimSubfactionName + "'s rally fleets to heckle");
+        created.addAssignment(FleetAssignment.GO_TO_LOCATION_AND_DESPAWN, sourceEntity, 120f,
+                "Heading home, satisfied with a job well done");
+
+        // Attach proximity-based hostile music
         String musicId = HostileProximityMusicScript.getHostileMusicIdForFaction(initiatorFactionId);
-        fleet.addScript(new HostileProximityMusicScript(fleet, musicId));
+        created.addScript(new HostileProximityMusicScript(created, musicId));
 
-        log.info("RallyDisruptionPhase.spawnFleet: spawned mischief fleet ("
-                + combatFP + " FP) at " + rallyMarket.getName()
-                + " — disrupting " + victimSubfactionName + "'s rally"
+        if (fleets == null) fleets = new ArrayList<>();
+        fleets.add(created);
+
+        log.info("RallyDisruptionPhase.spawnFleet: spawned disruptor #" + (index + 1)
+                + " (" + combatFPPerFleet + " FP) at " + rallyMarket.getName()
                 + " [music: " + musicId + "]");
-        return fleet;
+        return created;
     }
 
     @Override
@@ -199,34 +464,27 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
 
     @Override
     public void reportAboutToBeDespawnedByRouteManager(RouteData route) {
-        fleet = null;
-        log.info("RallyDisruptionPhase: fleet despawned by RouteManager (player moved away).");
+        log.info("RallyDisruptionPhase: a fleet despawned by RouteManager (player moved away).");
     }
 
     // ── FleetEventListener ──────────────────────────────────────────────
 
     @Override
     public void reportBattleOccurred(CampaignFleetAPI fleet, CampaignFleetAPI primaryWinner, BattleAPI battle) {
-        if (fleet == null || this.fleet == null || fleet != this.fleet) return;
+        if (fleet == null) return;
+        if (!fleet.getMemoryWithoutUpdate().getBoolean("$intrigueMischiefFleet")) return;
         if (battle.wasFleetDefeated(fleet, primaryWinner)) {
-            done = true;
-            removeRoute();
-            log.info("RallyDisruptionPhase: mischief fleet defeated in battle.");
+            if (fleets != null) fleets.remove(fleet);
+            log.info("RallyDisruptionPhase: disruptor fleet defeated in battle.");
         }
     }
 
     @Override
     public void reportFleetDespawnedToListener(CampaignFleetAPI fleet, FleetDespawnReason reason, Object param) {
-        if (fleet == null || this.fleet == null || fleet != this.fleet) return;
+        if (fleet == null) return;
         if (reason == FleetDespawnReason.PLAYER_FAR_AWAY) return;
-        done = true;
-        removeRoute();
+        if (fleets != null) fleets.remove(fleet);
         log.info("RallyDisruptionPhase: fleet despawned. Reason: " + reason);
-    }
-
-    private void removeRoute() {
-        RouteData route = findOurRoute();
-        if (route != null) RouteManager.getInstance().removeRoute(route);
     }
 
     // ── OpPhase ─────────────────────────────────────────────────────────
@@ -236,9 +494,10 @@ public class RallyDisruptionPhase implements OpPhase, RouteFleetSpawner, FleetEv
 
     @Override
     public String getStatus() {
-        if (!routeStarted) return "Preparing disruption fleet";
-        if (done) return "Disruption complete";
-        return "Disrupting " + victimSubfactionName + "'s rally";
+        if (!routesStarted) return "Warming up the loudspeakers";
+        if (done) return "Had their fun";
+        int active = fleets != null ? (int) fleets.stream().filter(f -> f != null && f.isAlive()).count() : 0;
+        return "Heckling " + victimSubfactionName + "'s rally (" + active + "/" + FLEET_COUNT + " disruptors)";
     }
 }
 

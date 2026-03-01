@@ -23,7 +23,7 @@ public class RallyOp extends IntrigueOp {
     private static final Logger log = Logger.getLogger(RallyOp.class.getName());
     private static final int COHESION_GAIN = 10;
     private static final int SABOTAGE_COHESION_GAIN_REDUCTION = 5;
-    private static final float RALLY_DAYS = 15f;
+    private static final float RALLY_DAYS = 30f;
 
     private final RallyPhase rallyPhase;
     private boolean sabotaged = false;
@@ -31,13 +31,14 @@ public class RallyOp extends IntrigueOp {
     public RallyOp(String opId, IntrigueSubfaction subfaction) {
         super(opId, subfaction.getLeaderId(), null, subfaction.getSubfactionId(), null);
 
-        // Fleet strength scales with home cohesion: 15 FP at 0, 55 FP at 100
-        int combatFP = 15 + (int) (subfaction.getHomeCohesion() * 0.4f);
+        // Fleet strength per fleet scales with home cohesion: 40 FP at 0, 100 FP at 100
+        // With 5 fleets, total rally presence is 200-500 FP
+        int combatFPPerFleet = 40 + (int) (subfaction.getHomeCohesion() * 0.6f);
 
         this.rallyPhase = new RallyPhase(
                 subfaction.getFactionId(),
                 subfaction.getHomeMarketId(),
-                combatFP,
+                combatFPPerFleet,
                 RALLY_DAYS,
                 subfaction.getName());
         phases.add(rallyPhase);
@@ -56,7 +57,7 @@ public class RallyOp extends IntrigueOp {
     public String describeMischiefEffect() {
         IntrigueSubfaction sf = getInitiatorSubfaction();
         String name = sf != null ? sf.getName() : getInitiatorSubfactionId();
-        return "Disrupting " + name + "'s rally";
+        return "Heckling " + name + "'s rally with obnoxious broadcasts";
     }
 
     @Override

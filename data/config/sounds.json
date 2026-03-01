@@ -1,0 +1,33 @@
+{
+	# ── Intrigue: proximity-based hostile encounter sounds ───────────────
+	# Drop mono .ogg files into sounds/intrigue/ to match these entries.
+	# Used by HostileProximityMusicScript via playLoop for distance-based volume.
+	# Files MUST be mono for positional audio to work correctly.
+
+	# "intrigue_hostile_hegemony":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_tritachyon":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_luddite":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_pirates":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_persean":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_diktat":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+	# "intrigue_hostile_default":[
+	# 	{"file":"sounds/intrigue/morb.ogg","pitch":1,"volume":1},
+	# ],
+}
+
+
+
+
+

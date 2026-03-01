@@ -71,18 +71,39 @@ public class IntrigueTestRallyMischiefCommand implements BaseCommand {
                 Console.showMessage("Unknown rally subfaction: " + parts[0]);
                 return CommandResult.ERROR;
             }
+            final IntrigueSubfaction rallyRef = rallySf;
             List<IntrigueSubfaction> others = eligible.stream()
-                    .filter(sf -> !sf.getSubfactionId().equals(rallySf.getSubfactionId()))
+                    .filter(sf -> !sf.getSubfactionId().equals(rallyRef.getSubfactionId()))
+                    .filter(sf -> !IntrigueServices.hostility().areHostile(
+                            rallyRef.getFactionId(), sf.getFactionId()))
                     .collect(Collectors.toList());
             if (others.isEmpty()) {
-                Console.showMessage("No other subfaction available for mischief.");
+                Console.showMessage("No non-hostile subfaction available for mischief against "
+                        + rallySf.getName() + ".");
                 return CommandResult.ERROR;
             }
             mischiefSf = others.get(rng.nextInt(others.size()));
         } else {
+            // Pick a random rally subfaction, then a non-hostile mischief partner
             Collections.shuffle(eligible, rng);
-            rallySf = eligible.get(0);
-            mischiefSf = eligible.get(1);
+            rallySf = null;
+            mischiefSf = null;
+            for (IntrigueSubfaction candidate : eligible) {
+                List<IntrigueSubfaction> nonHostile = eligible.stream()
+                        .filter(sf -> !sf.getSubfactionId().equals(candidate.getSubfactionId()))
+                        .filter(sf -> !IntrigueServices.hostility().areHostile(
+                                candidate.getFactionId(), sf.getFactionId()))
+                        .collect(Collectors.toList());
+                if (!nonHostile.isEmpty()) {
+                    rallySf = candidate;
+                    mischiefSf = nonHostile.get(rng.nextInt(nonHostile.size()));
+                    break;
+                }
+            }
+            if (rallySf == null || mischiefSf == null) {
+                Console.showMessage("No pair of non-hostile subfactions found for rally + mischief.");
+                return CommandResult.ERROR;
+            }
         }
 
         if (rallySf.getSubfactionId().equals(mischiefSf.getSubfactionId())) {

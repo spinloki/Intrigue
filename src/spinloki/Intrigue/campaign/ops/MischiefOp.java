@@ -65,12 +65,13 @@ public class MischiefOp extends IntrigueOp {
                     initiator.getFactionId(),
                     initiator.getName(),
                     victim.getName(),
+                    initiator.getHomeMarketId(),
                     victim.getHomeMarketId(),
                     initiator.getHomeCohesion()));
-            phases.add(new ReturnPhase(3f));
+            phases.add(new ReturnPhase(6f));
         } else {
             phases.add(new AssemblePhase(initiator.getHomeCohesion()));
-            phases.add(new ReturnPhase(3f));
+            phases.add(new ReturnPhase(6f));
         }
     }
 
