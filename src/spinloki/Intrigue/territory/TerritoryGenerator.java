@@ -4,7 +4,10 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.PlanetAPI;
 import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Terrain;
+import com.fs.starfarer.api.impl.campaign.procgen.NebulaEditor;
 import com.fs.starfarer.api.impl.campaign.procgen.StarSystemGenerator;
+import com.fs.starfarer.api.impl.campaign.terrain.HyperspaceTerrainPlugin;
+import com.fs.starfarer.api.util.Misc;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
@@ -75,6 +78,9 @@ public class TerritoryGenerator {
         // --- Auto-generate jump points ---
         system.autogenerateHyperspaceJumpPoints(true, true);
 
+        // --- Clear hyperspace nebula around the system ---
+        clearHyperspaceNebula(system);
+
         log.info("  System created: " + systemDef.name +
                 " with " + systemDef.planets.size() + " planets, " +
                 systemDef.asteroidBelts.size() + " belts, " +
@@ -128,6 +134,21 @@ public class TerritoryGenerator {
                 " at orbit " + def.orbitRadius);
     }
 
-}
+    /**
+     * Clears hyperspace nebula around the system so it's accessible.
+     * Uses the same approach as vanilla and other mods.
+     */
+    private static void clearHyperspaceNebula(StarSystemAPI system) {
+        HyperspaceTerrainPlugin plugin = (HyperspaceTerrainPlugin) Misc.getHyperspaceTerrain().getPlugin();
+        NebulaEditor editor = new NebulaEditor(plugin);
 
+        float minRadius = plugin.getTileSize() * 2f;
+        float radius = system.getMaxRadiusInHyperspace();
+
+        editor.clearArc(system.getLocation().x, system.getLocation().y,
+                0, radius + minRadius * 0.5f, 0, 360f);
+        editor.clearArc(system.getLocation().x, system.getLocation().y,
+                0, radius + minRadius, 0, 360f, 0.25f);
+    }
+}
 

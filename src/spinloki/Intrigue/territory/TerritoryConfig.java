@@ -25,11 +25,23 @@ public class TerritoryConfig {
     public static class TerritoryDef {
         public final String id;
         public final String name;
+        public final float locationX;
+        public final float locationY;
+        public final StarAge age;
+        public final int randomSystemCountMin;
+        public final int randomSystemCountMax;
         public final List<SystemDef> systems;
 
-        public TerritoryDef(String id, String name, List<SystemDef> systems) {
+        public TerritoryDef(String id, String name, float locationX, float locationY,
+                            StarAge age, int randomSystemCountMin, int randomSystemCountMax,
+                            List<SystemDef> systems) {
             this.id = id;
             this.name = name;
+            this.locationX = locationX;
+            this.locationY = locationY;
+            this.age = age;
+            this.randomSystemCountMin = randomSystemCountMin;
+            this.randomSystemCountMax = randomSystemCountMax;
             this.systems = systems;
         }
     }
@@ -126,6 +138,15 @@ public class TerritoryConfig {
         String id = json.getString("id");
         String name = json.getString("name");
 
+        JSONObject loc = json.getJSONObject("location");
+        float x = (float) loc.getDouble("x");
+        float y = (float) loc.getDouble("y");
+
+        StarAge age = StarAge.valueOf(json.optString("age", "AVERAGE"));
+
+        int randomSystemCountMin = json.optInt("randomSystemCountMin", 2);
+        int randomSystemCountMax = json.optInt("randomSystemCountMax", 3);
+
         JSONArray systemsArray = json.optJSONArray("systems");
         List<SystemDef> systems = new ArrayList<>();
         if (systemsArray != null) {
@@ -134,7 +155,7 @@ public class TerritoryConfig {
             }
         }
 
-        return new TerritoryDef(id, name, systems);
+        return new TerritoryDef(id, name, x, y, age, randomSystemCountMin, randomSystemCountMax, systems);
     }
 
     private static SystemDef parseSystemDef(JSONObject json) throws JSONException {

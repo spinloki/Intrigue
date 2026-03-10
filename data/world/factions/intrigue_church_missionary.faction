@@ -1,0 +1,140 @@
+{
+	id:"intrigue_church_missionary",
+	# Luddic Missionary Corps — a zealous expeditionary wing of the Luddic Church
+	# Favors mass numbers and aggressive tactics, low-tech warships
+	"color":[5,115,10,255],
+	"baseUIColor":[50,160,70,255],
+	"darkUIColor":[20,70,30,175],
+	"gridUIColor":[50,160,70,75],
+	"brightUIColor":[90,210,110,255],
+	"secondaryUIColor":[160,230,170,255],
+	"secondarySegments":3,
+	"displayName":"Luddic Missionary Corps",
+	"displayNameWithArticle":"the Luddic Missionary Corps",
+	"displayNameLong":"Luddic Missionary Corps",
+	"displayNameLongWithArticle":"the Luddic Missionary Corps",
+	"displayNameIsOrAre":"is",
+	"displayNameHasOrHave":"has",
+	"entityNamePrefix":"LMC",
+	"personNamePrefix":"",
+	"personNamePrefixAOrAn":"a",
+	"showInIntelTab":false,
+	"logo":"graphics/factions/luddic_church.png",
+	"crest":"graphics/factions/crest_luddic_church.png",
+	"shipNamePrefix":"LMC",
+	"shipNameSources":{
+		"LUDDIC_CHURCH":2,
+		"CELTIC":1,
+		"GENERAL":1,
+	},
+	"names":{
+		"old english":2,
+		"world":1,
+		"myth":1,
+	},
+	"variantOverrides":{
+	},
+	"hullFrequency":{
+		"tags":{
+		},
+		"hulls":{
+		},
+	},
+	"shipsWhenImporting":{
+		"tags":["base_bp", "luddic_church"],
+		"hulls":[
+		],
+	},
+	"knownShips":{
+		"tags":["base_bp", "luddic_church"],
+		"hulls":[
+		],
+	},
+	"priorityShips":{
+		"tags":[],
+		"hulls":[
+		],
+	},
+	"knownFighters":{
+		"tags":["base_bp", "luddic_church"],
+		"fighters":[
+		],
+	},
+	"priorityFighters":{
+		"tags":[],
+		"fighters":[
+		],
+	},
+	"knownWeapons":{
+		"tags":["base_bp", "luddic_church"],
+		"weapons":[
+		],
+	},
+	"priorityWeapons":{
+		"tags":[],
+		"weapons":[
+		],
+	},
+	"knownHullMods":{
+		"tags":["standard", "luddic_church"],
+		"hullMods":[
+		],
+	},
+	"factionDoctrine":{
+		"warships":5,
+		"carriers":2,
+		"phaseShips":0,
+		"officerQuality":1,
+		"shipQuality":1,
+		"numShips":5,
+		"shipSize":3,
+		"aggression":4,
+		"combatFreighterProbability":0.33,
+		"combatFreighterCombatUseFraction":0.33,
+		"combatFreighterCombatUseFractionWhenPriority":1,
+		"autofitRandomizeProbability":0.25,
+		"commanderSkillsShuffleProbability":0.5,
+		"commanderSkills":[
+			"crew_training",
+			"tactical_drills",
+		],
+	},
+	"illegalCommodities":[
+		"drugs",
+		"organs",
+		"ai_cores",
+		"hand_weapons",
+	],
+	"portraits":{
+		"standard_male":[
+			"graphics/portraits/portrait_luddic00.png",
+			"graphics/portraits/portrait_luddic02.png",
+			"graphics/portraits/portrait_luddic04.png",
+		],
+		"standard_female":[
+			"graphics/portraits/portrait_luddic01.png",
+			"graphics/portraits/portrait_luddic03.png",
+			"graphics/portraits/portrait_luddic05.png",
+		],
+	},
+	"voices":{
+		"LOW":{
+			"faithful":10,
+			"spacer":5,
+		},
+		"MEDIUM":{
+			"faithful":10,
+			"official":5,
+		},
+		"HIGH":{
+			"faithful":5,
+			"official":10,
+		},
+	},
+	"fleetTypeNames":{
+		"patrolSmall":"LMC Mission Patrol",
+		"patrolMedium":"LMC Crusade Fleet",
+		"patrolLarge":"LMC Grand Crusade",
+	},
+}
+

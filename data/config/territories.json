@@ -3,6 +3,10 @@
     {
       "id": "intrigue_ashenveil",
       "name": "Ashenveil",
+      "location": { "x": -18000, "y": 8000 },
+      "age": "AVERAGE",
+      "randomSystemCountMin": 2,
+      "randomSystemCountMax": 4,
       "systems": [
         {
           "id": "intrigue_ashenveil_prime",
@@ -92,6 +96,10 @@
     {
       "id": "intrigue_shardfields",
       "name": "Shardfields",
+      "location": { "x": 16000, "y": -12000 },
+      "age": "YOUNG",
+      "randomSystemCountMin": 2,
+      "randomSystemCountMax": 4,
       "systems": [
         {
           "id": "intrigue_shardfields_nexus",

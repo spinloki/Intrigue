@@ -1,0 +1,25 @@
+{
+  "subfactions": [
+    {
+      "id": "intrigue_hegemony_expeditionary",
+      "parentFactionId": "hegemony",
+      "name": "Hegemony Expeditionary Force"
+    },
+    {
+      "id": "intrigue_tritachyon_ventures",
+      "parentFactionId": "tritachyon",
+      "name": "Tri-Tachyon Ventures"
+    },
+    {
+      "id": "intrigue_church_missionary",
+      "parentFactionId": "luddic_church",
+      "name": "Luddic Missionary Corps"
+    },
+    {
+      "id": "intrigue_pirates_freehold",
+      "parentFactionId": "pirates",
+      "name": "Freehold Corsairs"
+    }
+  ]
+}
+

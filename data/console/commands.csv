@@ -1,1 +1,3 @@
 command,class,tags,syntax,help
+IntrigueStatus,spinloki.Intrigue.console.IntrigueStatus,"campaign,intrigue",IntrigueStatus,"Prints the status of all Intrigue territories and subfactions, including faction details, doctrine, colors, and relationships."
+IntrigueSpawnFleet,spinloki.Intrigue.console.IntrigueSpawnFleet,"campaign,intrigue",IntrigueSpawnFleet <subfaction_id>,"Spawns a fleet of the specified size for the given faction ID. Useful for testing faction fleets in Intrigue territories."
