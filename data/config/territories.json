@@ -7,6 +7,8 @@
       "age": "AVERAGE",
       "randomSystemCountMin": 2,
       "randomSystemCountMax": 4,
+      "baseSlotCount": 4,
+      "pinnedBaseSlots": ["intrigue_ashenveil_crucible"],
       "systems": [
         {
           "id": "intrigue_ashenveil_prime",
@@ -100,6 +102,8 @@
       "age": "YOUNG",
       "randomSystemCountMin": 2,
       "randomSystemCountMax": 4,
+      "baseSlotCount": 5,
+      "pinnedBaseSlots": ["intrigue_nexus_tempest"],
       "systems": [
         {
           "id": "intrigue_shardfields_nexus",

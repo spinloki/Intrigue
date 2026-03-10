@@ -8,7 +8,12 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import spinloki.Intrigue.territory.BaseSlotType;
 
 /**
  * Loads subfaction definitions from {@code data/config/subfactions.json}.
@@ -44,7 +49,56 @@ public class SubfactionConfig {
         String parentFactionId = json.getString("parentFactionId");
         String name = json.optString("name", id);
 
-        return new SubfactionDef(id, parentFactionId, name);
+        List<BaseSlotType> preferredSlotTypes = new ArrayList<>();
+        JSONArray slotsArray = json.optJSONArray("preferredSlotTypes");
+        if (slotsArray != null) {
+            for (int i = 0; i < slotsArray.length(); i++) {
+                try {
+                    preferredSlotTypes.add(BaseSlotType.valueOf(slotsArray.getString(i)));
+                } catch (IllegalArgumentException e) {
+                    log.warn("Unknown slot type '" + slotsArray.getString(i) +
+                            "' for subfaction " + id + " — ignoring");
+                }
+            }
+        }
+
+        // stationIndustry can be a string (single type) or object (weighted map)
+        Map<String, Float> stationIndustryWeights = new LinkedHashMap<>();
+        if (json.has("stationIndustry")) {
+            Object raw = json.get("stationIndustry");
+            if (raw instanceof String) {
+                // Single type, weight 1 = always this type
+                stationIndustryWeights.put((String) raw, 1f);
+            } else if (raw instanceof JSONObject) {
+                // Weighted map: {"orbitalstation": 5, "orbitalstation_mid": 3}
+                JSONObject obj = (JSONObject) raw;
+                Iterator<?> keys = obj.keys();
+                while (keys.hasNext()) {
+                    String key = (String) keys.next();
+                    stationIndustryWeights.put(key, (float) obj.optDouble(key, 0));
+                }
+            }
+        }
+
+        // Fleet size multiplier — applied to the base market's COMBAT_FLEET_SIZE_MULT stat.
+        // Default 0.5 matches vanilla pirate bases. Higher = bigger patrol fleets.
+        float fleetSizeMult = (float) json.optDouble("fleetSizeMult", 0.5);
+
+        // Fleet quality modifier — applied to the base market's FLEET_QUALITY_MOD stat.
+        // Default 0.0 = no bonus (market-size-driven quality, which is low for size 3).
+        // Positive values reduce D-mods: 0.25 = moderate, 0.5 = mostly clean ships.
+        float fleetQualityMod = (float) json.optDouble("fleetQualityMod", 0.0);
+
+        // Patrol count modifiers — flat additions to the number of patrols spawned.
+        // Military base has its own baseline; these add on top of that.
+        // Default 0 = no change. Intended for future dynamic adjustment (Milestone 3).
+        int patrolExtraLight = json.optInt("patrolExtraLight", 0);
+        int patrolExtraMedium = json.optInt("patrolExtraMedium", 0);
+        int patrolExtraHeavy = json.optInt("patrolExtraHeavy", 0);
+
+        return new SubfactionDef(id, parentFactionId, name, preferredSlotTypes,
+                stationIndustryWeights, fleetSizeMult, fleetQualityMod,
+                patrolExtraLight, patrolExtraMedium, patrolExtraHeavy);
     }
 }
 

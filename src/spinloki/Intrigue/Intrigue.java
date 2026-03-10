@@ -6,9 +6,14 @@ import org.apache.log4j.Logger;
 import spinloki.Intrigue.config.IntrigueSettings;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
+import spinloki.Intrigue.territory.BaseSlot;
+import spinloki.Intrigue.territory.BaseSlotGenerator;
+import spinloki.Intrigue.territory.TerritoryConfig;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
 import spinloki.Intrigue.territory.TerritoryManager;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +62,20 @@ public class Intrigue extends BaseModPlugin {
             return;
         }
 
+        // Retrieve territory defs (stored during generation for base slot config)
+        List<TerritoryConfig.TerritoryDef> territoryDefs = (List<TerritoryConfig.TerritoryDef>)
+                Global.getSector().getPersistentData().get(TerritoryGenerationPlugin.PERSISTENT_KEY_DEFS);
+        if (territoryDefs == null || territoryDefs.isEmpty()) {
+            log.warn("Intrigue: No territory defs found — skipping manager creation");
+            return;
+        }
+
+        // Build lookup: territory ID → TerritoryDef
+        Map<String, TerritoryConfig.TerritoryDef> defsByTerritoryId = new LinkedHashMap<>();
+        for (TerritoryConfig.TerritoryDef def : territoryDefs) {
+            defsByTerritoryId.put(def.id, def);
+        }
+
         // Retrieve subfaction defs
         List<SubfactionDef> subfactionDefs = (List<SubfactionDef>)
                 Global.getSector().getPersistentData().get(SubfactionSetup.PERSISTENT_KEY);
@@ -69,13 +88,32 @@ public class Intrigue extends BaseModPlugin {
                 territories, subfactionDefs);
 
         for (TerritoryManager manager : managers) {
+            TerritoryConfig.TerritoryDef def = defsByTerritoryId.get(manager.getTerritoryId());
+            if (def == null) {
+                log.warn("Intrigue: No territory def for '" + manager.getTerritoryId() +
+                        "' — using default slot generation");
+                // Create a minimal def with no pinning and default capacity
+                def = new TerritoryConfig.TerritoryDef(
+                        manager.getTerritoryId(), manager.getTerritoryId(),
+                        0, 0, null, 0, 0,
+                        new ArrayList<>(), -1, new ArrayList<>());
+            }
+
+            // Generate base slots using config-driven selection
+            List<BaseSlot> slots = BaseSlotGenerator.generateSlots(def, manager.getSystemIds());
+            manager.setBaseSlots(slots);
+
             Global.getSector().addScript(manager);
             log.info("  Created TerritoryManager for '" + manager.getTerritoryId() + "' with " +
-                    manager.getPresences().size() + " subfactions");
+                    manager.getPresences().size() + " subfactions, " +
+                    slots.size() + " base slots");
         }
 
         // Store in persistent data for easy lookup by console commands etc.
         Global.getSector().getPersistentData().put(TerritoryManager.PERSISTENT_KEY, managers);
+
+        // Clean up the transient territory defs — no longer needed after this point
+        Global.getSector().getPersistentData().remove(TerritoryGenerationPlugin.PERSISTENT_KEY_DEFS);
 
         log.info("Intrigue: Created " + managers.size() + " territory managers");
     }

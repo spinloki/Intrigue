@@ -32,9 +32,25 @@ public class TerritoryConfig {
         public final int randomSystemCountMax;
         public final List<SystemDef> systems;
 
+        /**
+         * How many base slots this territory should have.
+         * The generator will select this many from the available candidates,
+         * spreading them across systems. Pinned slots always count toward this total.
+         * Defaults to the number of systems in the constellation if not specified.
+         */
+        public final int baseSlotCount;
+
+        /**
+         * Entity IDs of planets or asteroid belts that must always be base slots.
+         * These are guaranteed to be included regardless of the spread algorithm.
+         * E.g. ["intrigue_ashenveil_crucible"] to always have a slot orbiting Crucible.
+         */
+        public final List<String> pinnedBaseSlots;
+
         public TerritoryDef(String id, String name, float locationX, float locationY,
                             StarAge age, int randomSystemCountMin, int randomSystemCountMax,
-                            List<SystemDef> systems) {
+                            List<SystemDef> systems, int baseSlotCount,
+                            List<String> pinnedBaseSlots) {
             this.id = id;
             this.name = name;
             this.locationX = locationX;
@@ -43,6 +59,8 @@ public class TerritoryConfig {
             this.randomSystemCountMin = randomSystemCountMin;
             this.randomSystemCountMax = randomSystemCountMax;
             this.systems = systems;
+            this.baseSlotCount = baseSlotCount;
+            this.pinnedBaseSlots = pinnedBaseSlots;
         }
     }
 
@@ -155,7 +173,19 @@ public class TerritoryConfig {
             }
         }
 
-        return new TerritoryDef(id, name, x, y, age, randomSystemCountMin, randomSystemCountMax, systems);
+        // baseSlotCount defaults to -1, meaning "use number of systems in constellation"
+        int baseSlotCount = json.optInt("baseSlotCount", -1);
+
+        List<String> pinnedBaseSlots = new ArrayList<>();
+        JSONArray pinnedArray = json.optJSONArray("pinnedBaseSlots");
+        if (pinnedArray != null) {
+            for (int i = 0; i < pinnedArray.length(); i++) {
+                pinnedBaseSlots.add(pinnedArray.getString(i));
+            }
+        }
+
+        return new TerritoryDef(id, name, x, y, age, randomSystemCountMin, randomSystemCountMax,
+                systems, baseSlotCount, pinnedBaseSlots);
     }
 
     private static SystemDef parseSystemDef(JSONObject json) throws JSONException {

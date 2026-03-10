@@ -3,22 +3,41 @@
     {
       "id": "intrigue_hegemony_expeditionary",
       "parentFactionId": "hegemony",
-      "name": "Hegemony Expeditionary Force"
+      "name": "Hegemony Expeditionary Force",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation",
+      "fleetSizeMult": 0.75,
+      "fleetQualityMod": 0.25
     },
     {
       "id": "intrigue_tritachyon_ventures",
       "parentFactionId": "tritachyon",
-      "name": "Tri-Tachyon Ventures"
+      "name": "Tri-Tachyon Ventures",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_high",
+      "fleetSizeMult": 0.5,
+      "fleetQualityMod": 0.5
     },
     {
       "id": "intrigue_church_missionary",
       "parentFactionId": "luddic_church",
-      "name": "Luddic Missionary Corps"
+      "name": "Luddic Missionary Corps",
+      "stationIndustry": "orbitalstation",
+      "fleetSizeMult": 0.75,
+      "fleetQualityMod": 0.1
     },
     {
       "id": "intrigue_pirates_freehold",
       "parentFactionId": "pirates",
-      "name": "Freehold Corsairs"
+      "name": "Freehold Corsairs",
+      "preferredSlotTypes": ["ASTEROID_BELT"],
+      "stationIndustry": {
+        "orbitalstation": 5,
+        "orbitalstation_mid": 3,
+        "orbitalstation_high": 1
+      },
+      "fleetSizeMult": 0.5,
+      "fleetQualityMod": 0.0
     }
   ]
 }

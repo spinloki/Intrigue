@@ -35,6 +35,9 @@ public class TerritoryGenerationPlugin {
     /** Persistent data key for storing generated territory info for later milestones. */
     public static final String PERSISTENT_KEY = "intrigue_territories";
 
+    /** Persistent data key for the raw TerritoryDef list (only valid during new game creation). */
+    public static final String PERSISTENT_KEY_DEFS = "intrigue_territory_defs";
+
     /**
      * Tags that make a system too important to co-opt. Only the truly significant
      * content is excluded — minor ruins, scattered derelict probes, and misc filler
@@ -106,6 +109,9 @@ public class TerritoryGenerationPlugin {
 
         // Store in persistent data so later milestones can look up territory systems
         Global.getSector().getPersistentData().put(PERSISTENT_KEY, generatedTerritories);
+
+        // Store territory defs for base slot generation (only needed during new game setup)
+        Global.getSector().getPersistentData().put(PERSISTENT_KEY_DEFS, territoryDefs);
 
         log.info("=== Intrigue: Territory generation complete. " +
                 generatedTerritories.size() + "/" + territoryDefs.size() + " territories created. ===");
@@ -198,10 +204,14 @@ public class TerritoryGenerationPlugin {
 
         log.info("  Renamed constellation and all systems to '" + def.name + "' derivatives");
 
-        // --- Step 3: Tag all existing systems ---
+        // --- Step 3: Tag all existing systems and collect their IDs ---
+        List<String> systemIds = new ArrayList<>();
         for (StarSystemAPI system : constellation.getSystems()) {
             system.addTag(TerritoryGenerator.TAG_TERRITORY);
             system.getMemoryWithoutUpdate().set(TerritoryGenerator.MEM_TERRITORY_ID, def.id);
+            systemIds.add(system.getId());
+            log.info("  Existing procgen system: '" + system.getBaseName() +
+                    "' [" + system.getId() + "]");
         }
 
         // --- Step 4: Inject hand-crafted systems ---
@@ -218,20 +228,22 @@ public class TerritoryGenerationPlugin {
 
             StarSystemAPI system = TerritoryGenerator.generate(systemDef, sysX, sysY, def.id);
 
-            constellation.getSystems().add(system);
+            // constellation.getSystems() may return a copy, so we track IDs ourselves
+            try {
+                constellation.getSystems().add(system);
+            } catch (Exception e) {
+                log.warn("  Could not add hand-crafted system to constellation list — cosmetic only");
+            }
             system.setConstellation(constellation);
+            systemIds.add(system.getId());
 
-            log.info("  Injected hand-crafted system '" + systemDef.name + "'");
+            log.info("  Injected hand-crafted system '" + systemDef.name +
+                    "' [" + system.getId() + "]");
         }
 
         // --- Step 5: Clear hyperspace nebula for any newly added systems ---
         clearConstellationNebula(constellation);
 
-        // Collect all system IDs
-        List<String> systemIds = new ArrayList<>();
-        for (StarSystemAPI system : constellation.getSystems()) {
-            systemIds.add(system.getId());
-        }
 
         log.info("  Territory '" + def.name + "' complete: " + systemIds.size() +
                 " total systems (was '" + oldName + "')");

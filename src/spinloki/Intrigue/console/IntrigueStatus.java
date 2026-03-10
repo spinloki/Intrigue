@@ -7,6 +7,7 @@ import org.lazywizard.console.BaseCommand;
 import org.lazywizard.console.Console;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
+import spinloki.Intrigue.territory.BaseSlot;
 import spinloki.Intrigue.territory.SubfactionPresence;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
 import spinloki.Intrigue.territory.TerritoryManager;
@@ -81,6 +82,11 @@ public class IntrigueStatus implements BaseCommand {
                         .append(" officers=").append(d.getOfficerQuality())
                         .append(" numShips=").append(d.getNumShips()).append("\n");
 
+                // Show fleet modifiers from SubfactionDef
+                sb.append("    Fleet Mods: sizeMult=").append(String.format("%.2f", def.fleetSizeMult))
+                        .append(" qualityMod=").append(String.format("%.2f", def.fleetQualityMod))
+                        .append("\n");
+
                 // Show relationship to parent
                 FactionAPI parent = Global.getSector().getFaction(def.parentFactionId);
                 if (parent != null) {
@@ -112,8 +118,16 @@ public class IntrigueStatus implements BaseCommand {
         } else {
             sb.append("\n--- Territory Presence ---\n");
             for (TerritoryManager mgr : managers) {
+                int totalSlots = mgr.getBaseSlots().size();
+                int occupiedSlots = 0;
+                for (BaseSlot s : mgr.getBaseSlots()) {
+                    if (s.isOccupied()) occupiedSlots++;
+                }
+
                 sb.append("  ").append(mgr.getTerritoryId())
-                        .append(" (").append(mgr.getSystemIds().size()).append(" systems)\n");
+                        .append(" (").append(mgr.getSystemIds().size()).append(" systems, ")
+                        .append(totalSlots).append(" base slots, ")
+                        .append(occupiedSlots).append(" occupied)\n");
 
                 if (mgr.getPresences().isEmpty()) {
                     sb.append("    (no subfactions)\n");
@@ -125,6 +139,23 @@ public class IntrigueStatus implements BaseCommand {
                                 .append(" — ").append(presence.getState())
                                 .append(" (").append(String.format("%.1f", presence.getDaysSinceStateChange()))
                                 .append(" days)\n");
+                    }
+                }
+
+                // Show base slots
+                if (!mgr.getBaseSlots().isEmpty()) {
+                    sb.append("    Base Slots:\n");
+                    for (BaseSlot slot : mgr.getBaseSlots()) {
+                        sb.append("      ").append(slot.getSlotType())
+                                .append(" — ").append(slot.getLabel());
+                        if (slot.isOccupied()) {
+                            FactionAPI owner = Global.getSector().getFaction(slot.getOccupiedBySubfactionId());
+                            String ownerName = owner != null ? owner.getDisplayName() : slot.getOccupiedBySubfactionId();
+                            sb.append(" [OCCUPIED by ").append(ownerName).append("]");
+                        } else {
+                            sb.append(" [available]");
+                        }
+                        sb.append("\n");
                     }
                 }
             }
