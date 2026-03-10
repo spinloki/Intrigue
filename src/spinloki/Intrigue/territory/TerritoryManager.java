@@ -3,6 +3,8 @@ package spinloki.Intrigue.territory;
 import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
+import com.fs.starfarer.api.campaign.StarSystemAPI;
+import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.util.Misc;
 import org.apache.log4j.Logger;
 import spinloki.Intrigue.subfaction.SubfactionDef;
@@ -29,10 +31,6 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
 
     /** Persistent data key for the list of all TerritoryManagers. */
     public static final String PERSISTENT_KEY = "intrigue_territory_managers";
-
-    /** Days a subfaction must scout before establishing a base. Small random jitter applied. */
-    private static final float DAYS_TO_ESTABLISH_BASE = 25f;
-    private static final float DAYS_TO_ESTABLISH_JITTER = 10f;
 
     private final String territoryId;
     private final List<String> systemIds;
@@ -61,12 +59,12 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     /**
      * Add a subfaction presence to this territory.
      */
-    public void addPresence(String subfactionId, PresenceState initialState) {
-        presences.put(subfactionId, new SubfactionPresence(subfactionId, initialState));
-        // Assign a randomized establishment threshold
-        Random rand = new Random(subfactionId.hashCode() + territoryId.hashCode());
-        float threshold = DAYS_TO_ESTABLISH_BASE + rand.nextFloat() * DAYS_TO_ESTABLISH_JITTER;
-        establishmentThresholds.put(subfactionId, threshold);
+    public void addPresence(SubfactionDef def, PresenceState initialState) {
+        presences.put(def.id, new SubfactionPresence(def.id, initialState));
+        // Assign a randomized establishment threshold from subfaction config
+        Random rand = new Random(def.id.hashCode() + territoryId.hashCode());
+        float threshold = def.daysToEstablishBase + rand.nextFloat() * def.daysToEstablishJitter;
+        establishmentThresholds.put(def.id, threshold);
     }
 
     /**
@@ -128,13 +126,15 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
                     }
                 }
                 if (!matching.isEmpty()) {
-                    return matching.get(new Random().nextInt(matching.size()));
+                    Random rand = new Random(def.id.hashCode() + territoryId.hashCode() + available.size());
+                    return matching.get(rand.nextInt(matching.size()));
                 }
             }
         }
 
         // No preferred slot available — pick any
-        return available.get(new Random().nextInt(available.size()));
+        Random rand = new Random(def.id.hashCode() + territoryId.hashCode() + available.size());
+        return available.get(rand.nextInt(available.size()));
     }
 
     // ── Getters ──────────────────────────────────────────────────────────
@@ -168,6 +168,9 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         if (dayAccumulator < 1f) return;
         dayAccumulator -= 1f;
 
+        // Check for destroyed bases before advancing state
+        checkForDestroyedBases();
+
         // Advance day counters on all presences and check for transitions
         for (SubfactionPresence presence : presences.values()) {
             presence.advanceDays(1f);
@@ -181,12 +184,57 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     private void checkStateTransitions(SubfactionPresence presence) {
         if (presence.getState() == PresenceState.SCOUTING) {
             Float threshold = establishmentThresholds.get(presence.getSubfactionId());
-            if (threshold == null) threshold = DAYS_TO_ESTABLISH_BASE;
+            if (threshold == null) threshold = 25f;
 
             if (presence.getDaysSinceStateChange() >= threshold) {
                 tryEstablishBase(presence);
             }
         }
+    }
+
+    /**
+     * Check all occupied base slots for destruction. If a base's station entity or market
+     * no longer exists, release the slot and revert the subfaction to SCOUTING.
+     */
+    private void checkForDestroyedBases() {
+        for (BaseSlot slot : baseSlots) {
+            if (!slot.isOccupied() || slot.getStationEntityId() == null) continue;
+
+            boolean destroyed = false;
+            SectorEntityToken station = findStationEntity(slot);
+            if (station == null) {
+                destroyed = true;
+            } else {
+                MarketAPI market = station.getMarket();
+                if (market == null || Global.getSector().getEconomy().getMarket(market.getId()) == null) {
+                    destroyed = true;
+                }
+            }
+
+            if (!destroyed) continue;
+
+            String subfactionId = slot.getOccupiedBySubfactionId();
+            log.info("TerritoryManager [" + territoryId + "]: base destroyed for " +
+                    subfactionId + " at " + slot.getLabel() + " — releasing slot, reverting to SCOUTING");
+            slot.release();
+
+            SubfactionPresence presence = presences.get(subfactionId);
+            if (presence != null && presence.getState() == PresenceState.ESTABLISHED) {
+                presence.setState(PresenceState.SCOUTING);
+            }
+        }
+    }
+
+    /**
+     * Find the station entity for a base slot by searching its star system.
+     */
+    private SectorEntityToken findStationEntity(BaseSlot slot) {
+        for (StarSystemAPI system : Global.getSector().getStarSystems()) {
+            if (system.getId().equals(slot.getSystemId())) {
+                return system.getEntityById(slot.getStationEntityId());
+            }
+        }
+        return null;
     }
 
     /**
@@ -285,7 +333,7 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         for (SubfactionDef def : shuffled) {
             String tid = territoryIds.get(tidx % territoryIds.size());
             TerritoryManager mgr = managers.get(tid);
-            mgr.addPresence(def.id, PresenceState.SCOUTING);
+            mgr.addPresence(def, PresenceState.SCOUTING);
             log.info("  Territory '" + tid + "': assigned " + def.name +
                     " [" + def.id + "] → SCOUTING (guaranteed)");
             tidx++;
@@ -305,7 +353,7 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
             int needed = target - mgr.getPresences().size();
             for (int i = 0; i < needed && i < candidates.size(); i++) {
                 SubfactionDef def = candidates.get(i);
-                mgr.addPresence(def.id, PresenceState.SCOUTING);
+                mgr.addPresence(def, PresenceState.SCOUTING);
                 log.info("  Territory '" + tid + "': assigned " + def.name +
                         " [" + def.id + "] → SCOUTING (top-up)");
             }

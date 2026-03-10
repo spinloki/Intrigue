@@ -21,7 +21,7 @@ import java.util.Random;
  */
 public class SubfactionDef implements Serializable {
 
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
     /** The faction ID as registered in factions.csv (e.g. "intrigue_hegemony_expeditionary"). */
     public final String id;
@@ -94,11 +94,22 @@ public class SubfactionDef implements Serializable {
     public final int patrolExtraMedium;
     public final int patrolExtraHeavy;
 
+    /**
+     * Days a subfaction must scout before establishing a base. Default: 25.
+     */
+    public final float daysToEstablishBase;
+
+    /**
+     * Random jitter (0 to this value) added to establishment time. Default: 10.
+     */
+    public final float daysToEstablishJitter;
+
     public SubfactionDef(String id, String parentFactionId, String name,
                          List<BaseSlotType> preferredSlotTypes,
                          Map<String, Float> stationIndustryWeights,
                          float fleetSizeMult, float fleetQualityMod,
-                         int patrolExtraLight, int patrolExtraMedium, int patrolExtraHeavy) {
+                         int patrolExtraLight, int patrolExtraMedium, int patrolExtraHeavy,
+                         float daysToEstablishBase, float daysToEstablishJitter) {
         this.id = id;
         this.parentFactionId = parentFactionId;
         this.name = name;
@@ -113,6 +124,8 @@ public class SubfactionDef implements Serializable {
         this.patrolExtraLight = patrolExtraLight;
         this.patrolExtraMedium = patrolExtraMedium;
         this.patrolExtraHeavy = patrolExtraHeavy;
+        this.daysToEstablishBase = daysToEstablishBase;
+        this.daysToEstablishJitter = daysToEstablishJitter;
     }
 
     /**

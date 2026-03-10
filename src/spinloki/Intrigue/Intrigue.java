@@ -3,7 +3,6 @@ package spinloki.Intrigue;
 import com.fs.starfarer.api.BaseModPlugin;
 import com.fs.starfarer.api.Global;
 import org.apache.log4j.Logger;
-import spinloki.Intrigue.config.IntrigueSettings;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
 import spinloki.Intrigue.territory.BaseSlot;
@@ -24,7 +23,6 @@ public class Intrigue extends BaseModPlugin {
     @Override
     public void onApplicationLoad() throws Exception {
         super.onApplicationLoad();
-        IntrigueSettings.loadSettingsFromJson();
     }
 
     @Override

@@ -96,9 +96,14 @@ public class SubfactionConfig {
         int patrolExtraMedium = json.optInt("patrolExtraMedium", 0);
         int patrolExtraHeavy = json.optInt("patrolExtraHeavy", 0);
 
+        // Establishment timing — how long this subfaction scouts before building a base.
+        float daysToEstablishBase = (float) json.optDouble("daysToEstablishBase", 25.0);
+        float daysToEstablishJitter = (float) json.optDouble("daysToEstablishJitter", 10.0);
+
         return new SubfactionDef(id, parentFactionId, name, preferredSlotTypes,
                 stationIndustryWeights, fleetSizeMult, fleetQualityMod,
-                patrolExtraLight, patrolExtraMedium, patrolExtraHeavy);
+                patrolExtraLight, patrolExtraMedium, patrolExtraHeavy,
+                daysToEstablishBase, daysToEstablishJitter);
     }
 }
 
