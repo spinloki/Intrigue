@@ -7,7 +7,9 @@ import org.lazywizard.console.BaseCommand;
 import org.lazywizard.console.Console;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
+import spinloki.Intrigue.territory.SubfactionPresence;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
+import spinloki.Intrigue.territory.TerritoryManager;
 
 import java.awt.*;
 import java.util.List;
@@ -100,6 +102,31 @@ public class IntrigueStatus implements BaseCommand {
                             .append(faction.getRelationshipLevel(fid)).append(" ");
                 }
                 sb.append("\n");
+            }
+        }
+
+        // --- Territory Presence (Managers) ---
+        List<TerritoryManager> managers = TerritoryManager.getManagers();
+        if (managers.isEmpty()) {
+            sb.append("\nNo territory managers found.\n");
+        } else {
+            sb.append("\n--- Territory Presence ---\n");
+            for (TerritoryManager mgr : managers) {
+                sb.append("  ").append(mgr.getTerritoryId())
+                        .append(" (").append(mgr.getSystemIds().size()).append(" systems)\n");
+
+                if (mgr.getPresences().isEmpty()) {
+                    sb.append("    (no subfactions)\n");
+                } else {
+                    for (SubfactionPresence presence : mgr.getPresences().values()) {
+                        FactionAPI sf = Global.getSector().getFaction(presence.getSubfactionId());
+                        String displayName = sf != null ? sf.getDisplayName() : presence.getSubfactionId();
+                        sb.append("    ").append(displayName)
+                                .append(" — ").append(presence.getState())
+                                .append(" (").append(String.format("%.1f", presence.getDaysSinceStateChange()))
+                                .append(" days)\n");
+                    }
+                }
             }
         }
 
