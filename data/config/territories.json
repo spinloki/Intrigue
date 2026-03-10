@@ -1,0 +1,183 @@
+{
+  "territories": [
+    {
+      "id": "intrigue_ashenveil",
+      "name": "Ashenveil",
+      "systems": [
+        {
+          "id": "intrigue_ashenveil_prime",
+          "name": "Ashenveil Prime",
+          "age": "AVERAGE",
+          "starType": "star_orange",
+          "starRadius": 700,
+          "coronaRadius": 500,
+          "planets": [
+            {
+              "id": "intrigue_ashenveil_crucible",
+              "name": "Crucible",
+              "type": "lava",
+              "orbitRadius": 2800,
+              "orbitDays": 100,
+              "orbitAngle": 45,
+              "radius": 180,
+              "conditions": ["very_hot", "tectonic_activity", "ore_rich", "rare_ore_rich"]
+            },
+            {
+              "id": "intrigue_ashenveil_duskreach",
+              "name": "Duskreach",
+              "type": "desert",
+              "orbitRadius": 4200,
+              "orbitDays": 160,
+              "orbitAngle": 180,
+              "radius": 150,
+              "conditions": ["hot", "arid", "ore_moderate", "organics_common"]
+            },
+            {
+              "id": "intrigue_ashenveil_grasp",
+              "name": "Grasp",
+              "type": "gas_giant",
+              "orbitRadius": 6800,
+              "orbitDays": 250,
+              "orbitAngle": 270,
+              "radius": 400,
+              "conditions": ["volatiles_abundant", "high_gravity"]
+            }
+          ],
+          "asteroidBelts": [
+            {
+              "orbitRadius": 3600,
+              "width": 200,
+              "count": 80,
+              "orbitDaysMin": 120,
+              "orbitDaysMax": 140,
+              "name": "Crucible Ring"
+            }
+          ],
+          "stableLocationCount": 2
+        },
+        {
+          "id": "intrigue_ashenveil_hollow",
+          "name": "Ashenveil Hollow",
+          "age": "OLD",
+          "starType": "star_red_dwarf",
+          "starRadius": 400,
+          "coronaRadius": 300,
+          "planets": [
+            {
+              "id": "intrigue_hollow_ember",
+              "name": "Ember",
+              "type": "barren",
+              "orbitRadius": 2400,
+              "orbitDays": 110,
+              "orbitAngle": 90,
+              "radius": 100,
+              "conditions": ["no_atmosphere", "low_gravity", "ore_sparse"]
+            },
+            {
+              "id": "intrigue_hollow_veil",
+              "name": "Veil",
+              "type": "frozen",
+              "orbitRadius": 4000,
+              "orbitDays": 180,
+              "orbitAngle": 200,
+              "radius": 130,
+              "conditions": ["very_cold", "dark", "volatiles_diffuse"]
+            }
+          ],
+          "asteroidBelts": [],
+          "stableLocationCount": 1
+        }
+      ]
+    },
+    {
+      "id": "intrigue_shardfields",
+      "name": "Shardfields",
+      "systems": [
+        {
+          "id": "intrigue_shardfields_nexus",
+          "name": "Shardfields Nexus",
+          "age": "YOUNG",
+          "starType": "star_blue_giant",
+          "starRadius": 1000,
+          "coronaRadius": 700,
+          "planets": [
+            {
+              "id": "intrigue_nexus_anvil",
+              "name": "Anvil",
+              "type": "barren-bombarded",
+              "orbitRadius": 3500,
+              "orbitDays": 130,
+              "orbitAngle": 60,
+              "radius": 140,
+              "conditions": ["very_hot", "no_atmosphere", "ore_ultrarich"]
+            },
+            {
+              "id": "intrigue_nexus_tempest",
+              "name": "Tempest",
+              "type": "terran-eccentric",
+              "orbitRadius": 5200,
+              "orbitDays": 200,
+              "orbitAngle": 150,
+              "radius": 170,
+              "conditions": ["habitable", "mild_climate", "farmland_adequate", "ore_moderate", "organics_trace"]
+            },
+            {
+              "id": "intrigue_nexus_titan",
+              "name": "Titan",
+              "type": "ice_giant",
+              "orbitRadius": 7500,
+              "orbitDays": 300,
+              "orbitAngle": 300,
+              "radius": 380,
+              "conditions": ["volatiles_plentiful", "high_gravity"]
+            }
+          ],
+          "asteroidBelts": [
+            {
+              "orbitRadius": 4400,
+              "width": 250,
+              "count": 100,
+              "orbitDaysMin": 150,
+              "orbitDaysMax": 170,
+              "name": "Shard Belt"
+            }
+          ],
+          "stableLocationCount": 3
+        },
+        {
+          "id": "intrigue_shardfields_fringe",
+          "name": "Shardfields Fringe",
+          "age": "AVERAGE",
+          "starType": "star_yellow",
+          "starRadius": 600,
+          "coronaRadius": 450,
+          "planets": [
+            {
+              "id": "intrigue_fringe_haven",
+              "name": "Haven",
+              "type": "terran",
+              "orbitRadius": 4000,
+              "orbitDays": 170,
+              "orbitAngle": 110,
+              "radius": 160,
+              "conditions": ["habitable", "mild_climate", "farmland_rich", "ore_moderate", "organics_common", "ruins_scattered"]
+            },
+            {
+              "id": "intrigue_fringe_drift",
+              "name": "Drift",
+              "type": "barren-desert",
+              "orbitRadius": 6000,
+              "orbitDays": 240,
+              "orbitAngle": 280,
+              "radius": 120,
+              "conditions": ["hot", "no_atmosphere", "ore_sparse"]
+            }
+          ],
+          "asteroidBelts": [],
+          "stableLocationCount": 2
+        }
+      ]
+    }
+  ]
+}
+
