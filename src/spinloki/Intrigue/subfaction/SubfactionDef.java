@@ -5,10 +5,15 @@ import spinloki.Intrigue.territory.BaseSlotType;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Immutable definition of a subfaction — pure identity data loaded from config.
@@ -158,6 +163,71 @@ public class SubfactionDef implements Serializable {
 
         // Shouldn't happen, but fallback
         return weights.keySet().iterator().next();
+    }
+
+    // ── JSON parsing (pure Java + org.json, no Starsector) ───────────────
+
+    /**
+     * Parse all subfaction definitions from a JSON root object.
+     * Pure logic — no Starsector API. Used by both game config loading and the test harness.
+     */
+    public static List<SubfactionDef> parseAll(JSONObject root) throws JSONException {
+        JSONArray array = root.getJSONArray("subfactions");
+        List<SubfactionDef> defs = new ArrayList<>();
+        for (int i = 0; i < array.length(); i++) {
+            defs.add(parseOne(array.getJSONObject(i)));
+        }
+        return defs;
+    }
+
+    /**
+     * Parse a single subfaction definition from a JSON object.
+     */
+    public static SubfactionDef parseOne(JSONObject json) throws JSONException {
+        String id = json.getString("id");
+        String parentFactionId = json.getString("parentFactionId");
+        String name = json.optString("name", id);
+
+        List<BaseSlotType> preferredSlotTypes = new ArrayList<>();
+        JSONArray slotsArray = json.optJSONArray("preferredSlotTypes");
+        if (slotsArray != null) {
+            for (int i = 0; i < slotsArray.length(); i++) {
+                try {
+                    preferredSlotTypes.add(BaseSlotType.valueOf(slotsArray.getString(i)));
+                } catch (IllegalArgumentException e) {
+                    System.err.println("SubfactionDef: Unknown slot type '" + slotsArray.getString(i) +
+                            "' for subfaction " + id + " — ignoring");
+                }
+            }
+        }
+
+        Map<String, Float> stationIndustryWeights = new LinkedHashMap<>();
+        if (json.has("stationIndustry")) {
+            Object raw = json.get("stationIndustry");
+            if (raw instanceof String) {
+                stationIndustryWeights.put((String) raw, 1f);
+            } else if (raw instanceof JSONObject) {
+                JSONObject obj = (JSONObject) raw;
+                Iterator<?> keys = obj.keys();
+                while (keys.hasNext()) {
+                    String key = (String) keys.next();
+                    stationIndustryWeights.put(key, (float) obj.optDouble(key, 0));
+                }
+            }
+        }
+
+        float fleetSizeMult = (float) json.optDouble("fleetSizeMult", 0.5);
+        float fleetQualityMod = (float) json.optDouble("fleetQualityMod", 0.0);
+        int patrolExtraLight = json.optInt("patrolExtraLight", 0);
+        int patrolExtraMedium = json.optInt("patrolExtraMedium", 0);
+        int patrolExtraHeavy = json.optInt("patrolExtraHeavy", 0);
+        float daysToEstablishBase = (float) json.optDouble("daysToEstablishBase", 25.0);
+        float daysToEstablishJitter = (float) json.optDouble("daysToEstablishJitter", 10.0);
+
+        return new SubfactionDef(id, parentFactionId, name, preferredSlotTypes,
+                stationIndustryWeights, fleetSizeMult, fleetQualityMod,
+                patrolExtraLight, patrolExtraMedium, patrolExtraHeavy,
+                daysToEstablishBase, daysToEstablishJitter);
     }
 
     @Override

@@ -14,31 +14,23 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * Per-territory brain that manages subfaction activity within a single territory.
+ * Per-territory Starsector adapter that bridges {@link TerritoryState} (pure logic)
+ * with the game world (entity spawning, destruction detection, script lifecycle).
  *
- * Implements {@link EveryFrameScript} so it ticks every frame (with day-based gating),
- * and {@link Serializable} so it persists across saves automatically when added via
- * {@code Global.getSector().addScript()}.
- *
- * <p>Each territory has exactly one TerritoryManager. It tracks which subfactions are
- * present and in what state ({@link SubfactionPresence}), manages base slots, and
- * drives state transitions.</p>
+ * <p>Implements {@link EveryFrameScript} for the daily tick and {@link Serializable}
+ * for save/load. All decision logic lives in the embedded {@link TerritoryState};
+ * this class only handles Starsector-specific side effects.</p>
  */
 public class TerritoryManager implements EveryFrameScript, Serializable {
 
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
     private static final Logger log = Global.getLogger(TerritoryManager.class);
 
     /** Persistent data key for the list of all TerritoryManagers. */
     public static final String PERSISTENT_KEY = "intrigue_territory_managers";
 
-    private final String territoryId;
-    private final List<String> systemIds;
-    private final Map<String, SubfactionPresence> presences; // subfactionId → presence
-    private final List<BaseSlot> baseSlots;
-
-    /** Per-subfaction randomized establishment thresholds, assigned on creation. */
-    private final Map<String, Float> establishmentThresholds;
+    /** The pure-logic state for this territory. All decision logic lives here. */
+    private final TerritoryState state;
 
     /** Accumulated fractional days since last day-tick processing. */
     private float dayAccumulator = 0f;
@@ -46,105 +38,38 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     /** Tracks whether we've logged the initial diagnostic message. */
     private transient boolean loggedInit = false;
 
-    public TerritoryManager(String territoryId, List<String> systemIds) {
-        this.territoryId = territoryId;
-        this.systemIds = new ArrayList<>(systemIds);
-        this.presences = new LinkedHashMap<>();
-        this.baseSlots = new ArrayList<>();
-        this.establishmentThresholds = new LinkedHashMap<>();
+    public TerritoryManager(TerritoryState state) {
+        this.state = state;
     }
 
-    // ── Presence management ──────────────────────────────────────────────
+    // ── Delegating accessors ─────────────────────────────────────────────
 
-    /**
-     * Add a subfaction presence to this territory.
-     */
-    public void addPresence(SubfactionDef def, PresenceState initialState) {
-        presences.put(def.id, new SubfactionPresence(def.id, initialState));
-        // Assign a randomized establishment threshold from subfaction config
-        Random rand = new Random(def.id.hashCode() + territoryId.hashCode());
-        float threshold = def.daysToEstablishBase + rand.nextFloat() * def.daysToEstablishJitter;
-        establishmentThresholds.put(def.id, threshold);
+    public TerritoryState getState() {
+        return state;
     }
-
-    /**
-     * Get a subfaction's presence, or null if not present.
-     */
-    public SubfactionPresence getPresence(String subfactionId) {
-        return presences.get(subfactionId);
-    }
-
-    /**
-     * Get all presences (unmodifiable view).
-     */
-    public Map<String, SubfactionPresence> getPresences() {
-        return Collections.unmodifiableMap(presences);
-    }
-
-    // ── Base slot management ─────────────────────────────────────────────
-
-    /**
-     * Set the pre-computed base slots for this territory.
-     * Called once after territory generation.
-     */
-    public void setBaseSlots(List<BaseSlot> slots) {
-        this.baseSlots.clear();
-        this.baseSlots.addAll(slots);
-    }
-
-    /**
-     * Get all base slots (unmodifiable view).
-     */
-    public List<BaseSlot> getBaseSlots() {
-        return Collections.unmodifiableList(baseSlots);
-    }
-
-    /**
-     * Pick an available base slot for a subfaction, respecting slot type preferences.
-     * Preferred types are tried first; falls back to any unoccupied slot.
-     *
-     * @param def The subfaction to pick a slot for.
-     * @return The picked slot, or null if none available.
-     */
-    public BaseSlot pickSlot(SubfactionDef def) {
-        List<BaseSlot> available = new ArrayList<>();
-        for (BaseSlot slot : baseSlots) {
-            if (!slot.isOccupied()) {
-                available.add(slot);
-            }
-        }
-
-        if (available.isEmpty()) return null;
-
-        // Try preferred slot types first
-        if (!def.preferredSlotTypes.isEmpty()) {
-            for (BaseSlotType preferred : def.preferredSlotTypes) {
-                List<BaseSlot> matching = new ArrayList<>();
-                for (BaseSlot slot : available) {
-                    if (slot.getSlotType() == preferred) {
-                        matching.add(slot);
-                    }
-                }
-                if (!matching.isEmpty()) {
-                    Random rand = new Random(def.id.hashCode() + territoryId.hashCode() + available.size());
-                    return matching.get(rand.nextInt(matching.size()));
-                }
-            }
-        }
-
-        // No preferred slot available — pick any
-        Random rand = new Random(def.id.hashCode() + territoryId.hashCode() + available.size());
-        return available.get(rand.nextInt(available.size()));
-    }
-
-    // ── Getters ──────────────────────────────────────────────────────────
 
     public String getTerritoryId() {
-        return territoryId;
+        return state.getTerritoryId();
     }
 
     public List<String> getSystemIds() {
-        return Collections.unmodifiableList(systemIds);
+        return state.getSystemIds();
+    }
+
+    public Map<String, SubfactionPresence> getPresences() {
+        return state.getPresences();
+    }
+
+    public SubfactionPresence getPresence(String subfactionId) {
+        return state.getPresence(subfactionId);
+    }
+
+    public List<BaseSlot> getBaseSlots() {
+        return state.getBaseSlots();
+    }
+
+    public void setBaseSlots(List<BaseSlot> slots) {
+        state.setBaseSlots(slots);
     }
 
     // ── EveryFrameScript ─────────────────────────────────────────────────
@@ -153,10 +78,10 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     public void advance(float amount) {
         // One-time diagnostic log after load/creation
         if (!loggedInit) {
-            log.info("TerritoryManager active: " + territoryId +
-                    " with " + presences.size() + " subfactions, " +
-                    baseSlots.size() + " base slots, " +
-                    systemIds.size() + " systems");
+            log.info("TerritoryManager active: " + state.getTerritoryId() +
+                    " with " + state.getPresences().size() + " subfactions, " +
+                    state.getBaseSlots().size() + " base slots, " +
+                    state.getSystemIds().size() + " systems");
             loggedInit = true;
         }
 
@@ -168,36 +93,49 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         if (dayAccumulator < 1f) return;
         dayAccumulator -= 1f;
 
-        // Check for destroyed bases before advancing state
+        // Check for destroyed bases (Starsector-specific: entity/market lookup)
         checkForDestroyedBases();
 
-        // Advance day counters on all presences and check for transitions
-        for (SubfactionPresence presence : presences.values()) {
-            presence.advanceDays(1f);
-            checkStateTransitions(presence);
-        }
-    }
+        // Advance state and execute any resulting side effects
+        Map<String, SubfactionDef> defMap = loadSubfactionDefMap();
+        if (defMap == null) return;
 
-    /**
-     * Check and execute state transitions for a subfaction presence.
-     */
-    private void checkStateTransitions(SubfactionPresence presence) {
-        if (presence.getState() == PresenceState.SCOUTING) {
-            Float threshold = establishmentThresholds.get(presence.getSubfactionId());
-            if (threshold == null) threshold = 25f;
-
-            if (presence.getDaysSinceStateChange() >= threshold) {
-                tryEstablishBase(presence);
+        List<TerritoryState.TickResult> results = state.advanceDay(defMap);
+        for (TerritoryState.TickResult result : results) {
+            if (result.shouldEstablishBase) {
+                executeEstablishment(result, defMap);
             }
         }
     }
 
     /**
-     * Check all occupied base slots for destruction. If a base's station entity or market
-     * no longer exists, release the slot and revert the subfaction to SCOUTING.
+     * Execute the game-world side effect of establishing a base.
+     */
+    private void executeEstablishment(TerritoryState.TickResult result,
+                                      Map<String, SubfactionDef> defMap) {
+        SubfactionDef def = defMap.get(result.subfactionId);
+        if (def == null) return;
+
+        SectorEntityToken station = BaseSpawner.spawnBase(result.slotToEstablish, def);
+        if (station == null) {
+            log.error("TerritoryManager [" + state.getTerritoryId() + "]: base spawning failed for " +
+                    def.name + " at " + result.slotToEstablish.getLabel());
+            return;
+        }
+
+        state.confirmEstablishment(result.subfactionId, result.slotToEstablish);
+        result.slotToEstablish.setStationEntityId(station.getId());
+
+        log.info("TerritoryManager [" + state.getTerritoryId() + "]: " + def.name +
+                " SCOUTING → ESTABLISHED at " + result.slotToEstablish.getLabel());
+    }
+
+    /**
+     * Check all occupied base slots for destroyed stations/markets.
+     * Starsector-specific: requires entity and economy lookups.
      */
     private void checkForDestroyedBases() {
-        for (BaseSlot slot : baseSlots) {
+        for (BaseSlot slot : state.getBaseSlots()) {
             if (!slot.isOccupied() || slot.getStationEntityId() == null) continue;
 
             boolean destroyed = false;
@@ -214,14 +152,9 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
             if (!destroyed) continue;
 
             String subfactionId = slot.getOccupiedBySubfactionId();
-            log.info("TerritoryManager [" + territoryId + "]: base destroyed for " +
+            log.info("TerritoryManager [" + state.getTerritoryId() + "]: base destroyed for " +
                     subfactionId + " at " + slot.getLabel() + " — releasing slot, reverting to SCOUTING");
-            slot.release();
-
-            SubfactionPresence presence = presences.get(subfactionId);
-            if (presence != null && presence.getState() == PresenceState.ESTABLISHED) {
-                presence.setState(PresenceState.SCOUTING);
-            }
+            state.handleBaseDestroyed(subfactionId, slot);
         }
     }
 
@@ -238,52 +171,21 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     }
 
     /**
-     * Attempt to transition a subfaction from SCOUTING to ESTABLISHED by spawning a base.
+     * Load subfaction defs from persistent data into a lookup map.
      */
     @SuppressWarnings("unchecked")
-    private void tryEstablishBase(SubfactionPresence presence) {
-        // Look up the SubfactionDef
+    private Map<String, SubfactionDef> loadSubfactionDefMap() {
         List<SubfactionDef> defs = (List<SubfactionDef>)
                 Global.getSector().getPersistentData().get(SubfactionSetup.PERSISTENT_KEY);
         if (defs == null) {
-            log.error("TerritoryManager: no subfaction defs in persistent data — cannot establish base");
-            return;
+            log.error("TerritoryManager: no subfaction defs in persistent data");
+            return null;
         }
-
-        SubfactionDef def = null;
+        Map<String, SubfactionDef> map = new LinkedHashMap<>();
         for (SubfactionDef d : defs) {
-            if (d.id.equals(presence.getSubfactionId())) {
-                def = d;
-                break;
-            }
+            map.put(d.id, d);
         }
-        if (def == null) {
-            log.error("TerritoryManager: subfaction def not found for '" +
-                    presence.getSubfactionId() + "' — cannot establish base");
-            return;
-        }
-
-        // Pick a slot
-        BaseSlot slot = pickSlot(def);
-        if (slot == null) {
-            log.warn("TerritoryManager [" + territoryId + "]: no available base slot for " +
-                    def.name + " — remaining in SCOUTING");
-            return;
-        }
-
-        // Spawn the base
-        SectorEntityToken station = BaseSpawner.spawnBase(slot, def);
-        if (station == null) {
-            log.error("TerritoryManager [" + territoryId + "]: base spawning failed for " +
-                    def.name + " at " + slot.getLabel());
-            return;
-        }
-
-        // Transition state
-        presence.setState(PresenceState.ESTABLISHED);
-        log.info("TerritoryManager [" + territoryId + "]: " + def.name +
-                " SCOUTING → ESTABLISHED at " + slot.getLabel() +
-                " after " + String.format("%.1f", presence.getDaysSinceStateChange()) + " days");
+        return map;
     }
 
     @Override
@@ -299,67 +201,30 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     // ── Factory ──────────────────────────────────────────────────────────
 
     /**
-     * Create TerritoryManagers for all territories and distribute subfactions across them.
-     *
-     * <p>Guarantees every subfaction appears in at least one territory before allowing
-     * duplicates. Each territory gets 2–3 subfactions. The algorithm:</p>
-     * <ol>
-     *   <li>Round-robin deal: shuffle subfactions, assign one per territory in order
-     *       until every subfaction has been placed at least once.</li>
-     *   <li>Top-up: each territory that has fewer than its target count (2–3) gets
-     *       additional random subfactions from the full pool (duplicates across
-     *       territories are fine at this stage).</li>
-     * </ol>
+     * Create TerritoryManagers for all territories by delegating distribution
+     * to {@link TerritoryState#distributeSubfactions}, then wrapping each state
+     * in a manager.
      */
     public static List<TerritoryManager> createForAllTerritories(
             Map<String, List<String>> territories,
             List<SubfactionDef> allDefs) {
 
-        Random rand = new Random();
-        List<String> territoryIds = new ArrayList<>(territories.keySet());
+        Map<String, TerritoryState> states = TerritoryState.distributeSubfactions(
+                territories, allDefs, new Random());
 
-        // Create empty managers and decide target counts (2–3 each)
-        Map<String, TerritoryManager> managers = new LinkedHashMap<>();
-        Map<String, Integer> targetCounts = new LinkedHashMap<>();
-        for (String tid : territoryIds) {
-            managers.put(tid, new TerritoryManager(tid, territories.get(tid)));
-            targetCounts.put(tid, 2 + rand.nextInt(2)); // 2 or 3
-        }
+        List<TerritoryManager> managers = new ArrayList<>();
+        for (Map.Entry<String, TerritoryState> entry : states.entrySet()) {
+            TerritoryState ts = entry.getValue();
+            TerritoryManager mgr = new TerritoryManager(ts);
+            managers.add(mgr);
 
-        // Phase 1: Round-robin deal — guarantee every subfaction appears at least once
-        List<SubfactionDef> shuffled = new ArrayList<>(allDefs);
-        Collections.shuffle(shuffled, rand);
-        int tidx = 0;
-        for (SubfactionDef def : shuffled) {
-            String tid = territoryIds.get(tidx % territoryIds.size());
-            TerritoryManager mgr = managers.get(tid);
-            mgr.addPresence(def, PresenceState.SCOUTING);
-            log.info("  Territory '" + tid + "': assigned " + def.name +
-                    " [" + def.id + "] → SCOUTING (guaranteed)");
-            tidx++;
-        }
-
-        // Phase 2: Top-up — fill each territory to its target count
-        for (String tid : territoryIds) {
-            TerritoryManager mgr = managers.get(tid);
-            int target = targetCounts.get(tid);
-            List<SubfactionDef> candidates = new ArrayList<>();
-            for (SubfactionDef def : allDefs) {
-                if (mgr.getPresence(def.id) == null) {
-                    candidates.add(def);
-                }
-            }
-            Collections.shuffle(candidates, rand);
-            int needed = target - mgr.getPresences().size();
-            for (int i = 0; i < needed && i < candidates.size(); i++) {
-                SubfactionDef def = candidates.get(i);
-                mgr.addPresence(def, PresenceState.SCOUTING);
-                log.info("  Territory '" + tid + "': assigned " + def.name +
-                        " [" + def.id + "] → SCOUTING (top-up)");
+            for (SubfactionPresence p : ts.getPresences().values()) {
+                log.info("  Territory '" + ts.getTerritoryId() + "': " +
+                        p.getSubfactionId() + " → " + p.getState());
             }
         }
 
-        return new ArrayList<>(managers.values());
+        return managers;
     }
 
     // ── Static lookup ────────────────────────────────────────────────────
@@ -377,4 +242,3 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         return Collections.emptyList();
     }
 }
-

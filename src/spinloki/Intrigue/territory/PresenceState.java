@@ -11,7 +11,9 @@ public enum PresenceState {
     SCOUTING,
     /** Has established a base and is actively operating. */
     ESTABLISHED,
-    /** Controls the territory — dominant force. */
+    /** Strengthened position — expanded operations, higher logistical burden. */
+    FORTIFIED,
+    /** Controls the territory — dominant force, draws coordinated opposition. */
     DOMINANT
 }
 
