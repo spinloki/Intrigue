@@ -7,10 +7,12 @@ import org.lazywizard.console.BaseCommand;
 import org.lazywizard.console.Console;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
+import spinloki.Intrigue.territory.ActiveOp;
 import spinloki.Intrigue.territory.BaseSlot;
 import spinloki.Intrigue.territory.SubfactionPresence;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
 import spinloki.Intrigue.territory.TerritoryManager;
+import spinloki.Intrigue.territory.TerritoryPatrolIntel;
 
 import java.awt.*;
 import java.util.List;
@@ -154,6 +156,29 @@ public class IntrigueStatus implements BaseCommand {
                             sb.append(" [OCCUPIED by ").append(ownerName).append("]");
                         } else {
                             sb.append(" [available]");
+                        }
+                        sb.append("\n");
+                    }
+                }
+
+                // Show active ops
+                List<ActiveOp> ops = mgr.getState().getActiveOps();
+                if (!ops.isEmpty()) {
+                    sb.append("    Active Ops:\n");
+                    for (ActiveOp op : ops) {
+                        FactionAPI opFaction = Global.getSector().getFaction(op.getSubfactionId());
+                        String opOwner = opFaction != null ? opFaction.getDisplayName() : op.getSubfactionId();
+                        sb.append("      ").append(op.getType())
+                                .append(" — ").append(opOwner)
+                                .append(" (").append(op.getOriginSystemId())
+                                .append(" → ").append(op.getTargetSystemId()).append(")")
+                                .append(" [").append(String.format("%.0f", op.getDaysRemaining())).append("d left")
+                                .append(", ").append(op.getOutcome()).append("]");
+
+                        // Show if fleet was destroyed (intel tracking)
+                        TerritoryPatrolIntel intel = mgr.getActiveIntels().get(op.getOpId());
+                        if (intel != null && intel.wasFleetDestroyed()) {
+                            sb.append(" FLEET DESTROYED");
                         }
                         sb.append("\n");
                     }

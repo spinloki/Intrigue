@@ -88,20 +88,44 @@ public class SimulationHarness {
         }
         System.out.println();
 
+        // Op tracking for summary
+        Map<String, int[]> opStats = new LinkedHashMap<>(); // territory → [launched, success, failure]
+
         // Run simulation
         for (int day = 1; day <= days; day++) {
             for (TerritoryState state : states.values()) {
                 List<TerritoryState.TickResult> results = state.advanceDay(defMap);
-                for (TerritoryState.TickResult result : results) {
-                    if (result.shouldEstablishBase) {
-                        // In the harness, we just confirm directly (no BaseSpawner)
-                        state.confirmEstablishment(result.subfactionId, result.slotToEstablish);
-                        result.slotToEstablish.setStationEntityId("sim_station_" + result.subfactionId);
+                String tid = state.getTerritoryId();
+                opStats.putIfAbsent(tid, new int[3]);
 
-                        SubfactionDef def = defMap.get(result.subfactionId);
-                        System.out.println("[Day " + day + "] " + state.getTerritoryId() +
-                                ": " + (def != null ? def.name : result.subfactionId) +
-                                " SCOUTING → ESTABLISHED at " + result.slotToEstablish.getLabel());
+                for (TerritoryState.TickResult result : results) {
+                    SubfactionDef def = defMap.get(result.subfactionId);
+                    String name = def != null ? def.name : result.subfactionId;
+
+                    switch (result.type) {
+                        case ESTABLISH_BASE:
+                            state.confirmEstablishment(result.subfactionId, result.slotToEstablish);
+                            result.slotToEstablish.setStationEntityId("sim_station_" + result.subfactionId);
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": " + name + " SCOUTING → ESTABLISHED at " +
+                                    result.slotToEstablish.getLabel());
+                            break;
+                        case OP_LAUNCHED:
+                            opStats.get(tid)[0]++;
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": " + name + " launched " + result.op.getType() +
+                                    " → " + result.op.getTargetSystemId());
+                            break;
+                        case OP_RESOLVED:
+                            if (result.op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                                opStats.get(tid)[1]++;
+                            } else {
+                                opStats.get(tid)[2]++;
+                            }
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": " + name + " " + result.op.getType() + " " +
+                                    result.op.getOutcome());
+                            break;
                     }
                 }
             }
@@ -128,6 +152,16 @@ public class SimulationHarness {
             }
             System.out.println(state.getTerritoryId() + ": " + counts +
                     ", slots: " + occupiedSlots + "/" + state.getBaseSlots().size());
+        }
+        System.out.println();
+        System.out.println("── Operations ─────────────────────────────────────────");
+        for (Map.Entry<String, int[]> entry : opStats.entrySet()) {
+            int[] s = entry.getValue();
+            int total = s[1] + s[2];
+            float rate = total > 0 ? (float) s[1] / total * 100f : 0f;
+            System.out.println(entry.getKey() + ": launched=" + s[0] +
+                    ", success=" + s[1] + ", failure=" + s[2] +
+                    String.format(" (%.0f%% success rate)", rate));
         }
     }
 

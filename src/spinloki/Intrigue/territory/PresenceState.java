@@ -14,6 +14,11 @@ public enum PresenceState {
     /** Strengthened position — expanded operations, higher logistical burden. */
     FORTIFIED,
     /** Controls the territory — dominant force, draws coordinated opposition. */
-    DOMINANT
+    DOMINANT;
+
+    /** Whether this state allows launching operations (patrols, raids, etc.). */
+    public boolean canLaunchOps() {
+        return this == ESTABLISHED || this == FORTIFIED || this == DOMINANT;
+    }
 }
 

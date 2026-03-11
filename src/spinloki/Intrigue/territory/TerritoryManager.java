@@ -35,6 +35,9 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     /** Accumulated fractional days since last day-tick processing. */
     private float dayAccumulator = 0f;
 
+    /** Active patrol intels keyed by op ID. */
+    private final Map<Long, TerritoryPatrolIntel> activeIntels = new LinkedHashMap<>();
+
     /** Tracks whether we've logged the initial diagnostic message. */
     private transient boolean loggedInit = false;
 
@@ -72,6 +75,10 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         state.setBaseSlots(slots);
     }
 
+    public Map<Long, TerritoryPatrolIntel> getActiveIntels() {
+        return Collections.unmodifiableMap(activeIntels);
+    }
+
     // ── EveryFrameScript ─────────────────────────────────────────────────
 
     @Override
@@ -102,8 +109,23 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
 
         List<TerritoryState.TickResult> results = state.advanceDay(defMap);
         for (TerritoryState.TickResult result : results) {
-            if (result.shouldEstablishBase) {
-                executeEstablishment(result, defMap);
+            switch (result.type) {
+                case ESTABLISH_BASE:
+                    executeEstablishment(result, defMap);
+                    break;
+                case OP_LAUNCHED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                            result.subfactionId + " launched " + result.op.getType() +
+                            " → " + result.op.getTargetSystemId());
+                    executeOpLaunched(result, defMap);
+                    break;
+                case OP_RESOLVED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                            result.subfactionId + " " + result.op.getType() + " " +
+                            result.op.getOutcome());
+                    cleanupResolvedOp(result);
+                    // TODO (3b): feed outcome into boons/problems
+                    break;
             }
         }
     }
@@ -128,6 +150,54 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
 
         log.info("TerritoryManager [" + state.getTerritoryId() + "]: " + def.name +
                 " SCOUTING → ESTABLISHED at " + result.slotToEstablish.getLabel());
+    }
+
+    /**
+     * Spawn a TerritoryPatrolIntel for a newly launched patrol op.
+     */
+    private void executeOpLaunched(TerritoryState.TickResult result,
+                                    Map<String, SubfactionDef> defMap) {
+        SubfactionDef def = defMap.get(result.subfactionId);
+        if (def == null) return;
+
+        BaseSlot slot = findOccupiedSlot(result.subfactionId);
+        if (slot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no occupied slot for " +
+                    result.subfactionId + ", skipping patrol intel");
+            return;
+        }
+
+        TerritoryPatrolIntel intel = new TerritoryPatrolIntel(
+                result.op, def, slot, state.getTerritoryId());
+        activeIntels.put(result.op.getOpId(), intel);
+    }
+
+    /**
+     * Clean up a resolved op's intel. If the fleet was destroyed in-game,
+     * override the probabilistic outcome to FAILURE.
+     */
+    private void cleanupResolvedOp(TerritoryState.TickResult result) {
+        TerritoryPatrolIntel intel = activeIntels.remove(result.op.getOpId());
+        if (intel == null) return;
+
+        // Player override: if the fleet was physically destroyed, force FAILURE
+        if (intel.wasFleetDestroyed() &&
+                result.op.getOutcome() != ActiveOp.OpOutcome.FAILURE) {
+            state.overrideOpOutcome(result.op.getOpId(), ActiveOp.OpOutcome.FAILURE);
+            log.info("TerritoryManager [" + state.getTerritoryId() + "]: fleet destroyed override → FAILURE");
+        }
+    }
+
+    /**
+     * Find the first occupied base slot for a given subfaction in this territory.
+     */
+    private BaseSlot findOccupiedSlot(String subfactionId) {
+        for (BaseSlot slot : state.getBaseSlots()) {
+            if (slot.isOccupied() && subfactionId.equals(slot.getOccupiedBySubfactionId())) {
+                return slot;
+            }
+        }
+        return null;
     }
 
     /**
