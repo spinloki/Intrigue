@@ -189,6 +189,101 @@
           "stableLocationCount": 2
         }
       ]
+    },
+    {
+      "id": "intrigue_cindervast",
+      "name": "Cindervast",
+      "location": { "x": 5000, "y": 15000 },
+      "age": "YOUNG",
+      "randomSystemCountMin": 2,
+      "randomSystemCountMax": 3,
+      "baseSlotCount": 5,
+      "pinnedBaseSlots": ["intrigue_caldera_slag"],
+      "systems": [
+        {
+          "id": "intrigue_cindervast_caldera",
+          "name": "Cindervast Caldera",
+          "age": "YOUNG",
+          "starType": "star_red_giant",
+          "starRadius": 1200,
+          "coronaRadius": 900,
+          "planets": [
+            {
+              "id": "intrigue_caldera_slag",
+              "name": "Slag",
+              "type": "lava",
+              "orbitRadius": 3200,
+              "orbitDays": 120,
+              "orbitAngle": 30,
+              "radius": 200,
+              "conditions": ["very_hot", "tectonic_activity", "ore_ultrarich", "rare_ore_rich"]
+            },
+            {
+              "id": "intrigue_caldera_furnace",
+              "name": "Furnace",
+              "type": "barren-bombarded",
+              "orbitRadius": 4800,
+              "orbitDays": 180,
+              "orbitAngle": 160,
+              "radius": 140,
+              "conditions": ["very_hot", "no_atmosphere", "ore_rich"]
+            },
+            {
+              "id": "intrigue_caldera_pyre",
+              "name": "Pyre",
+              "type": "gas_giant",
+              "orbitRadius": 7200,
+              "orbitDays": 280,
+              "orbitAngle": 250,
+              "radius": 420,
+              "conditions": ["volatiles_plentiful", "high_gravity"]
+            }
+          ],
+          "asteroidBelts": [
+            {
+              "orbitRadius": 4000,
+              "width": 300,
+              "count": 120,
+              "orbitDaysMin": 140,
+              "orbitDaysMax": 160,
+              "name": "Cinder Ring"
+            }
+          ],
+          "stableLocationCount": 2
+        },
+        {
+          "id": "intrigue_cindervast_smolder",
+          "name": "Cindervast Smolder",
+          "age": "AVERAGE",
+          "starType": "star_orange",
+          "starRadius": 600,
+          "coronaRadius": 400,
+          "planets": [
+            {
+              "id": "intrigue_smolder_ash",
+              "name": "Ash",
+              "type": "toxic",
+              "orbitRadius": 2800,
+              "orbitDays": 100,
+              "orbitAngle": 70,
+              "radius": 160,
+              "conditions": ["toxic_atmosphere", "ore_moderate", "organics_trace"]
+            },
+            {
+              "id": "intrigue_smolder_char",
+              "name": "Char",
+              "type": "barren",
+              "orbitRadius": 4500,
+              "orbitDays": 190,
+              "orbitAngle": 210,
+              "radius": 110,
+              "conditions": ["no_atmosphere", "low_gravity", "volatiles_diffuse"]
+            }
+          ],
+          "asteroidBelts": [],
+          "stableLocationCount": 1
+        }
+      ]
     }
   ]
 }

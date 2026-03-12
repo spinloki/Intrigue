@@ -3,6 +3,7 @@ package spinloki.Intrigue.test;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import spinloki.Intrigue.config.IntrigueSettings;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.territory.*;
 
@@ -57,6 +58,11 @@ public class SimulationHarness {
         String territoriesJson = Files.readString(projectDir.resolve("data/config/territories.json"));
         Map<String, List<String>> territories = parseTerritorySystemIds(new JSONObject(territoriesJson));
         System.out.println("Loaded " + territories.size() + " territories from territories.json");
+
+        String settingsJson = Files.readString(projectDir.resolve("data/config/intrigue_settings.json"));
+        IntrigueSettings settings = IntrigueSettings.parse(settingsJson);
+        System.out.println("Loaded settings: eval interval=" + settings.evaluationIntervalDays +
+                "d, threshold=" + settings.transitionThreshold);
         System.out.println();
 
         // ── Distribute subfactions ───────────────────────────────────────
@@ -90,17 +96,38 @@ public class SimulationHarness {
 
         // Op tracking for summary
         Map<String, int[]> opStats = new LinkedHashMap<>(); // territory → [launched, success, failure]
+        // Transition tracking
+        Map<String, int[]> transitionStats = new LinkedHashMap<>(); // territory → [promotions, demotions]
+        // Op type breakdown: territory → {opType → [launched, success, failure]}
+        Map<String, Map<String, int[]>> opTypeStats = new LinkedHashMap<>();
+        // Desertion tracking: territory → [total, quelled, spiraled]
+        Map<String, int[]> desertionStats = new LinkedHashMap<>();
+        // Per-(territory, subfaction) tracking
+        // Key: "territory|subfaction" → tracker
+        Map<String, SubfactionTracker> trackers = new LinkedHashMap<>();
+
+        // Initialize trackers
+        for (TerritoryState state : states.values()) {
+            for (SubfactionPresence p : state.getPresences().values()) {
+                String key = state.getTerritoryId() + "|" + p.getSubfactionId();
+                trackers.put(key, new SubfactionTracker(p.getState()));
+            }
+        }
 
         // Run simulation
         for (int day = 1; day <= days; day++) {
             for (TerritoryState state : states.values()) {
-                List<TerritoryState.TickResult> results = state.advanceDay(defMap);
+                List<TerritoryState.TickResult> results = state.advanceDay(defMap, settings);
                 String tid = state.getTerritoryId();
                 opStats.putIfAbsent(tid, new int[3]);
+                transitionStats.putIfAbsent(tid, new int[2]);
+                opTypeStats.putIfAbsent(tid, new LinkedHashMap<>());
+                desertionStats.putIfAbsent(tid, new int[3]);
 
                 for (TerritoryState.TickResult result : results) {
                     SubfactionDef def = defMap.get(result.subfactionId);
                     String name = def != null ? def.name : result.subfactionId;
+                    String tkey = tid + "|" + result.subfactionId;
 
                     switch (result.type) {
                         case ESTABLISH_BASE:
@@ -112,20 +139,67 @@ public class SimulationHarness {
                             break;
                         case OP_LAUNCHED:
                             opStats.get(tid)[0]++;
+                            opTypeStats.get(tid).computeIfAbsent(
+                                    result.op.getType().name(), k -> new int[3])[0]++;
+                            String extra = "";
+                            if (result.op.getType() == ActiveOp.OpType.RAID &&
+                                    result.op.getTargetSubfactionId() != null) {
+                                SubfactionDef targetDef = defMap.get(result.op.getTargetSubfactionId());
+                                extra = " (targeting " +
+                                        (targetDef != null ? targetDef.name : result.op.getTargetSubfactionId()) + ")";
+                            }
                             System.out.println("[Day " + day + "] " + tid +
                                     ": " + name + " launched " + result.op.getType() +
-                                    " → " + result.op.getTargetSystemId());
+                                    " → " + result.op.getTargetSystemId() + extra);
                             break;
                         case OP_RESOLVED:
                             if (result.op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
                                 opStats.get(tid)[1]++;
+                                opTypeStats.get(tid).computeIfAbsent(
+                                        result.op.getType().name(), k -> new int[3])[1]++;
                             } else {
                                 opStats.get(tid)[2]++;
+                                opTypeStats.get(tid).computeIfAbsent(
+                                        result.op.getType().name(), k -> new int[3])[2]++;
                             }
                             System.out.println("[Day " + day + "] " + tid +
                                     ": " + name + " " + result.op.getType() + " " +
                                     result.op.getOutcome());
+
+                            // Apply promotion/demotion from resolved transition ops
+                            handleResolvedOp(state, result.op, defMap, day, tid,
+                                    transitionStats.get(tid));
                             break;
+                        case PRESENCE_PROMOTED:
+                            transitionStats.get(tid)[0]++;
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": ★ " + name + " PROMOTED " + result.oldState + " → " + result.newState);
+                            break;
+                        case PRESENCE_DEMOTED:
+                            transitionStats.get(tid)[1]++;
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": ▼ " + name + " DEMOTED " + result.oldState + " → " + result.newState);
+                            break;
+                    }
+                }
+
+                // Daily tracking: state time, balance peaks, desertion counts
+                for (SubfactionPresence p : state.getPresences().values()) {
+                    String tk = tid + "|" + p.getSubfactionId();
+                    SubfactionTracker t = trackers.get(tk);
+                    if (t != null) {
+                        t.recordDay(p.getState(), p.getNetBalance());
+                        for (PresenceFactor f : p.getFactors()) {
+                            if (f.getType() == PresenceFactor.FactorType.DESERTION_QUELLED
+                                    && f.getDaysRemaining() == 44f) {
+                                desertionStats.get(tid)[0]++;
+                                desertionStats.get(tid)[1]++;
+                            } else if (f.getType() == PresenceFactor.FactorType.DESERTION_SPIRALED
+                                    && f.getDaysRemaining() == 44f) {
+                                desertionStats.get(tid)[0]++;
+                                desertionStats.get(tid)[2]++;
+                            }
+                        }
                     }
                 }
             }
@@ -136,6 +210,14 @@ public class SimulationHarness {
         System.out.println("── Final State (Day " + days + ") ────────────────────────────");
         for (TerritoryState state : states.values()) {
             System.out.print(state);
+            // Print factor ledgers
+            for (SubfactionPresence p : state.getPresences().values()) {
+                if (p.getFactors().isEmpty()) continue;
+                System.out.println("    Factors for " + p.getSubfactionId() + ":");
+                for (PresenceFactor f : p.getFactors()) {
+                    System.out.println("      " + f);
+                }
+            }
         }
 
         // Summary stats
@@ -162,6 +244,124 @@ public class SimulationHarness {
             System.out.println(entry.getKey() + ": launched=" + s[0] +
                     ", success=" + s[1] + ", failure=" + s[2] +
                     String.format(" (%.0f%% success rate)", rate));
+            // Op type breakdown
+            Map<String, int[]> typeMap = opTypeStats.get(entry.getKey());
+            if (typeMap != null) {
+                for (Map.Entry<String, int[]> te : typeMap.entrySet()) {
+                    int[] ts = te.getValue();
+                    System.out.println("    " + te.getKey() + ": " + ts[0] + " launched, " +
+                            ts[1] + " success, " + ts[2] + " failure");
+                }
+            }
+        }
+        System.out.println();
+        System.out.println("── Transitions ────────────────────────────────────────");
+        for (Map.Entry<String, int[]> entry : transitionStats.entrySet()) {
+            int[] t = entry.getValue();
+            System.out.println(entry.getKey() + ": promotions=" + t[0] + ", demotions=" + t[1]);
+        }
+        System.out.println();
+        System.out.println("── Desertions ─────────────────────────────────────────");
+        for (Map.Entry<String, int[]> entry : desertionStats.entrySet()) {
+            int[] d = entry.getValue();
+            System.out.println(entry.getKey() + ": resolved=" + d[0] +
+                    ", quelled=" + d[1] + ", spiraled=" + d[2]);
+        }
+        System.out.println();
+        System.out.println("── Subfaction Details ─────────────────────────────────");
+        for (TerritoryState state : states.values()) {
+            System.out.println(state.getTerritoryId() + ":");
+            for (SubfactionPresence p : state.getPresences().values()) {
+                String tkey = state.getTerritoryId() + "|" + p.getSubfactionId();
+                SubfactionTracker t = trackers.get(tkey);
+                if (t == null) continue;
+                SubfactionDef def = defMap.get(p.getSubfactionId());
+                String name = def != null ? def.name : p.getSubfactionId();
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("  ").append(name).append(": ");
+
+                // Time in state
+                sb.append("days{");
+                boolean first = true;
+                for (PresenceState ps : PresenceState.values()) {
+                    int d = t.daysInState.getOrDefault(ps, 0);
+                    if (d > 0) {
+                        if (!first) sb.append(", ");
+                        sb.append(ps.name().charAt(0)).append("=").append(d);
+                        first = false;
+                    }
+                }
+                sb.append("} ");
+
+                // Longest dominant streak
+                if (t.longestDominant > 0) {
+                    sb.append("longestDOM=").append(t.longestDominant).append("d ");
+                }
+
+                // Peak balance
+                sb.append("peak=[").append(t.minBalance).append(",+").append(t.maxBalance).append("] ");
+
+                // State changes
+                sb.append("changes=").append(t.stateChanges);
+
+                System.out.println(sb);
+            }
+        }
+    }
+
+    /**
+     * Handle a resolved transition op by applying the promotion or demotion.
+     */
+    private static void handleResolvedOp(TerritoryState state, ActiveOp op,
+                                          Map<String, SubfactionDef> defMap,
+                                          int day, String tid, int[] transitionStats) {
+        switch (op.getType()) {
+            case RAID: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS && op.getTargetSubfactionId() != null) {
+                    TerritoryState.TickResult demotion = state.applyDemotion(op.getTargetSubfactionId());
+                    if (demotion != null) {
+                        if (transitionStats != null) transitionStats[1]++;
+                        SubfactionDef targetDef = defMap.get(op.getTargetSubfactionId());
+                        String targetName = targetDef != null ? targetDef.name : op.getTargetSubfactionId();
+                        System.out.println("[Day " + day + "] " + tid +
+                                ": ▼ " + targetName + " DEMOTED (raided) " +
+                                demotion.oldState + " → " + demotion.newState);
+                    }
+                }
+                break;
+            }
+            case EVACUATION: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                    TerritoryState.TickResult demotion = state.applyDemotion(op.getSubfactionId());
+                    if (demotion != null) {
+                        if (transitionStats != null) transitionStats[1]++;
+                        SubfactionDef def = defMap.get(op.getSubfactionId());
+                        String name = def != null ? def.name : op.getSubfactionId();
+                        System.out.println("[Day " + day + "] " + tid +
+                                ": ▼ " + name + " DEMOTED (evacuation) " +
+                                demotion.oldState + " → " + demotion.newState);
+                    }
+                }
+                break;
+            }
+            case EXPANSION:
+            case SUPREMACY: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                    TerritoryState.TickResult promotion = state.applyPromotion(op.getSubfactionId());
+                    if (promotion != null) {
+                        if (transitionStats != null) transitionStats[0]++;
+                        SubfactionDef def = defMap.get(op.getSubfactionId());
+                        String name = def != null ? def.name : op.getSubfactionId();
+                        System.out.println("[Day " + day + "] " + tid +
+                                ": ★ " + name + " PROMOTED " +
+                                promotion.oldState + " → " + promotion.newState);
+                    }
+                }
+                break;
+            }
+            default:
+                break;
         }
     }
 
@@ -262,5 +462,41 @@ public class SimulationHarness {
         }
 
         return slots;
+    }
+
+    // ── Per-subfaction tracker ────────────────────────────────────────────
+
+    private static class SubfactionTracker {
+        final Map<PresenceState, Integer> daysInState = new LinkedHashMap<>();
+        int longestDominant = 0;
+        int currentDominantStreak = 0;
+        int maxBalance = 0;
+        int minBalance = 0;
+        int stateChanges = 0;
+        PresenceState lastState;
+
+        SubfactionTracker(PresenceState initial) {
+            this.lastState = initial;
+        }
+
+        void recordDay(PresenceState state, int netBalance) {
+            daysInState.merge(state, 1, Integer::sum);
+
+            if (state != lastState) {
+                stateChanges++;
+                lastState = state;
+                currentDominantStreak = 0;
+            }
+
+            if (state == PresenceState.DOMINANT) {
+                currentDominantStreak++;
+                if (currentDominantStreak > longestDominant) {
+                    longestDominant = currentDominantStreak;
+                }
+            }
+
+            if (netBalance > maxBalance) maxBalance = netBalance;
+            if (netBalance < minBalance) minBalance = netBalance;
+        }
     }
 }

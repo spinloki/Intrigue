@@ -46,11 +46,21 @@
 	"shipsWhenImporting":{
 		"tags":["base_bp", "pirate_bp", "pirates"],
 		"hulls":[
+			"vanguard_pirates",
+			"manticore_pirates",
+			"falcon_p",
+			"eradicator_pirates",
+			"atlas2",
 		],
 	},
 	"knownShips":{
 		"tags":["base_bp", "pirate_bp", "pirates"],
 		"hulls":[
+			"vanguard_pirates",
+			"manticore_pirates",
+			"falcon_p",
+			"eradicator_pirates",
+			"atlas2",
 		],
 	},
 	"priorityShips":{
@@ -59,8 +69,11 @@
 		],
 	},
 	"knownFighters":{
-		"tags":["base_bp", "pirates"],
+		"tags":["pirates"],
 		"fighters":[
+			"broadsword_wing",
+			"talon_wing",
+			"piranha_wing",
 		],
 	},
 	"priorityFighters":{
@@ -69,8 +82,12 @@
 		],
 	},
 	"knownWeapons":{
-		"tags":["base_bp", "pirates"],
+		"tags":["base_bp", "lowtech_bp", "midline_bp", "missile_bp", "hightech_bp", "pirates"],
 		"weapons":[
+			"irautolance",
+			"hurricane",
+			"squall",
+			"locust",
 		],
 	},
 	"priorityWeapons":{
@@ -79,8 +96,19 @@
 		],
 	},
 	"knownHullMods":{
-		"tags":["standard"],
+		"tags":["base_bp", "pirates", "standard"],
 		"hullMods":[
+			"advancedshieldemitter",
+			"turretgyros",
+			"armoredweapons",
+			"converted_hangar",
+			"magazines",
+			"missleracks",
+			"frontshield",
+			"heavyarmor",
+			"insulatedengine",
+			"fluxbreakers",
+			"shield_shunt",
 		],
 	},
 	"factionDoctrine":{

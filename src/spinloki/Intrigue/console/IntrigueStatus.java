@@ -9,10 +9,11 @@ import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
 import spinloki.Intrigue.territory.ActiveOp;
 import spinloki.Intrigue.territory.BaseSlot;
+import spinloki.Intrigue.territory.PresenceFactor;
 import spinloki.Intrigue.territory.SubfactionPresence;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
 import spinloki.Intrigue.territory.TerritoryManager;
-import spinloki.Intrigue.territory.TerritoryPatrolIntel;
+import spinloki.Intrigue.territory.TerritoryOpIntel;
 
 import java.awt.*;
 import java.util.List;
@@ -137,10 +138,29 @@ public class IntrigueStatus implements BaseCommand {
                     for (SubfactionPresence presence : mgr.getPresences().values()) {
                         FactionAPI sf = Global.getSector().getFaction(presence.getSubfactionId());
                         String displayName = sf != null ? sf.getDisplayName() : presence.getSubfactionId();
+                        int lev = presence.getTotalLeverage();
+                        int pres = presence.getTotalPressure();
+                        int net = presence.getNetBalance();
                         sb.append("    ").append(displayName)
                                 .append(" — ").append(presence.getState())
-                                .append(" (").append(String.format("%.1f", presence.getDaysSinceStateChange()))
-                                .append(" days)\n");
+                                .append(" (").append(String.format("%.0f", presence.getDaysSinceStateChange()))
+                                .append("d) L=").append(lev)
+                                .append(" P=").append(pres)
+                                .append(" net=").append(net)
+                                .append("\n");
+
+                        // Show active factors
+                        for (PresenceFactor f : presence.getFactors()) {
+                            String dur = f.isExpiring()
+                                    ? String.format("%.0fd", f.getDaysRemaining())
+                                    : "perm";
+                            sb.append("      ")
+                                    .append(f.getPolarity() == PresenceFactor.Polarity.LEVERAGE ? "+" : "-")
+                                    .append(f.getWeight()).append(" ")
+                                    .append(f.getType())
+                                    .append(" (").append(dur).append(")")
+                                    .append("\n");
+                        }
                     }
                 }
 
@@ -176,7 +196,7 @@ public class IntrigueStatus implements BaseCommand {
                                 .append(", ").append(op.getOutcome()).append("]");
 
                         // Show if fleet was destroyed (intel tracking)
-                        TerritoryPatrolIntel intel = mgr.getActiveIntels().get(op.getOpId());
+                        TerritoryOpIntel intel = mgr.getActiveIntels().get(op.getOpId());
                         if (intel != null && intel.wasFleetDestroyed()) {
                             sb.append(" FLEET DESTROYED");
                         }

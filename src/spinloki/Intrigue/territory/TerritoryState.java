@@ -1,5 +1,6 @@
 package spinloki.Intrigue.territory;
 
+import spinloki.Intrigue.config.IntrigueSettings;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 
 import java.io.Serializable;
@@ -8,9 +9,10 @@ import java.util.*;
 /**
  * Pure decision-logic state for a single territory. Zero Starsector imports.
  *
- * <p>Holds presence tracking, base slot occupancy, and establishment thresholds.
- * All mutation methods are deterministic given their inputs — no calls to
- * {@code Global.getSector()} or any game API.</p>
+ * <p>Holds presence tracking, base slot occupancy, establishment thresholds,
+ * factor ledgers, and the periodic evaluation cycle. All mutation methods are
+ * deterministic given their inputs — no calls to {@code Global.getSector()}
+ * or any game API.</p>
  *
  * <p>{@link TerritoryManager} holds one of these as a field, delegates decision
  * questions to it, then executes Starsector-specific side effects (spawning
@@ -19,23 +21,13 @@ import java.util.*;
  */
 public class TerritoryState implements Serializable {
 
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
     /**
      * Days between successive patrol launches for the same subfaction.
      * Short enough to allow overlapping patrols when max concurrency > 1.
      */
     private static final float PATROL_INTERVAL_DAYS = 10f;
-
-    /**
-     * Duration of a cross-system patrol in days.
-     * Accounts for: prep (3d) + outbound travel (~3-5d) +
-     * in-system patrol (25d) + return travel (~3-5d) + end (8d) ≈ 42-46d.
-     */
-    private static final float PATROL_DURATION_DAYS = 45f;
-
-    /** Base success chance for a patrol op. */
-    private static final float PATROL_SUCCESS_CHANCE = 0.75f;
 
     private final String territoryId;
     private final List<String> systemIds;
@@ -54,6 +46,9 @@ public class TerritoryState implements Serializable {
     /** Seeded RNG for op resolution. Deterministic given the territory ID. */
     private final Random opRand;
 
+    /** Days until next evaluation cycle fires. */
+    private float daysUntilEvaluation;
+
     public TerritoryState(String territoryId, List<String> systemIds) {
         this.territoryId = territoryId;
         this.systemIds = new ArrayList<>(systemIds);
@@ -63,6 +58,7 @@ public class TerritoryState implements Serializable {
         this.activeOps = new ArrayList<>();
         this.patrolCooldowns = new LinkedHashMap<>();
         this.opRand = new Random(territoryId.hashCode() * 31L);
+        this.daysUntilEvaluation = -1f; // set on first advanceDay with settings
     }
 
     // ── Presence management ──────────────────────────────────────────────
@@ -142,7 +138,11 @@ public class TerritoryState implements Serializable {
         /** A new operation was launched. */
         OP_LAUNCHED,
         /** An operation completed (success or failure). */
-        OP_RESOLVED
+        OP_RESOLVED,
+        /** A subfaction was promoted to a higher presence state. */
+        PRESENCE_PROMOTED,
+        /** A subfaction was demoted to a lower presence state. */
+        PRESENCE_DEMOTED
     }
 
     /**
@@ -161,6 +161,10 @@ public class TerritoryState implements Serializable {
         // For OP_LAUNCHED / OP_RESOLVED
         public final ActiveOp op;
 
+        // For PRESENCE_PROMOTED / PRESENCE_DEMOTED
+        public final PresenceState oldState;
+        public final PresenceState newState;
+
         /** ESTABLISH_BASE result. */
         public TickResult(String subfactionId, BaseSlot slotToEstablish) {
             this.type = TickResultType.ESTABLISH_BASE;
@@ -168,6 +172,8 @@ public class TerritoryState implements Serializable {
             this.shouldEstablishBase = true;
             this.slotToEstablish = slotToEstablish;
             this.op = null;
+            this.oldState = null;
+            this.newState = null;
         }
 
         /** OP_LAUNCHED or OP_RESOLVED result. */
@@ -177,6 +183,20 @@ public class TerritoryState implements Serializable {
             this.shouldEstablishBase = false;
             this.slotToEstablish = null;
             this.op = op;
+            this.oldState = null;
+            this.newState = null;
+        }
+
+        /** PRESENCE_PROMOTED or PRESENCE_DEMOTED result. */
+        public TickResult(TickResultType type, String subfactionId,
+                          PresenceState oldState, PresenceState newState) {
+            this.type = type;
+            this.subfactionId = subfactionId;
+            this.shouldEstablishBase = false;
+            this.slotToEstablish = null;
+            this.op = null;
+            this.oldState = oldState;
+            this.newState = newState;
         }
     }
 
@@ -186,21 +206,40 @@ public class TerritoryState implements Serializable {
      *
      * @param subfactionDefs Lookup map: subfaction ID → SubfactionDef. Needed for
      *                       slot preference during establishment.
+     * @param settings       Configuration for factor weights, eval interval, thresholds.
      * @return List of tick results describing required side effects.
      */
-    public List<TickResult> advanceDay(Map<String, SubfactionDef> subfactionDefs) {
+    public List<TickResult> advanceDay(Map<String, SubfactionDef> subfactionDefs,
+                                       IntrigueSettings settings) {
         List<TickResult> results = new ArrayList<>();
 
-        // 1. Advance presence timers and check for establishment
+        // Initialize evaluation timer on first tick
+        if (daysUntilEvaluation < 0f) {
+            daysUntilEvaluation = settings.evaluationIntervalDays;
+        }
+
+        // 1. Advance presence timers, tick factors, resolve expired desertions
         for (SubfactionPresence presence : presences.values()) {
             presence.advanceDays(1f);
+            List<PresenceFactor> expired = presence.tickFactors();
+
+            // Resolve expired DESERTION factors into QUELLED or SPIRALED
+            for (PresenceFactor ex : expired) {
+                if (ex.getType() == PresenceFactor.FactorType.DESERTION) {
+                    resolveDesertion(presence, settings);
+                }
+            }
+
             TickResult result = evaluateTransition(presence, subfactionDefs);
             if (result != null) {
                 results.add(result);
             }
         }
 
-        // 2. Resolve completed operations
+        // 2. Recalculate intrinsic and conditional factors (pure-Java evaluable)
+        recalculateFactors(settings);
+
+        // 3. Resolve completed operations and generate factors from results
         Iterator<ActiveOp> it = activeOps.iterator();
         while (it.hasNext()) {
             ActiveOp op = it.next();
@@ -210,11 +249,12 @@ public class TerritoryState implements Serializable {
                     op.resolve(opRand);
                 }
                 results.add(new TickResult(TickResultType.OP_RESOLVED, op.getSubfactionId(), op));
+                generateOpResultFactors(op, settings);
                 it.remove();
             }
         }
 
-        // 3. Launch new patrol ops for eligible subfactions
+        // 4. Launch new patrol ops for eligible subfactions
         for (SubfactionPresence presence : presences.values()) {
             if (!presence.getState().canLaunchOps()) continue;
 
@@ -238,16 +278,452 @@ public class TerritoryState implements Serializable {
             String targetSystem = pickPatrolTarget(sid, originSystem);
             if (targetSystem == null) continue;
 
+            float duration = settings.getOpDuration("PATROL", 45f);
+            float chance = settings.getOpSuccessChance("PATROL", 0.75f);
             ActiveOp op = new ActiveOp(
                     ActiveOp.OpType.PATROL, sid,
                     originSystem, targetSystem,
-                    PATROL_DURATION_DAYS, PATROL_SUCCESS_CHANCE);
+                    duration, chance);
             activeOps.add(op);
             patrolCooldowns.put(sid, PATROL_INTERVAL_DAYS);
             results.add(new TickResult(TickResultType.OP_LAUNCHED, sid, op));
         }
 
+        // 5. Roll for new desertion events
+        for (SubfactionPresence presence : presences.values()) {
+            if (!presence.getState().canLaunchOps()) continue;
+            float chance = settings.getDesertionChance(presence.getState());
+            if (chance > 0f && opRand.nextFloat() < chance) {
+                float duration = settings.desertionDurationDays;
+                presence.addFactor(new PresenceFactor(
+                        PresenceFactor.FactorType.DESERTION,
+                        PresenceFactor.Polarity.PRESSURE, 0,
+                        duration, null));
+            }
+        }
+
+        // 6. Evaluation cycle — check for promotion/demotion ops
+        daysUntilEvaluation -= 1f;
+        if (daysUntilEvaluation <= 0f) {
+            daysUntilEvaluation = settings.evaluationIntervalDays;
+            results.addAll(evaluateCycle(subfactionDefs, settings));
+        }
+
         return results;
+    }
+
+    /**
+     * Backward-compatible overload for callers that don't have settings yet.
+     * Uses the old hardcoded defaults. This should be phased out.
+     */
+    public List<TickResult> advanceDay(Map<String, SubfactionDef> subfactionDefs) {
+        return advanceDay(subfactionDefs, DEFAULT_SETTINGS);
+    }
+
+    /** Minimal default settings for backward compat. */
+    private static final IntrigueSettings DEFAULT_SETTINGS;
+    static {
+        try {
+            DEFAULT_SETTINGS = IntrigueSettings.parse(
+                    "{\"evaluationIntervalDays\":60,\"transitionThreshold\":3}");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse default settings", e);
+        }
+    }
+
+    // ── Factor management ────────────────────────────────────────────────
+
+    /**
+     * Resolve an expired DESERTION factor. The subfaction's current net balance
+     * determines whether the desertion is quelled (leverage boost) or spirals
+     * (pressure penalty). More net pressure → higher chance of spiraling.
+     */
+    private void resolveDesertion(SubfactionPresence presence, IntrigueSettings settings) {
+        int net = presence.getNetBalance();
+
+        // Base 50% chance to quell. Each point of net pressure shifts 10% toward spiraling,
+        // each point of net leverage shifts 10% toward quelling.
+        float quellChance = 0.5f + net * 0.1f;
+        quellChance = Math.max(0.1f, Math.min(0.9f, quellChance)); // clamp [10%, 90%]
+
+        if (opRand.nextFloat() < quellChance) {
+            // Quelled — generates leverage
+            IntrigueSettings.FactorDef def =
+                    settings.getFactorDef(PresenceFactor.FactorType.DESERTION_QUELLED);
+            if (def != null) {
+                presence.addFactor(new PresenceFactor(
+                        PresenceFactor.FactorType.DESERTION_QUELLED,
+                        def.polarity, def.getWeight(presence.getState()),
+                        def.durationDays, null));
+            }
+        } else {
+            // Spiraled — generates pressure
+            IntrigueSettings.FactorDef def =
+                    settings.getFactorDef(PresenceFactor.FactorType.DESERTION_SPIRALED);
+            if (def != null) {
+                presence.addFactor(new PresenceFactor(
+                        PresenceFactor.FactorType.DESERTION_SPIRALED,
+                        def.polarity, def.getWeight(presence.getState()),
+                        def.durationDays, null));
+            }
+        }
+    }
+
+    /**
+     * Recalculate intrinsic and conditional factors that can be evaluated in pure Java.
+     * Called every tick. Removes stale factors of these types, then re-adds current ones.
+     */
+    private void recalculateFactors(IntrigueSettings settings) {
+        for (SubfactionPresence presence : presences.values()) {
+            PresenceState state = presence.getState();
+            if (!state.canLaunchOps()) continue; // No factors for SCOUTING/NONE
+
+            // ── Intrinsic: Logistical Strain ──
+            presence.removeFactorsByType(PresenceFactor.FactorType.LOGISTICAL_STRAIN);
+            IntrigueSettings.FactorDef strainDef =
+                    settings.getFactorDef(PresenceFactor.FactorType.LOGISTICAL_STRAIN);
+            if (strainDef != null) {
+                int w = strainDef.getWeight(state);
+                if (w > 0) {
+                    presence.addFactor(new PresenceFactor(
+                            PresenceFactor.FactorType.LOGISTICAL_STRAIN,
+                            strainDef.polarity, w, null));
+                }
+            }
+
+            // ── Conditional: Hostile Presence ──
+            presence.removeFactorsByType(PresenceFactor.FactorType.HOSTILE_PRESENCE);
+            IntrigueSettings.FactorDef hostileDef =
+                    settings.getFactorDef(PresenceFactor.FactorType.HOSTILE_PRESENCE);
+            if (hostileDef != null) {
+                int perHostile = hostileDef.getWeight(state);
+                if (perHostile > 0) {
+                    int hostileCount = countOtherSubfactions(presence.getSubfactionId(), true);
+                    for (int i = 0; i < hostileCount; i++) {
+                        presence.addFactor(new PresenceFactor(
+                                PresenceFactor.FactorType.HOSTILE_PRESENCE,
+                                hostileDef.polarity, perHostile, null));
+                    }
+                }
+            }
+
+            // ── Conditional: Secure Comms (baseline leverage from having a base) ──
+            presence.removeFactorsByType(PresenceFactor.FactorType.SECURE_COMMS);
+            IntrigueSettings.FactorDef commsDef =
+                    settings.getFactorDef(PresenceFactor.FactorType.SECURE_COMMS);
+            if (commsDef != null) {
+                int w = commsDef.getWeight(state);
+                if (w > 0) {
+                    presence.addFactor(new PresenceFactor(
+                            PresenceFactor.FactorType.SECURE_COMMS,
+                            commsDef.polarity, w, null));
+                }
+            }
+
+            // ── Conditional: Neutral Presence (only affects DOMINANT) ──
+            presence.removeFactorsByType(PresenceFactor.FactorType.NEUTRAL_PRESENCE);
+            IntrigueSettings.FactorDef neutralDef =
+                    settings.getFactorDef(PresenceFactor.FactorType.NEUTRAL_PRESENCE);
+            if (neutralDef != null) {
+                int perNeutral = neutralDef.getWeight(state);
+                if (perNeutral > 0) {
+                    int neutralCount = countOtherSubfactions(presence.getSubfactionId(), false);
+                    for (int i = 0; i < neutralCount; i++) {
+                        presence.addFactor(new PresenceFactor(
+                                PresenceFactor.FactorType.NEUTRAL_PRESENCE,
+                                neutralDef.polarity, perNeutral, null));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Count other subfactions in this territory that are ESTABLISHED+.
+     * @param hostile If true, count all others (they're all potentially hostile).
+     *               If false, count only non-hostile (neutral).
+     *               For now, all other subfactions are treated as hostile in the
+     *               pure-Java layer. The Starsector layer can refine this using
+     *               actual faction relationships.
+     */
+    private int countOtherSubfactions(String excludeId, boolean hostile) {
+        int count = 0;
+        for (SubfactionPresence other : presences.values()) {
+            if (other.getSubfactionId().equals(excludeId)) continue;
+            if (!other.getState().canLaunchOps()) continue;
+            // In the pure-Java layer, treat all others as hostile for simplicity.
+            // The Starsector layer can distinguish hostile vs neutral.
+            if (hostile) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Generate leverage/pressure factors from a resolved operation.
+     */
+    private void generateOpResultFactors(ActiveOp op, IntrigueSettings settings) {
+        SubfactionPresence presence = presences.get(op.getSubfactionId());
+        if (presence == null) return;
+
+        switch (op.getType()) {
+            case PATROL: {
+                PresenceFactor.FactorType ftype = op.getOutcome() == ActiveOp.OpOutcome.SUCCESS
+                        ? PresenceFactor.FactorType.PATROL_SUCCESS
+                        : PresenceFactor.FactorType.PATROL_FAILURE;
+                IntrigueSettings.FactorDef def = settings.getFactorDef(ftype);
+                if (def != null) {
+                    presence.addFactor(new PresenceFactor(
+                            ftype, def.polarity, def.getWeight(presence.getState()),
+                            def.durationDays, null));
+                }
+                break;
+            }
+            case RAID: {
+                // Successful raid: the TARGET gets demoted (handled in evaluateCycle).
+                // Failed raid: the raiding subfaction gets a pressure factor.
+                if (op.getOutcome() == ActiveOp.OpOutcome.FAILURE) {
+                    IntrigueSettings.FactorDef def =
+                            settings.getFactorDef(PresenceFactor.FactorType.PATROL_FAILURE);
+                    if (def != null) {
+                        presence.addFactor(new PresenceFactor(
+                                PresenceFactor.FactorType.PATROL_FAILURE,
+                                def.polarity, def.getWeight(presence.getState()),
+                                def.durationDays, null));
+                    }
+                }
+                break;
+            }
+            case EVACUATION: {
+                // Successful evacuation: bonus leverage in demoted state (applied after demotion)
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                    IntrigueSettings.FactorDef def =
+                            settings.getFactorDef(PresenceFactor.FactorType.EVACUATION_BONUS);
+                    if (def != null) {
+                        presence.addFactor(new PresenceFactor(
+                                PresenceFactor.FactorType.EVACUATION_BONUS,
+                                def.polarity, def.getWeight(presence.getState()),
+                                def.durationDays, null));
+                    }
+                }
+                break;
+            }
+            case EXPANSION:
+            case SUPREMACY:
+                // Success/failure handled by the evaluation cycle via applyPromotion/applyDemotion
+                break;
+        }
+    }
+
+    // ── Evaluation cycle ─────────────────────────────────────────────────
+
+    /**
+     * Run the periodic evaluation cycle. Checks all subfactions for promotion/demotion
+     * eligibility and triggers ops or direct transitions.
+     *
+     * Returns up to one demotion and one promotion result per cycle.
+     */
+    private List<TickResult> evaluateCycle(Map<String, SubfactionDef> subfactionDefs,
+                                           IntrigueSettings settings) {
+        List<TickResult> results = new ArrayList<>();
+
+        String demotionCandidate = null;
+        int worstPressure = 0;
+        String promotionCandidate = null;
+        int bestLeverage = 0;
+
+        for (SubfactionPresence presence : presences.values()) {
+            if (!presence.getState().canLaunchOps()) continue;
+
+            int net = presence.getNetBalance();
+
+            // Demotion: net balance is negative, and magnitude exceeds threshold
+            if (net < 0 && (-net) >= settings.transitionThreshold) {
+                if ((-net) > worstPressure) {
+                    worstPressure = -net;
+                    demotionCandidate = presence.getSubfactionId();
+                }
+            }
+
+            // Promotion: net balance is positive, magnitude exceeds threshold, not already DOMINANT
+            if (net > 0 && net >= settings.transitionThreshold
+                    && presence.getState() != PresenceState.DOMINANT) {
+                if (net > bestLeverage) {
+                    bestLeverage = net;
+                    promotionCandidate = presence.getSubfactionId();
+                }
+            }
+        }
+
+        // Trigger demotion op
+        if (demotionCandidate != null) {
+            results.addAll(triggerDemotionOp(demotionCandidate, subfactionDefs, settings));
+        }
+
+        // Trigger promotion op
+        if (promotionCandidate != null) {
+            results.addAll(triggerPromotionOp(promotionCandidate, subfactionDefs, settings));
+        }
+
+        return results;
+    }
+
+    /**
+     * Trigger a demotion op for the given subfaction.
+     * If a hostile subfaction exists in-territory, it launches a RAID.
+     * Otherwise, the subfaction itself launches an EVACUATION.
+     */
+    private List<TickResult> triggerDemotionOp(String targetId,
+                                                Map<String, SubfactionDef> subfactionDefs,
+                                                IntrigueSettings settings) {
+        List<TickResult> results = new ArrayList<>();
+        SubfactionPresence target = presences.get(targetId);
+        if (target == null) return results;
+
+        String originSystem = findBaseSystem(targetId);
+        if (originSystem == null) return results;
+
+        // Find a hostile subfaction to launch a raid
+        String raider = findRaider(targetId);
+
+        if (raider != null) {
+            // Hostile raid: raider attacks the target
+            String raiderOrigin = findBaseSystem(raider);
+            if (raiderOrigin == null) raiderOrigin = originSystem;
+
+            float duration = settings.getOpDuration("RAID", 30f);
+            float chance = settings.getOpSuccessChance("RAID", 0.5f);
+            ActiveOp op = new ActiveOp(
+                    ActiveOp.OpType.RAID, raider,
+                    raiderOrigin, originSystem,
+                    duration, chance);
+            op.setTargetSubfactionId(targetId);
+            activeOps.add(op);
+            results.add(new TickResult(TickResultType.OP_LAUNCHED, raider, op));
+        } else {
+            // No hostile — voluntary evacuation
+            String targetSystem = pickPatrolTarget(targetId, originSystem);
+            if (targetSystem == null) targetSystem = originSystem;
+
+            float duration = settings.getOpDuration("EVACUATION", 20f);
+            float chance = settings.getOpSuccessChance("EVACUATION", 0.8f);
+            ActiveOp op = new ActiveOp(
+                    ActiveOp.OpType.EVACUATION, targetId,
+                    originSystem, targetSystem,
+                    duration, chance);
+            activeOps.add(op);
+            results.add(new TickResult(TickResultType.OP_LAUNCHED, targetId, op));
+        }
+
+        return results;
+    }
+
+    /**
+     * Trigger a promotion op for the given subfaction.
+     */
+    private List<TickResult> triggerPromotionOp(String subfactionId,
+                                                 Map<String, SubfactionDef> subfactionDefs,
+                                                 IntrigueSettings settings) {
+        List<TickResult> results = new ArrayList<>();
+        SubfactionPresence presence = presences.get(subfactionId);
+        if (presence == null) return results;
+
+        String originSystem = findBaseSystem(subfactionId);
+        if (originSystem == null) return results;
+
+        String targetSystem = pickPatrolTarget(subfactionId, originSystem);
+        if (targetSystem == null) targetSystem = originSystem;
+
+        ActiveOp.OpType opType;
+        String opTypeName;
+        if (presence.getState() == PresenceState.ESTABLISHED) {
+            opType = ActiveOp.OpType.EXPANSION;
+            opTypeName = "EXPANSION";
+        } else {
+            opType = ActiveOp.OpType.SUPREMACY;
+            opTypeName = "SUPREMACY";
+        }
+
+        float duration = settings.getOpDuration(opTypeName, 35f);
+        float chance = settings.getOpSuccessChance(opTypeName, 0.5f);
+        ActiveOp op = new ActiveOp(opType, subfactionId,
+                originSystem, targetSystem, duration, chance);
+        activeOps.add(op);
+        results.add(new TickResult(TickResultType.OP_LAUNCHED, subfactionId, op));
+
+        return results;
+    }
+
+    /** Find another ESTABLISHED+ subfaction to be the raider, or null. */
+    private String findRaider(String targetId) {
+        for (SubfactionPresence other : presences.values()) {
+            if (other.getSubfactionId().equals(targetId)) continue;
+            if (other.getState().canLaunchOps()) return other.getSubfactionId();
+        }
+        return null;
+    }
+
+    /**
+     * Apply a promotion transition to the given subfaction.
+     * Called when a promotion op (EXPANSION/SUPREMACY) succeeds.
+     *
+     * @return TickResult describing the promotion, or null if promotion not applicable.
+     */
+    public TickResult applyPromotion(String subfactionId) {
+        SubfactionPresence presence = presences.get(subfactionId);
+        if (presence == null) return null;
+
+        PresenceState oldState = presence.getState();
+        PresenceState newState = null;
+        switch (oldState) {
+            case ESTABLISHED: newState = PresenceState.FORTIFIED; break;
+            case FORTIFIED:   newState = PresenceState.DOMINANT; break;
+            default: return null;
+        }
+
+        presence.setState(newState);
+        return new TickResult(TickResultType.PRESENCE_PROMOTED, subfactionId, oldState, newState);
+    }
+
+    /**
+     * Apply a demotion transition to the given subfaction.
+     * Called when a demotion op (RAID/EVACUATION) resolves.
+     *
+     * @return TickResult describing the demotion, or null if demotion not applicable.
+     */
+    public TickResult applyDemotion(String subfactionId) {
+        SubfactionPresence presence = presences.get(subfactionId);
+        if (presence == null) return null;
+
+        PresenceState oldState = presence.getState();
+        PresenceState newState = null;
+        switch (oldState) {
+            case DOMINANT:    newState = PresenceState.FORTIFIED; break;
+            case FORTIFIED:   newState = PresenceState.ESTABLISHED; break;
+            case ESTABLISHED: newState = PresenceState.SCOUTING; break;
+            default: return null;
+        }
+
+        presence.setState(newState);
+
+        // If demoted to SCOUTING, lose the base
+        if (newState == PresenceState.SCOUTING) {
+            for (BaseSlot slot : baseSlots) {
+                if (slot.isOccupied() && subfactionId.equals(slot.getOccupiedBySubfactionId())) {
+                    slot.release();
+                    break;
+                }
+            }
+        }
+
+        return new TickResult(TickResultType.PRESENCE_DEMOTED, subfactionId, oldState, newState);
+    }
+
+    // ── Evaluation state ─────────────────────────────────────────────────
+
+    public float getDaysUntilEvaluation() {
+        return daysUntilEvaluation;
     }
 
     /**
@@ -406,7 +882,7 @@ public class TerritoryState implements Serializable {
         Map<String, Integer> targetCounts = new LinkedHashMap<>();
         for (String tid : territoryIds) {
             states.put(tid, new TerritoryState(tid, territories.get(tid)));
-            targetCounts.put(tid, 2 + rand.nextInt(2));
+            targetCounts.put(tid, 3 + rand.nextInt(2));
         }
 
         // Phase 1: Round-robin deal — guarantee every subfaction appears at least once

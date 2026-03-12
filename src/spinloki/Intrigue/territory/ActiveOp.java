@@ -16,15 +16,23 @@ public class ActiveOp implements Serializable {
 
     public enum OpType {
         /** Cross-system patrol: fleet travels to another system and returns. */
-        PATROL
+        PATROL,
+        /** Hostile subfaction raids a weakened rival to trigger demotion. */
+        RAID,
+        /** Voluntary pullback when no hostile subfaction is present. Soft landing. */
+        EVACUATION,
+        /** ESTABLISHED → FORTIFIED: secure additional infrastructure. */
+        EXPANSION,
+        /** FORTIFIED → DOMINANT: major fleet action to assert control. */
+        SUPREMACY
     }
 
     public enum OpOutcome {
         /** Operation still in progress. */
         PENDING,
-        /** Operation completed successfully (generates a boon). */
+        /** Operation completed successfully (generates leverage). */
         SUCCESS,
-        /** Operation failed (generates a problem). */
+        /** Operation failed (generates pressure). */
         FAILURE
     }
 
@@ -37,6 +45,9 @@ public class ActiveOp implements Serializable {
     private final String targetSystemId;
     private final float totalDays;
     private final float successChance;
+
+    /** For RAID ops: the subfaction being targeted. Null for other op types. */
+    private String targetSubfactionId;
 
     private float daysRemaining;
     private OpOutcome outcome = OpOutcome.PENDING;
@@ -84,6 +95,8 @@ public class ActiveOp implements Serializable {
     public float getSuccessChance() { return successChance; }
     public OpOutcome getOutcome() { return outcome; }
     public boolean isPending() { return outcome == OpOutcome.PENDING; }
+    public String getTargetSubfactionId() { return targetSubfactionId; }
+    public void setTargetSubfactionId(String id) { this.targetSubfactionId = id; }
 
     @Override
     public String toString() {

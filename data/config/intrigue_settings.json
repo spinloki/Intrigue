@@ -1,3 +1,112 @@
 {
+  "evaluationIntervalDays": 60,
+  "transitionThreshold": 2,
 
+  "factors": {
+    "LOGISTICAL_STRAIN": {
+      "polarity": "PRESSURE",
+      "weightsByState": {
+        "ESTABLISHED": 0,
+        "FORTIFIED": 1,
+        "DOMINANT": 4
+      }
+    },
+    "HOSTILE_PRESENCE": {
+      "polarity": "PRESSURE",
+      "weightsByState": {
+        "ESTABLISHED": 1,
+        "FORTIFIED": 1,
+        "DOMINANT": 2
+      }
+    },
+    "NEUTRAL_PRESENCE": {
+      "polarity": "PRESSURE",
+      "weightsByState": {
+        "DOMINANT": 1
+      }
+    },
+    "SECURE_COMMS": {
+      "polarity": "LEVERAGE",
+      "weightsByState": {
+        "ESTABLISHED": 2,
+        "FORTIFIED": 2,
+        "DOMINANT": 1
+      }
+    },
+    "STATION_CRIPPLED": {
+      "polarity": "PRESSURE",
+      "weight": 2
+    },
+    "PATROL_SUCCESS": {
+      "polarity": "LEVERAGE",
+      "weightsByState": {
+        "ESTABLISHED": 2,
+        "FORTIFIED": 2,
+        "DOMINANT": 1
+      },
+      "durationDays": 45
+    },
+    "PATROL_FAILURE": {
+      "polarity": "PRESSURE",
+      "weightsByState": {
+        "ESTABLISHED": 1,
+        "FORTIFIED": 1,
+        "DOMINANT": 2
+      },
+      "durationDays": 45
+    },
+    "STATION_RAIDED": {
+      "polarity": "PRESSURE",
+      "weight": 2,
+      "durationDays": 60
+    },
+    "DESERTION": {
+      "polarity": "PRESSURE",
+      "weight": 0,
+      "durationDays": 30
+    },
+    "DESERTION_QUELLED": {
+      "polarity": "LEVERAGE",
+      "weight": 2,
+      "durationDays": 45
+    },
+    "DESERTION_SPIRALED": {
+      "polarity": "PRESSURE",
+      "weight": 2,
+      "durationDays": 45
+    },
+    "PLAYER_MISSION": {
+      "polarity": "LEVERAGE",
+      "weight": 2,
+      "durationDays": 90
+    },
+    "EVACUATION_BONUS": {
+      "polarity": "LEVERAGE",
+      "weight": 2,
+      "durationDays": 60
+    }
+  },
+
+  "opDurations": {
+    "PATROL": 45,
+    "RAID": 30,
+    "EVACUATION": 20,
+    "EXPANSION": 35,
+    "SUPREMACY": 40
+  },
+
+  "opSuccessChances": {
+    "PATROL": 0.75,
+    "RAID": 0.5,
+    "EVACUATION": 0.8,
+    "EXPANSION": 0.6,
+    "SUPREMACY": 0.5
+  },
+
+  "desertionChances": {
+    "ESTABLISHED": 0.01,
+    "FORTIFIED": 0.025,
+    "DOMINANT": 0.05
+  },
+  "desertionDurationDays": 30
 }

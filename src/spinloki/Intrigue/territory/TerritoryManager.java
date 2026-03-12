@@ -5,8 +5,10 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
 import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
+import com.fs.starfarer.api.impl.campaign.ids.Entities;
 import com.fs.starfarer.api.util.Misc;
 import org.apache.log4j.Logger;
+import spinloki.Intrigue.config.IntrigueSettings;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
 
@@ -35,11 +37,14 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     /** Accumulated fractional days since last day-tick processing. */
     private float dayAccumulator = 0f;
 
-    /** Active patrol intels keyed by op ID. */
-    private final Map<Long, TerritoryPatrolIntel> activeIntels = new LinkedHashMap<>();
+    /** Active operation intels keyed by op ID. */
+    private final Map<Long, TerritoryOpIntel> activeIntels = new LinkedHashMap<>();
 
     /** Tracks whether we've logged the initial diagnostic message. */
     private transient boolean loggedInit = false;
+
+    /** Cached settings loaded from intrigue_settings.json. Transient — reloaded after save/load. */
+    private transient IntrigueSettings cachedSettings = null;
 
     public TerritoryManager(TerritoryState state) {
         this.state = state;
@@ -75,7 +80,7 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         state.setBaseSlots(slots);
     }
 
-    public Map<Long, TerritoryPatrolIntel> getActiveIntels() {
+    public Map<Long, TerritoryOpIntel> getActiveIntels() {
         return Collections.unmodifiableMap(activeIntels);
     }
 
@@ -103,11 +108,15 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         // Check for destroyed bases (Starsector-specific: entity/market lookup)
         checkForDestroyedBases();
 
+        // Inject Starsector-side conditional factors before advancing state
+        injectConditionalFactors();
+
         // Advance state and execute any resulting side effects
         Map<String, SubfactionDef> defMap = loadSubfactionDefMap();
         if (defMap == null) return;
 
-        List<TerritoryState.TickResult> results = state.advanceDay(defMap);
+        IntrigueSettings settings = getSettings();
+        List<TerritoryState.TickResult> results = state.advanceDay(defMap, settings);
         for (TerritoryState.TickResult result : results) {
             switch (result.type) {
                 case ESTABLISH_BASE:
@@ -124,7 +133,15 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
                             result.subfactionId + " " + result.op.getType() + " " +
                             result.op.getOutcome());
                     cleanupResolvedOp(result);
-                    // TODO (3b): feed outcome into boons/problems
+                    applyOpOutcome(result);
+                    break;
+                case PRESENCE_PROMOTED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                            result.subfactionId + " PROMOTED " + result.oldState + " → " + result.newState);
+                    break;
+                case PRESENCE_DEMOTED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                            result.subfactionId + " DEMOTED " + result.oldState + " → " + result.newState);
                     break;
             }
         }
@@ -153,7 +170,8 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
     }
 
     /**
-     * Spawn a TerritoryPatrolIntel for a newly launched patrol op.
+     * Spawn the appropriate intel for a newly launched operation.
+     * Dispatches to the correct intel subclass based on op type.
      */
     private void executeOpLaunched(TerritoryState.TickResult result,
                                     Map<String, SubfactionDef> defMap) {
@@ -163,13 +181,57 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         BaseSlot slot = findOccupiedSlot(result.subfactionId);
         if (slot == null) {
             log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no occupied slot for " +
-                    result.subfactionId + ", skipping patrol intel");
+                    result.subfactionId + ", skipping intel");
             return;
         }
 
-        TerritoryPatrolIntel intel = new TerritoryPatrolIntel(
-                result.op, def, slot, state.getTerritoryId());
-        activeIntels.put(result.op.getOpId(), intel);
+        TerritoryOpIntel intel = null;
+        switch (result.op.getType()) {
+            case PATROL:
+                intel = new TerritoryPatrolIntel(
+                        result.op, def, slot, state.getTerritoryId());
+                break;
+            case RAID:
+                intel = createRaidIntel(result, defMap, def, slot);
+                break;
+            case EXPANSION:
+            case SUPREMACY:
+                intel = new TerritoryReinforcementIntel(
+                        result.op, def, slot, state.getTerritoryId());
+                break;
+            case EVACUATION:
+                intel = new TerritoryEvacuationIntel(
+                        result.op, def, slot, state.getTerritoryId());
+                break;
+        }
+
+        if (intel != null) {
+            activeIntels.put(result.op.getOpId(), intel);
+        }
+    }
+
+    /**
+     * Create a raid intel. Requires finding the target subfaction's slot.
+     */
+    private TerritoryRaidIntel createRaidIntel(TerritoryState.TickResult result,
+                                                Map<String, SubfactionDef> defMap,
+                                                SubfactionDef raiderDef,
+                                                BaseSlot raiderSlot) {
+        String targetId = result.op.getTargetSubfactionId();
+        if (targetId == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: RAID op has no target subfaction");
+            return null;
+        }
+
+        BaseSlot targetSlot = findOccupiedSlot(targetId);
+        if (targetSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for raid target " + targetId);
+            return null;
+        }
+
+        SubfactionDef targetDef = defMap.get(targetId);
+        return new TerritoryRaidIntel(
+                result.op, raiderDef, raiderSlot, targetSlot, targetDef, state.getTerritoryId());
     }
 
     /**
@@ -177,7 +239,7 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
      * override the probabilistic outcome to FAILURE.
      */
     private void cleanupResolvedOp(TerritoryState.TickResult result) {
-        TerritoryPatrolIntel intel = activeIntels.remove(result.op.getOpId());
+        TerritoryOpIntel intel = activeIntels.remove(result.op.getOpId());
         if (intel == null) return;
 
         // Player override: if the fleet was physically destroyed, force FAILURE
@@ -186,6 +248,114 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
             state.overrideOpOutcome(result.op.getOpId(), ActiveOp.OpOutcome.FAILURE);
             log.info("TerritoryManager [" + state.getTerritoryId() + "]: fleet destroyed override → FAILURE");
         }
+    }
+
+    /**
+     * Apply promotion/demotion from a resolved transition op.
+     * Mirrors SimulationHarness.handleResolvedOp().
+     */
+    private void applyOpOutcome(TerritoryState.TickResult result) {
+        ActiveOp op = result.op;
+        switch (op.getType()) {
+            case RAID: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS && op.getTargetSubfactionId() != null) {
+                    TerritoryState.TickResult demotion = state.applyDemotion(op.getTargetSubfactionId());
+                    if (demotion != null) {
+                        log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                                op.getTargetSubfactionId() + " DEMOTED (raided) " +
+                                demotion.oldState + " → " + demotion.newState);
+                    }
+                }
+                break;
+            }
+            case EVACUATION: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                    TerritoryState.TickResult demotion = state.applyDemotion(op.getSubfactionId());
+                    if (demotion != null) {
+                        log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                                op.getSubfactionId() + " DEMOTED (evacuation) " +
+                                demotion.oldState + " → " + demotion.newState);
+                    }
+                }
+                break;
+            }
+            case EXPANSION:
+            case SUPREMACY: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                    TerritoryState.TickResult promotion = state.applyPromotion(op.getSubfactionId());
+                    if (promotion != null) {
+                        log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                                op.getSubfactionId() + " PROMOTED " +
+                                promotion.oldState + " → " + promotion.newState);
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Inject Starsector-side conditional factors that can't be evaluated in pure Java.
+     * Currently: SECURE_COMMS based on comm relay ownership in the subfaction's base system.
+     */
+    private void injectConditionalFactors() {
+        IntrigueSettings settings = getSettings();
+        Map<String, SubfactionDef> defMap = loadSubfactionDefMap();
+        if (defMap == null) return;
+
+        for (SubfactionPresence presence : state.getPresences().values()) {
+            if (!presence.getState().canLaunchOps()) continue;
+
+            String subfactionId = presence.getSubfactionId();
+
+            // ── SECURE_COMMS: does this subfaction's parent faction control a comm relay in their base system? ──
+            // Remove the pure-Java placeholder — we're taking ownership of this factor
+            presence.removeFactorsByType(PresenceFactor.FactorType.SECURE_COMMS);
+
+            BaseSlot slot = findOccupiedSlot(subfactionId);
+            if (slot == null) continue;
+
+            SubfactionDef def = defMap.get(subfactionId);
+            if (def == null) continue;
+
+            boolean controlsRelay = checkCommRelayControl(slot.getSystemId(), def.parentFactionId);
+            if (controlsRelay) {
+                IntrigueSettings.FactorDef commsDef =
+                        settings.getFactorDef(PresenceFactor.FactorType.SECURE_COMMS);
+                if (commsDef != null) {
+                    int w = commsDef.getWeight(presence.getState());
+                    if (w > 0) {
+                        presence.addFactor(new PresenceFactor(
+                                PresenceFactor.FactorType.SECURE_COMMS,
+                                commsDef.polarity, w, null));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if a faction controls a comm relay in the given star system.
+     * "Controls" = the comm relay entity's faction matches the given faction ID.
+     */
+    private boolean checkCommRelayControl(String systemId, String factionId) {
+        for (StarSystemAPI system : Global.getSector().getStarSystems()) {
+            if (!system.getId().equals(systemId)) continue;
+
+            for (SectorEntityToken entity : system.getAllEntities()) {
+                if (entity.getCustomEntityType() != null &&
+                        entity.getCustomEntityType().equals(Entities.COMM_RELAY)) {
+                    if (entity.getFaction() != null &&
+                            factionId.equals(entity.getFaction().getId())) {
+                        return true;
+                    }
+                }
+            }
+            break;
+        }
+        return false;
     }
 
     /**
@@ -256,6 +426,31 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
             map.put(d.id, d);
         }
         return map;
+    }
+
+    /**
+     * Load and cache IntrigueSettings from the mod's config JSON.
+     * Transient — reloaded after save/load on first access.
+     */
+    private IntrigueSettings getSettings() {
+        if (cachedSettings != null) return cachedSettings;
+        try {
+            org.json.JSONObject json = Global.getSettings()
+                    .loadJSON("data/config/intrigue_settings.json", "spinloki_intrigue");
+            cachedSettings = IntrigueSettings.parse(json.toString());
+            log.info("TerritoryManager: loaded intrigue_settings.json (threshold=" +
+                    cachedSettings.transitionThreshold + ", evalInterval=" +
+                    cachedSettings.evaluationIntervalDays + ")");
+        } catch (Exception e) {
+            log.error("TerritoryManager: failed to load intrigue_settings.json, using defaults", e);
+            try {
+                cachedSettings = IntrigueSettings.parse(
+                        "{\"evaluationIntervalDays\":60,\"transitionThreshold\":3}");
+            } catch (Exception e2) {
+                throw new RuntimeException("Failed to create default settings", e2);
+            }
+        }
+        return cachedSettings;
     }
 
     @Override

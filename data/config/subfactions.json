@@ -38,6 +38,48 @@
       },
       "fleetSizeMult": 0.5,
       "fleetQualityMod": 0.0
+    },
+    {
+      "id": "intrigue_diktat_fuel_company",
+      "parentFactionId": "sindrian_diktat",
+      "name": "Sindrian Fuel Company",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_mid",
+      "fleetSizeMult": 0.65,
+      "fleetQualityMod": 0.2
+    },
+    {
+      "id": "intrigue_persean_vanguard",
+      "parentFactionId": "persean",
+      "name": "Persean League Vanguard",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation",
+      "fleetSizeMult": 0.6,
+      "fleetQualityMod": 0.3
+    },
+    {
+      "id": "intrigue_path_zealots",
+      "parentFactionId": "luddic_path",
+      "name": "Path Zealots",
+      "preferredSlotTypes": ["ASTEROID_BELT"],
+      "stationIndustry": {
+        "orbitalstation": 6,
+        "orbitalstation_mid": 2
+      },
+      "fleetSizeMult": 0.8,
+      "fleetQualityMod": 0.0
+    },
+    {
+      "id": "intrigue_independents_frontier",
+      "parentFactionId": "independent",
+      "name": "Frontier Coalition",
+      "stationIndustry": {
+        "orbitalstation": 4,
+        "orbitalstation_mid": 4,
+        "orbitalstation_high": 1
+      },
+      "fleetSizeMult": 0.55,
+      "fleetQualityMod": 0.15
     }
   ]
 }
