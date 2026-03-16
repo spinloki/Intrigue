@@ -6,7 +6,7 @@
     "LOGISTICAL_STRAIN": {
       "polarity": "PRESSURE",
       "weightsByState": {
-        "ESTABLISHED": 0,
+        "ESTABLISHED": 1,
         "FORTIFIED": 1,
         "DOMINANT": 4
       }
@@ -14,7 +14,7 @@
     "HOSTILE_PRESENCE": {
       "polarity": "PRESSURE",
       "weightsByState": {
-        "ESTABLISHED": 0,
+        "ESTABLISHED": 1,
         "FORTIFIED": 1,
         "DOMINANT": 2
       }
@@ -47,6 +47,15 @@
       "durationDays": 45
     },
     "PATROL_FAILURE": {
+      "polarity": "PRESSURE",
+      "weightsByState": {
+        "ESTABLISHED": 1,
+        "FORTIFIED": 1,
+        "DOMINANT": 2
+      },
+      "durationDays": 45
+    },
+    "COMBAT_SETBACK": {
       "polarity": "PRESSURE",
       "weightsByState": {
         "ESTABLISHED": 1,
@@ -108,5 +117,63 @@
     "FORTIFIED": 0.025,
     "DOMINANT": 0.05
   },
-  "desertionDurationDays": 30
+  "desertionDurationDays": 30,
+
+  "desertion": {
+    "baseQuellChance": 0.5,
+    "netBalanceModifier": 0.1,
+    "minQuellChance": 0.1,
+    "maxQuellChance": 0.9
+  },
+
+  "timers": {
+    "patrolIntervalDays": 10,
+    "councilCooldownDays": 120,
+    "stagnationInvasionDays": 180,
+    "entanglementOpIntervalDays": 30
+  },
+
+  "arrival": {
+    "targetCount": 5,
+    "chancePerVacancy": 0.3
+  },
+
+  "entanglementTriggers": {
+    "hiredProtectionChance": 0.5,
+    "sharedEnemyPactChance": 0.3,
+    "retaliationBaseChance": 0.15,
+    "retaliationDominantChance": 0.40,
+    "proxySupportDailyChance": 0.01,
+    "hiredProtectionDurationDays": 75,
+    "retaliationDurationDays": 45,
+    "proxySupportDurationDays": 60,
+    "councilBreakdownWarDurationDays": 120,
+    "councilCatastropheWarDurationDays": 90,
+    "councilPactDurationDays": 90
+  },
+
+  "councilOutcomeWeights": {
+    "detenteBase": 0.05,
+    "detentePacificationMult": 0.30,
+    "selectivePactsBase": 0.10,
+    "selectivePactsPacificationMult": 0.20,
+    "breakdownBase": 0.15,
+    "breakdownDisruptionMult": 0.30,
+    "catastropheBase": 0.05,
+    "catastropheDisruptionMult": 0.15
+  },
+
+  "opInteractions": {
+    "warRaidPatrolDisruption": 0.5,
+    "protectionPatrolDefense": 0.7,
+    "armsShipmentBoost": 1.3
+  },
+
+  "hostility": {
+    "volatileDailyChance": 0.005,
+    "volatileMinDays": 90,
+    "volatileMaxDays": 180,
+    "hostileRelationValue": -0.75,
+    "neutralRelationValue": 0.0
+  }
 }

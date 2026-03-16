@@ -11,6 +11,7 @@ import org.apache.log4j.Logger;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 
 import java.util.*;
+import java.util.Map;
 
 /**
  * Creates a subfaction base station with a hidden market at a pre-computed {@link BaseSlot}.
@@ -187,6 +188,93 @@ public class BaseSpawner {
             }
         }
         return null;
+    }
+
+    // ── Station upgrade path ─────────────────────────────────────────────
+
+    /** Ordered upgrade path: orbitalstation → orbitalstation_mid → orbitalstation_high. */
+    private static final List<String> STATION_UPGRADE_PATH = List.of(
+            Industries.ORBITALSTATION, Industries.BATTLESTATION, Industries.STARFORTRESS);
+
+    /** Map from PresenceState to the station industry it should have. */
+    private static final Map<PresenceState, String> STATE_TO_STATION = Map.of(
+            PresenceState.ESTABLISHED, Industries.ORBITALSTATION,
+            PresenceState.FORTIFIED, Industries.BATTLESTATION,
+            PresenceState.DOMINANT, Industries.STARFORTRESS);
+
+    /**
+     * Upgrade or downgrade the station industry at a base slot's market to match
+     * the given presence state. Does nothing if the station is already the correct tier
+     * or if the market/entity can't be found.
+     *
+     * @param slot The base slot whose station should be changed.
+     * @param newState The target presence state (must be ESTABLISHED, FORTIFIED, or DOMINANT).
+     * @return true if the station industry was changed, false otherwise.
+     */
+    public static boolean setStationTier(BaseSlot slot, PresenceState newState) {
+        String targetIndustry = STATE_TO_STATION.get(newState);
+        if (targetIndustry == null) {
+            log.warn("BaseSpawner: no station tier mapping for state " + newState);
+            return false;
+        }
+
+        if (slot.getStationEntityId() == null) {
+            log.warn("BaseSpawner: slot " + slot.getSlotId() + " has no station entity");
+            return false;
+        }
+
+        SectorEntityToken station = findStationEntity(slot);
+        if (station == null) {
+            log.warn("BaseSpawner: station entity " + slot.getStationEntityId() + " not found");
+            return false;
+        }
+
+        MarketAPI market = station.getMarket();
+        if (market == null) {
+            log.warn("BaseSpawner: station entity has no market");
+            return false;
+        }
+
+        // Find and remove the current station industry
+        String currentStationId = null;
+        for (Industry ind : market.getIndustries()) {
+            if (ind.getSpec().hasTag(Industries.TAG_STATION)) {
+                currentStationId = ind.getId();
+                break;
+            }
+        }
+
+        if (targetIndustry.equals(currentStationId)) {
+            return false; // already correct tier
+        }
+
+        if (currentStationId != null) {
+            market.removeIndustry(currentStationId, null, false);
+        }
+
+        market.addIndustry(targetIndustry);
+        market.reapplyIndustries();
+
+        // Finish building immediately so the station is combat-ready
+        for (Industry ind : market.getIndustries()) {
+            if (ind.getSpec().hasTag(Industries.TAG_STATION)) {
+                ind.finishBuildingOrUpgrading();
+                break;
+            }
+        }
+
+        log.info("BaseSpawner: station at " + slot.getSlotId() + " changed from " +
+                currentStationId + " to " + targetIndustry);
+        return true;
+    }
+
+    /**
+     * Find the station entity for a base slot by searching its star system.
+     */
+    private static SectorEntityToken findStationEntity(BaseSlot slot) {
+        StarSystemAPI system = findSystemById(slot.getSystemId());
+        if (system == null) return null;
+        return system.getEntityById(slot.getStationEntityId());
     }
 }
 

@@ -46,6 +46,7 @@ public class PresenceFactor implements Serializable {
         // Expiring (triggered by events, count down over time)
         PATROL_SUCCESS,
         PATROL_FAILURE,
+        COMBAT_SETBACK,
         STATION_RAIDED,
         DESERTION,
         DESERTION_QUELLED,

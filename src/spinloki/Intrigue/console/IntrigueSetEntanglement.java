@@ -156,7 +156,7 @@ public class IntrigueSetEntanglement implements BaseCommandWithSuggestion {
         String nameB = displayName(subfactionB);
         String durStr = duration < 0 ? "condition-based" : (int) duration + " days";
 
-        if (result.type == TerritoryState.TickResultType.ENTANGLEMENT_CREATED) {
+        if (result.type() == TerritoryState.TickResultType.ENTANGLEMENT_CREATED) {
             Console.showMessage("Created " + type + " between " + nameA + " and " + nameB
                     + " in " + territoryId + " (" + durStr + ")");
         } else {

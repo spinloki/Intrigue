@@ -5,8 +5,6 @@ import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetFactoryV3;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetParamsV3;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.OptionalFleetData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
@@ -17,8 +15,6 @@ import org.apache.log4j.Logger;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Intel for an invasion operation triggered by stagnation. An external
@@ -30,7 +26,7 @@ import java.util.List;
  * together to the target base. This is a one-way deployment — no
  * return trip.</p>
  */
-public class TerritoryInvasionIntel extends TerritoryOpIntel {
+public class TerritoryInvasionIntel extends MultiFleetOpIntel {
 
     private static final Logger log = Global.getLogger(TerritoryInvasionIntel.class);
 
@@ -45,9 +41,6 @@ public class TerritoryInvasionIntel extends TerritoryOpIntel {
 
     private final String targetSubfactionId;
     private final String targetSubfactionName;
-
-    private final List<RouteData> allRoutes = new ArrayList<>();
-    private int fleetsDestroyed = 0;
 
     /**
      * @param op            The INVASION ActiveOp.
@@ -88,7 +81,8 @@ public class TerritoryInvasionIntel extends TerritoryOpIntel {
 
         // Create invasion fleet routes (staggered slightly)
         for (int i = 0; i < FLEET_COUNT; i++) {
-            RouteData invasionRoute = addManagedRoute(parentMarket, i);
+            RouteData invasionRoute = addManagedRoute(parentMarket, FleetTypes.TASK_FORCE,
+                    String.valueOf(i));
             float staggeredPrep = PREP_DAYS + (i * 2f);
             invasionRoute.addSegment(new RouteSegment(staggeredPrep, origin));
             invasionRoute.addSegment(new RouteSegment(travelDays, origin, targetStation));
@@ -97,38 +91,13 @@ public class TerritoryInvasionIntel extends TerritoryOpIntel {
             allRoutes.add(invasionRoute);
         }
 
-        if (!allRoutes.isEmpty()) {
-            route = allRoutes.get(0);
-        }
-
-        Global.getSector().addScript(this);
-        Global.getSector().getIntelManager().addIntel(this, true);
-        setImportant(true); // Invasions are notable events
+        initMultiFleet(true);
 
         log.info("TerritoryInvasionIntel: " + invaderDef.name + " invading " +
                 targetSubfactionName + " with " + FLEET_COUNT + " fleets");
     }
 
-    private RouteData addManagedRoute(MarketAPI market, int index) {
-        OptionalFleetData extra = new OptionalFleetData(market);
-        extra.factionId = subfactionId;
-        extra.fleetType = FleetTypes.TASK_FORCE;
-
-        return RouteManager.getInstance().addRoute(
-                "intrigue_invasion_" + opId + "_" + index,
-                market,
-                Misc.genRandomSeed(),
-                extra,
-                this
-        );
-    }
-
     // ── Route / fleet overrides ──────────────────────────────────────────
-
-    @Override
-    protected void buildRoute(RouteData route, SectorEntityToken origin, SectorEntityToken destination) {
-        // Not used — routes built in constructor
-    }
 
     @Override
     protected String getFleetType() {
@@ -187,44 +156,6 @@ public class TerritoryInvasionIntel extends TerritoryOpIntel {
         fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_PATROL_FLEET, true);
         fleet.getMemoryWithoutUpdate().set(MemFlags.FLEET_NO_MILITARY_RESPONSE, true);
         fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_AGGRESSIVE, true);
-    }
-
-    // ── Fleet destruction tracking ───────────────────────────────────────
-
-    @Override
-    public void reportFleetDespawnedToListener(CampaignFleetAPI fleet,
-                                                CampaignEventListener.FleetDespawnReason reason,
-                                                Object param) {
-        if (reason == CampaignEventListener.FleetDespawnReason.DESTROYED_BY_BATTLE) {
-            fleetsDestroyed++;
-            fleetDestroyed = true;
-            log.info("TerritoryInvasionIntel: invasion fleet destroyed (" +
-                    fleetsDestroyed + "/" + FLEET_COUNT + ")");
-        }
-    }
-
-    // ── Lifecycle overrides (multi-route) ────────────────────────────────
-
-    @Override
-    protected void advanceImpl(float amount) {
-        boolean allExpired = true;
-        for (RouteData r : allRoutes) {
-            if (!r.isExpired()) {
-                allExpired = false;
-                break;
-            }
-        }
-        if (allExpired && !allRoutes.isEmpty()) {
-            endAfterDelay();
-        }
-    }
-
-    @Override
-    protected void notifyEnded() {
-        for (RouteData r : allRoutes) {
-            RouteManager.getInstance().removeRoute(r);
-        }
-        Global.getSector().removeScript(this);
     }
 
     // ── Intel display ────────────────────────────────────────────────────

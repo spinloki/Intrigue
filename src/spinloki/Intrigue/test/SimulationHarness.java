@@ -129,102 +129,128 @@ public class SimulationHarness {
                 desertionStats.putIfAbsent(tid, new int[3]);
 
                 for (TerritoryState.TickResult result : results) {
-                    SubfactionDef def = defMap.get(result.subfactionId);
-                    String name = def != null ? def.name : result.subfactionId;
-                    String tkey = tid + "|" + result.subfactionId;
+                    SubfactionDef def = defMap.get(result.subfactionId());
+                    String name = def != null ? def.name : result.subfactionId();
+                    String tkey = tid + "|" + result.subfactionId();
 
-                    switch (result.type) {
-                        case ESTABLISH_BASE:
-                            state.confirmEstablishment(result.subfactionId, result.slotToEstablish);
-                            result.slotToEstablish.setStationEntityId("sim_station_" + result.subfactionId);
+                    switch (result.type()) {
+                        case ESTABLISH_BASE: {
+                            var est = (TerritoryState.TickResult.EstablishBase) result;
+                            state.confirmEstablishment(est.subfactionId(), est.slot());
+                            est.slot().setStationEntityId("sim_station_" + est.subfactionId());
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": " + name + " SCOUTING → ESTABLISHED at " +
-                                    result.slotToEstablish.getLabel());
+                                    ": " + name + " SCOUTING \u2192 ESTABLISHED at " +
+                                    est.slot().getLabel());
                             break;
-                        case OP_LAUNCHED:
+                        }
+                        case OP_LAUNCHED: {
+                            var launched = (TerritoryState.TickResult.OpLaunched) result;
                             opStats.get(tid)[0]++;
                             opTypeStats.get(tid).computeIfAbsent(
-                                    result.op.getType().name(), k -> new int[3])[0]++;
+                                    launched.op().getType().name(), k -> new int[3])[0]++;
                             String extra = "";
-                            if ((result.op.getType() == ActiveOp.OpType.RAID
-                                    || result.op.getType() == ActiveOp.OpType.WAR_RAID
-                                    || result.op.getType() == ActiveOp.OpType.JOINT_STRIKE
-                                    || result.op.getType() == ActiveOp.OpType.INVASION)
-                                    && result.op.getTargetSubfactionId() != null) {
-                                SubfactionDef targetDef = defMap.get(result.op.getTargetSubfactionId());
+                            if ((launched.op().getType() == ActiveOp.OpType.RAID
+                                    || launched.op().getType() == ActiveOp.OpType.WAR_RAID
+                                    || launched.op().getType() == ActiveOp.OpType.JOINT_STRIKE
+                                    || launched.op().getType() == ActiveOp.OpType.INVASION)
+                                    && launched.op().getTargetSubfactionId() != null) {
+                                SubfactionDef targetDef = defMap.get(launched.op().getTargetSubfactionId());
                                 extra = " (targeting " +
-                                        (targetDef != null ? targetDef.name : result.op.getTargetSubfactionId()) + ")";
-                            } else if (result.op.getType() == ActiveOp.OpType.ARMS_SHIPMENT
-                                    && result.op.getTargetSubfactionId() != null) {
-                                SubfactionDef recipientDef = defMap.get(result.op.getTargetSubfactionId());
+                                        (targetDef != null ? targetDef.name : launched.op().getTargetSubfactionId()) + ")";
+                            } else if (launched.op().getType() == ActiveOp.OpType.ARMS_SHIPMENT
+                                    && launched.op().getTargetSubfactionId() != null) {
+                                SubfactionDef recipientDef = defMap.get(launched.op().getTargetSubfactionId());
                                 extra = " (supplying " +
-                                        (recipientDef != null ? recipientDef.name : result.op.getTargetSubfactionId()) + ")";
+                                        (recipientDef != null ? recipientDef.name : launched.op().getTargetSubfactionId()) + ")";
                             }
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": " + name + " launched " + result.op.getType() +
-                                    " → " + result.op.getTargetSystemId() + extra);
+                                    ": " + name + " launched " + launched.op().getType() +
+                                    " → " + launched.op().getTargetSystemId() + extra);
                             break;
-                        case OP_RESOLVED:
-                            if (result.op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
+                        }
+                        case OP_RESOLVED: {
+                            var resolved = (TerritoryState.TickResult.OpResolved) result;
+                            if (resolved.op().getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
                                 opStats.get(tid)[1]++;
                                 opTypeStats.get(tid).computeIfAbsent(
-                                        result.op.getType().name(), k -> new int[3])[1]++;
+                                        resolved.op().getType().name(), k -> new int[3])[1]++;
                             } else {
                                 opStats.get(tid)[2]++;
                                 opTypeStats.get(tid).computeIfAbsent(
-                                        result.op.getType().name(), k -> new int[3])[2]++;
+                                        resolved.op().getType().name(), k -> new int[3])[2]++;
                             }
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": " + name + " " + result.op.getType() + " " +
-                                    result.op.getOutcome());
+                                    ": " + name + " " + resolved.op().getType() + " " +
+                                    resolved.op().getOutcome());
 
                             // Apply promotion/demotion from resolved transition ops
-                            handleResolvedOp(state, result.op, defMap, day, tid,
+                            handleResolvedOp(state, resolved.op(), defMap, day, tid,
                                     transitionStats.get(tid));
                             break;
-                        case PRESENCE_PROMOTED:
+                        }
+                        case PRESENCE_PROMOTED: {
+                            var promoted = (TerritoryState.TickResult.PresencePromoted) result;
                             transitionStats.get(tid)[0]++;
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": ★ " + name + " PROMOTED " + result.oldState + " → " + result.newState);
+                                    ": ★ " + name + " PROMOTED " + promoted.oldState() + " → " + promoted.newState());
                             break;
-                        case PRESENCE_DEMOTED:
+                        }
+                        case PRESENCE_DEMOTED: {
+                            var demoted = (TerritoryState.TickResult.PresenceDemoted) result;
                             transitionStats.get(tid)[1]++;
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": ▼ " + name + " DEMOTED " + result.oldState + " → " + result.newState);
+                                    ": ▼ " + name + " DEMOTED " + demoted.oldState() + " → " + demoted.newState());
                             break;
-                        case ENTANGLEMENT_CREATED:
+                        }
+                        case ENTANGLEMENT_CREATED: {
+                            var created = (TerritoryState.TickResult.EntanglementCreated) result;
                             entanglementStats.computeIfAbsent(tid, k -> new int[3])[0]++;
                             entanglementTypeStats.computeIfAbsent(tid, k -> new LinkedHashMap<>())
-                                    .merge(result.entanglement.getType().name(), 1, Integer::sum);
+                                    .merge(created.entanglement().getType().name(), 1, Integer::sum);
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": ⚡ ENTANGLEMENT CREATED: " + result.entanglement);
+                                    ": ⚡ ENTANGLEMENT CREATED: " + created.entanglement());
                             break;
-                        case ENTANGLEMENT_EXPIRED:
+                        }
+                        case ENTANGLEMENT_EXPIRED: {
+                            var expired = (TerritoryState.TickResult.EntanglementExpired) result;
                             entanglementStats.computeIfAbsent(tid, k -> new int[3])[1]++;
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": ○ ENTANGLEMENT EXPIRED: " + result.entanglement);
+                                    ": ○ ENTANGLEMENT EXPIRED: " + expired.entanglement());
                             break;
-                        case ENTANGLEMENT_REPLACED:
+                        }
+                        case ENTANGLEMENT_REPLACED: {
+                            var replaced = (TerritoryState.TickResult.EntanglementReplaced) result;
                             entanglementStats.computeIfAbsent(tid, k -> new int[3])[2]++;
                             entanglementTypeStats.computeIfAbsent(tid, k -> new LinkedHashMap<>())
-                                    .merge(result.entanglement.getType().name(), 1, Integer::sum);
+                                    .merge(replaced.newEntanglement().getType().name(), 1, Integer::sum);
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": ↔ ENTANGLEMENT REPLACED: " + result.replacedEntanglement
-                                    + " → " + result.entanglement);
+                                    ": ↔ ENTANGLEMENT REPLACED: " + replaced.replaced()
+                                    + " → " + replaced.newEntanglement());
                             break;
-                        case HOSTILITIES_STARTED:
+                        }
+                        case HOSTILITIES_STARTED: {
+                            var started = (TerritoryState.TickResult.HostilitiesStarted) result;
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": 🔥 HOSTILITIES STARTED: " + result.parentPair);
+                                    ": 🔥 HOSTILITIES STARTED: " + started.parentPair());
                             break;
-                        case HOSTILITIES_ENDED:
+                        }
+                        case HOSTILITIES_ENDED: {
+                            var ended = (TerritoryState.TickResult.HostilitiesEnded) result;
                             System.out.println("[Day " + day + "] " + tid +
-                                    ": 🕊 HOSTILITIES ENDED: " + result.parentPair);
+                                    ": 🕊 HOSTILITIES ENDED: " + ended.parentPair());
                             break;
+                        }
                         case SUBFACTION_EVICTED:
-                            SubfactionDef evictedDef = defMap.get(result.subfactionId);
-                            String evictedName = evictedDef != null ? evictedDef.name : result.subfactionId;
+                            SubfactionDef evictedDef = defMap.get(result.subfactionId());
+                            String evictedName = evictedDef != null ? evictedDef.name : result.subfactionId();
                             System.out.println("[Day " + day + "] " + tid +
                                     ": \u2620 " + evictedName + " EVICTED from territory");
+                            break;
+                        case SUBFACTION_ARRIVED:
+                            SubfactionDef arrivedDef = defMap.get(result.subfactionId());
+                            String arrivedName = arrivedDef != null ? arrivedDef.name : result.subfactionId();
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": \u2708 " + arrivedName + " ARRIVED in territory (SCOUTING)");
                             break;
                     }
                 }
@@ -388,19 +414,19 @@ public class SimulationHarness {
         switch (op.getType()) {
             case RAID: {
                 if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS && op.getTargetSubfactionId() != null) {
-                    TerritoryState.TickResult demotion = state.applyDemotion(op.getTargetSubfactionId());
+                    TerritoryState.TickResult.PresenceDemoted demotion = state.applyDemotion(op.getTargetSubfactionId());
                     if (demotion != null) {
                         if (transitionStats != null) transitionStats[1]++;
                         SubfactionDef targetDef = defMap.get(op.getTargetSubfactionId());
                         String targetName = targetDef != null ? targetDef.name : op.getTargetSubfactionId();
-                        if (demotion.newState == PresenceState.NONE) {
+                        if (demotion.newState() == PresenceState.NONE) {
                             System.out.println("[Day " + day + "] " + tid +
                                     ": \u2620 " + targetName + " EVICTED (raided out) " +
-                                    demotion.oldState + " \u2192 NONE");
+                                    demotion.oldState() + " \u2192 NONE");
                         } else {
                             System.out.println("[Day " + day + "] " + tid +
                                     ": \u25BC " + targetName + " DEMOTED (raided) " +
-                                    demotion.oldState + " \u2192 " + demotion.newState);
+                                    demotion.oldState() + " \u2192 " + demotion.newState());
                         }
                     }
                 }
@@ -408,14 +434,14 @@ public class SimulationHarness {
             }
             case EVACUATION: {
                 if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
-                    TerritoryState.TickResult demotion = state.applyDemotion(op.getSubfactionId());
+                    TerritoryState.TickResult.PresenceDemoted demotion = state.applyDemotion(op.getSubfactionId());
                     if (demotion != null) {
                         if (transitionStats != null) transitionStats[1]++;
                         SubfactionDef def = defMap.get(op.getSubfactionId());
                         String name = def != null ? def.name : op.getSubfactionId();
                         System.out.println("[Day " + day + "] " + tid +
                                 ": ▼ " + name + " DEMOTED (evacuation) " +
-                                demotion.oldState + " → " + demotion.newState);
+                                demotion.oldState() + " → " + demotion.newState());
                     }
                 }
                 break;
@@ -423,14 +449,14 @@ public class SimulationHarness {
             case EXPANSION:
             case SUPREMACY: {
                 if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS) {
-                    TerritoryState.TickResult promotion = state.applyPromotion(op.getSubfactionId());
+                    TerritoryState.TickResult.PresencePromoted promotion = state.applyPromotion(op.getSubfactionId());
                     if (promotion != null) {
                         if (transitionStats != null) transitionStats[0]++;
                         SubfactionDef def = defMap.get(op.getSubfactionId());
                         String name = def != null ? def.name : op.getSubfactionId();
                         System.out.println("[Day " + day + "] " + tid +
                                 ": ★ " + name + " PROMOTED " +
-                                promotion.oldState + " → " + promotion.newState);
+                                promotion.oldState() + " → " + promotion.newState());
                     }
                 }
                 break;

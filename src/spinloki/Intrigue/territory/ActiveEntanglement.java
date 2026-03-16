@@ -16,7 +16,7 @@ import java.io.Serializable;
  */
 public class ActiveEntanglement implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
     private final EntanglementType type;
     private final SubfactionPair pair;
@@ -30,23 +30,37 @@ public class ActiveEntanglement implements Serializable {
      */
     private final String thirdPartyId;
 
+    /**
+     * For {@link EntanglementType#HIRED_PROTECTION}: the pair member that hired
+     * protection (the weaker/threatened party). The other pair member is the protector.
+     * Null for all other entanglement types.
+     */
+    private final String hirerId;
+
     /** Human-readable reason this entanglement was created (shown in intel). */
     private final String triggerReason;
 
     public ActiveEntanglement(EntanglementType type, SubfactionPair pair,
                               float daysRemaining, String thirdPartyId,
                               String triggerReason) {
+        this(type, pair, daysRemaining, thirdPartyId, null, triggerReason);
+    }
+
+    public ActiveEntanglement(EntanglementType type, SubfactionPair pair,
+                              float daysRemaining, String thirdPartyId,
+                              String hirerId, String triggerReason) {
         this.type = type;
         this.pair = pair;
         this.daysRemaining = daysRemaining;
         this.thirdPartyId = thirdPartyId;
+        this.hirerId = hirerId;
         this.triggerReason = triggerReason;
     }
 
-    /** Convenience: create an entanglement with no third party. */
+    /** Convenience: create an entanglement with no third party or hirer. */
     public ActiveEntanglement(EntanglementType type, SubfactionPair pair,
                               float daysRemaining, String triggerReason) {
-        this(type, pair, daysRemaining, null, triggerReason);
+        this(type, pair, daysRemaining, null, null, triggerReason);
     }
 
     /**
@@ -64,6 +78,7 @@ public class ActiveEntanglement implements Serializable {
     public SubfactionPair getPair() { return pair; }
     public float getDaysRemaining() { return daysRemaining; }
     public String getThirdPartyId() { return thirdPartyId; }
+    public String getHirerId() { return hirerId; }
     public String getTriggerReason() { return triggerReason; }
 
     /** Whether this entanglement has a finite timer (as opposed to condition-based). */

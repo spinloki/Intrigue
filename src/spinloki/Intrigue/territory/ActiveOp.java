@@ -48,8 +48,6 @@ public class ActiveOp implements Serializable {
         FAILURE
     }
 
-    private static long nextId = 1;
-
     private final long opId;
     private final OpType type;
     private final String subfactionId;
@@ -65,10 +63,10 @@ public class ActiveOp implements Serializable {
     private float effectiveSuccessChance;
     private OpOutcome outcome = OpOutcome.PENDING;
 
-    public ActiveOp(OpType type, String subfactionId,
+    public ActiveOp(long opId, OpType type, String subfactionId,
                     String originSystemId, String targetSystemId,
                     float totalDays, float successChance) {
-        this.opId = nextId++;
+        this.opId = opId;
         this.type = type;
         this.subfactionId = subfactionId;
         this.originSystemId = originSystemId;

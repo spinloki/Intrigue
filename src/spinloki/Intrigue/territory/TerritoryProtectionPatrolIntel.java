@@ -5,8 +5,6 @@ import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetFactoryV3;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetParamsV3;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.OptionalFleetData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
@@ -17,8 +15,6 @@ import org.apache.log4j.Logger;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Intel for a protection patrol during a Hired Protection entanglement.
@@ -29,7 +25,7 @@ import java.util.List;
  * station directly, while 3 standard patrol fleets patrol the surrounding
  * system. All fleets despawn when the op resolves.</p>
  */
-public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
+public class TerritoryProtectionPatrolIntel extends MultiFleetOpIntel {
 
     private static final Logger log = Global.getLogger(TerritoryProtectionPatrolIntel.class);
 
@@ -52,15 +48,6 @@ public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
     private static final float STAGGER_DAYS = 3f;
 
     private final String hirerSubfactionName;
-
-    /** All routes managed by this Intel (guardian + patrols). */
-    private final List<RouteData> allRoutes = new ArrayList<>();
-
-    /** How many of our fleets have been destroyed. */
-    private int fleetsDestroyed = 0;
-
-    /** Total fleets spawned (for display). */
-    private int totalFleets = 0;
 
     /**
      * @param op             The PROTECTION_PATROL ActiveOp.
@@ -104,7 +91,6 @@ public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
         guardianRoute.addSegment(new RouteSegment(travelDays, origin, hirerStation));
         guardianRoute.addSegment(new RouteSegment(GUARDIAN_ORBIT_DAYS, hirerStation));
         allRoutes.add(guardianRoute);
-        route = guardianRoute; // Base class route field
 
         // 3 patrol routes — staggered departures
         for (int i = 0; i < PATROL_COUNT; i++) {
@@ -119,37 +105,13 @@ public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
             allRoutes.add(patrolRoute);
         }
 
-        totalFleets = allRoutes.size();
+        initMultiFleet(false);
 
-        // Register — bypassing super.init() since we create routes manually
-        Global.getSector().addScript(this);
-        Global.getSector().getIntelManager().addIntel(this, true);
-        setImportant(false);
-
-        log.info("TerritoryProtectionPatrolIntel: created " + totalFleets +
+        log.info("TerritoryProtectionPatrolIntel: created " + allRoutes.size() +
                 " fleet routes for " + def.name + " protecting " + hirerSubfactionName);
     }
 
-    private RouteData addManagedRoute(MarketAPI market, String fleetType, String suffix) {
-        OptionalFleetData extra = new OptionalFleetData(market);
-        extra.factionId = subfactionId;
-        extra.fleetType = fleetType;
-
-        return RouteManager.getInstance().addRoute(
-                "intrigue_protection_" + opId + "_" + suffix,
-                market,
-                Misc.genRandomSeed(),
-                extra,
-                this
-        );
-    }
-
     // ── Route / fleet overrides ──────────────────────────────────────────
-
-    @Override
-    protected void buildRoute(RouteData route, SectorEntityToken origin, SectorEntityToken destination) {
-        // Not used — routes are built in the constructor directly
-    }
 
     @Override
     protected String getFleetType() {
@@ -213,45 +175,6 @@ public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
         fleet.getMemoryWithoutUpdate().set(MemFlags.FLEET_NO_MILITARY_RESPONSE, true);
     }
 
-    // ── Fleet destruction tracking ───────────────────────────────────────
-
-    @Override
-    public void reportFleetDespawnedToListener(CampaignFleetAPI fleet,
-                                                CampaignEventListener.FleetDespawnReason reason,
-                                                Object param) {
-        if (reason == CampaignEventListener.FleetDespawnReason.DESTROYED_BY_BATTLE) {
-            fleetsDestroyed++;
-            fleetDestroyed = true; // Base class flag — any fleet destroyed
-            log.info("TerritoryProtectionPatrolIntel: protection fleet destroyed (" +
-                    fleetsDestroyed + "/" + totalFleets + ")");
-        }
-    }
-
-    // ── Lifecycle overrides (multi-route) ────────────────────────────────
-
-    @Override
-    protected void advanceImpl(float amount) {
-        // Check if ALL routes are expired
-        boolean allExpired = true;
-        for (RouteData r : allRoutes) {
-            if (!r.isExpired()) {
-                allExpired = false;
-                break;
-            }
-        }
-        if (allExpired && !allRoutes.isEmpty()) {
-            endAfterDelay();
-        }
-    }
-
-    @Override
-    protected void notifyEnded() {
-        for (RouteData r : allRoutes) {
-            RouteManager.getInstance().removeRoute(r);
-        }
-        Global.getSector().removeScript(this);
-    }
-
     // ── Intel display ────────────────────────────────────────────────────
 
     @Override
@@ -285,7 +208,7 @@ public class TerritoryProtectionPatrolIntel extends TerritoryOpIntel {
         if (fleetsDestroyed > 0) {
             info.addPara("%s of %s fleets destroyed.", pad,
                     Misc.getNegativeHighlightColor(),
-                    String.valueOf(fleetsDestroyed), String.valueOf(totalFleets));
+                    String.valueOf(fleetsDestroyed), String.valueOf(allRoutes.size()));
         }
     }
 }

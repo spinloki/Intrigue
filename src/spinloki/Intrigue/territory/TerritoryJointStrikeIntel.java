@@ -5,8 +5,6 @@ import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetFactoryV3;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetParamsV3;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.OptionalFleetData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
@@ -17,7 +15,6 @@ import org.apache.log4j.Logger;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 
 import java.awt.*;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -29,7 +26,7 @@ import java.util.List;
  * launch their own ops, so the player sees two groups converging from
  * different directions on the same target.</p>
  */
-public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
+public class TerritoryJointStrikeIntel extends MultiFleetOpIntel {
 
     private static final Logger log = Global.getLogger(TerritoryJointStrikeIntel.class);
 
@@ -47,9 +44,6 @@ public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
 
     private final String targetSubfactionId;
     private final String targetSubfactionName;
-
-    private final List<RouteData> allRoutes = new ArrayList<>();
-    private int fleetsDestroyed = 0;
 
     /**
      * @param op            The JOINT_STRIKE ActiveOp.
@@ -104,7 +98,8 @@ public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
 
         // Create strike fleet routes (staggered slightly)
         for (int i = 0; i < FLEET_COUNT; i++) {
-            RouteData strikeRoute = addManagedRoute(strikerMarket, i);
+            RouteData strikeRoute = addManagedRoute(strikerMarket, FleetTypes.PATROL_LARGE,
+                    String.valueOf(i));
             float staggeredPrep = PREP_DAYS + (i * 2f);
             strikeRoute.addSegment(new RouteSegment(staggeredPrep, origin));
             strikeRoute.addSegment(new RouteSegment(travelToStaging, origin, stagingPoint));
@@ -117,31 +112,13 @@ public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
             allRoutes.add(strikeRoute);
         }
 
-        if (!allRoutes.isEmpty()) {
-            route = allRoutes.get(0); // Base class route field
-        }
-
-        Global.getSector().addScript(this);
-        Global.getSector().getIntelManager().addIntel(this, true);
-        setImportant(false);
+        initMultiFleet(false);
 
         log.info("TerritoryJointStrikeIntel: " + def.name + " launching " + FLEET_COUNT +
                 " strike fleets against " + targetSubfactionName);
     }
 
-    private RouteData addManagedRoute(MarketAPI market, int index) {
-        OptionalFleetData extra = new OptionalFleetData(market);
-        extra.factionId = subfactionId;
-        extra.fleetType = FleetTypes.PATROL_LARGE;
-
-        return RouteManager.getInstance().addRoute(
-                "intrigue_joint_strike_" + opId + "_" + index,
-                market,
-                Misc.genRandomSeed(),
-                extra,
-                this
-        );
-    }
+    // ── Route / fleet overrides ──────────────────────────────────────────
 
     /**
      * Find a jump point in the given system for staging.
@@ -166,13 +143,6 @@ public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
         float speed = Misc.getSpeedForBurnLevel(8);
         float days = dist / speed / Global.getSector().getClock().getSecondsPerDay();
         return Math.max(days, 1f);
-    }
-
-    // ── Route / fleet overrides ──────────────────────────────────────────
-
-    @Override
-    protected void buildRoute(RouteData route, SectorEntityToken origin, SectorEntityToken destination) {
-        // Not used — routes built in constructor
     }
 
     @Override
@@ -232,44 +202,6 @@ public class TerritoryJointStrikeIntel extends TerritoryOpIntel {
         fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_PATROL_FLEET, true);
         fleet.getMemoryWithoutUpdate().set(MemFlags.FLEET_NO_MILITARY_RESPONSE, true);
         fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_AGGRESSIVE, true);
-    }
-
-    // ── Fleet destruction tracking ───────────────────────────────────────
-
-    @Override
-    public void reportFleetDespawnedToListener(CampaignFleetAPI fleet,
-                                                CampaignEventListener.FleetDespawnReason reason,
-                                                Object param) {
-        if (reason == CampaignEventListener.FleetDespawnReason.DESTROYED_BY_BATTLE) {
-            fleetsDestroyed++;
-            fleetDestroyed = true;
-            log.info("TerritoryJointStrikeIntel: strike fleet destroyed (" +
-                    fleetsDestroyed + "/" + FLEET_COUNT + ")");
-        }
-    }
-
-    // ── Lifecycle overrides (multi-route) ────────────────────────────────
-
-    @Override
-    protected void advanceImpl(float amount) {
-        boolean allExpired = true;
-        for (RouteData r : allRoutes) {
-            if (!r.isExpired()) {
-                allExpired = false;
-                break;
-            }
-        }
-        if (allExpired && !allRoutes.isEmpty()) {
-            endAfterDelay();
-        }
-    }
-
-    @Override
-    protected void notifyEnded() {
-        for (RouteData r : allRoutes) {
-            RouteManager.getInstance().removeRoute(r);
-        }
-        Global.getSector().removeScript(this);
     }
 
     // ── Intel display ────────────────────────────────────────────────────

@@ -5,8 +5,6 @@ import com.fs.starfarer.api.campaign.*;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetFactoryV3;
 import com.fs.starfarer.api.impl.campaign.fleets.FleetParamsV3;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager;
-import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.OptionalFleetData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteData;
 import com.fs.starfarer.api.impl.campaign.fleets.RouteManager.RouteSegment;
 import com.fs.starfarer.api.impl.campaign.ids.FleetTypes;
@@ -33,7 +31,7 @@ import java.util.List;
  * <p>On resolution, the entanglement map may be rewritten (done by
  * TerritoryState, not this Intel).</p>
  */
-public class TerritoryCouncilIntel extends TerritoryOpIntel {
+public class TerritoryCouncilIntel extends MultiFleetOpIntel {
 
     private static final Logger log = Global.getLogger(TerritoryCouncilIntel.class);
 
@@ -56,14 +54,8 @@ public class TerritoryCouncilIntel extends TerritoryOpIntel {
     private final int hostilePairCount;
     private final float fleetFP;
 
-    /** All routes managed by this Intel. */
-    private final List<RouteData> allRoutes = new ArrayList<>();
-
     /** Subfaction IDs of all participants (for display and fleet tracking). */
     private final List<String> participantIds = new ArrayList<>();
-
-    /** Number of fleets destroyed. */
-    private int fleetsDestroyed = 0;
 
     /**
      * Data for a single council participant.
@@ -117,7 +109,8 @@ public class TerritoryCouncilIntel extends TerritoryOpIntel {
             SectorEntityToken origin = participantMarket.getPrimaryEntity();
             float travelDays = computeTravelDays(origin, meetingPoint);
 
-            RouteData councilRoute = addManagedRoute(participantMarket, p.def.id);
+            RouteData councilRoute = addManagedRoute(participantMarket, FleetTypes.PATROL_MEDIUM,
+                    p.def.id, p.def.id);
             councilRoute.addSegment(new RouteSegment(PREP_DAYS, origin));
             councilRoute.addSegment(new RouteSegment(travelDays, origin, meetingPoint));
             councilRoute.addSegment(new RouteSegment(COUNCIL_DAYS, meetingPoint));
@@ -132,37 +125,14 @@ public class TerritoryCouncilIntel extends TerritoryOpIntel {
             return;
         }
 
-        route = allRoutes.get(0); // Base class route field
-
-        Global.getSector().addScript(this);
-        Global.getSector().getIntelManager().addIntel(this, true);
-        setImportant(true); // Councils are notable territory-wide events
+        initMultiFleet(true);
 
         log.info("TerritoryCouncilIntel: " + participantCount + " subfactions convening " +
                 "in " + meetingSystemId + " (hostile pairs: " + hostilePairCount +
                 ", fleet FP: " + (int) fleetFP + ")");
     }
 
-    private RouteData addManagedRoute(MarketAPI market, String participantSubfactionId) {
-        OptionalFleetData extra = new OptionalFleetData(market);
-        extra.factionId = participantSubfactionId;
-        extra.fleetType = FleetTypes.PATROL_MEDIUM;
-
-        return RouteManager.getInstance().addRoute(
-                "intrigue_council_" + opId + "_" + participantSubfactionId,
-                market,
-                Misc.genRandomSeed(),
-                extra,
-                this
-        );
-    }
-
     // ── Route / fleet overrides ──────────────────────────────────────────
-
-    @Override
-    protected void buildRoute(RouteData route, SectorEntityToken origin, SectorEntityToken destination) {
-        // Not used — routes built in constructor
-    }
 
     @Override
     protected String getFleetType() {
@@ -226,44 +196,6 @@ public class TerritoryCouncilIntel extends TerritoryOpIntel {
         // Council fleets must not fight each other — temporary diplomatic immunity
         fleet.getMemoryWithoutUpdate().set(COUNCIL_NON_HOSTILE_FLAG, true);
         fleet.getMemoryWithoutUpdate().set(MemFlags.MEMORY_KEY_MAKE_NON_HOSTILE, true);
-    }
-
-    // ── Fleet destruction tracking ───────────────────────────────────────
-
-    @Override
-    public void reportFleetDespawnedToListener(CampaignFleetAPI fleet,
-                                                CampaignEventListener.FleetDespawnReason reason,
-                                                Object param) {
-        if (reason == CampaignEventListener.FleetDespawnReason.DESTROYED_BY_BATTLE) {
-            fleetsDestroyed++;
-            fleetDestroyed = true;
-            log.info("TerritoryCouncilIntel: emissary fleet destroyed (" +
-                    fleetsDestroyed + "/" + participantCount + ")");
-        }
-    }
-
-    // ── Lifecycle overrides (multi-route) ────────────────────────────────
-
-    @Override
-    protected void advanceImpl(float amount) {
-        boolean allExpired = true;
-        for (RouteData r : allRoutes) {
-            if (!r.isExpired()) {
-                allExpired = false;
-                break;
-            }
-        }
-        if (allExpired && !allRoutes.isEmpty()) {
-            endAfterDelay();
-        }
-    }
-
-    @Override
-    protected void notifyEnded() {
-        for (RouteData r : allRoutes) {
-            RouteManager.getInstance().removeRoute(r);
-        }
-        Global.getSector().removeScript(this);
     }
 
     // ── Intel display ────────────────────────────────────────────────────
