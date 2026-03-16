@@ -1,10 +1,18 @@
 faction
 data/world/factions/intrigue_hegemony_expeditionary.faction
+data/world/factions/intrigue_hegemony_garrison.faction
 data/world/factions/intrigue_tritachyon_ventures.faction
+data/world/factions/intrigue_tritachyon_acquisitions.faction
 data/world/factions/intrigue_church_missionary.faction
+data/world/factions/intrigue_church_templar.faction
 data/world/factions/intrigue_pirates_freehold.faction
+data/world/factions/intrigue_pirates_shadow.faction
 data/world/factions/intrigue_diktat_fuel_company.faction
+data/world/factions/intrigue_diktat_lions_guard.faction
 data/world/factions/intrigue_persean_vanguard.faction
+data/world/factions/intrigue_persean_free_traders.faction
 data/world/factions/intrigue_path_zealots.faction
+data/world/factions/intrigue_path_reclamation.faction
 data/world/factions/intrigue_independents_frontier.faction
+data/world/factions/intrigue_independents_rimward.faction
 

@@ -102,6 +102,10 @@ public class SimulationHarness {
         Map<String, Map<String, int[]>> opTypeStats = new LinkedHashMap<>();
         // Desertion tracking: territory → [total, quelled, spiraled]
         Map<String, int[]> desertionStats = new LinkedHashMap<>();
+        // Entanglement tracking: territory → [created, expired, replaced]
+        Map<String, int[]> entanglementStats = new LinkedHashMap<>();
+        // Entanglement type breakdown: territory → {type → count}
+        Map<String, Map<String, Integer>> entanglementTypeStats = new LinkedHashMap<>();
         // Per-(territory, subfaction) tracking
         // Key: "territory|subfaction" → tracker
         Map<String, SubfactionTracker> trackers = new LinkedHashMap<>();
@@ -142,11 +146,19 @@ public class SimulationHarness {
                             opTypeStats.get(tid).computeIfAbsent(
                                     result.op.getType().name(), k -> new int[3])[0]++;
                             String extra = "";
-                            if (result.op.getType() == ActiveOp.OpType.RAID &&
-                                    result.op.getTargetSubfactionId() != null) {
+                            if ((result.op.getType() == ActiveOp.OpType.RAID
+                                    || result.op.getType() == ActiveOp.OpType.WAR_RAID
+                                    || result.op.getType() == ActiveOp.OpType.JOINT_STRIKE
+                                    || result.op.getType() == ActiveOp.OpType.INVASION)
+                                    && result.op.getTargetSubfactionId() != null) {
                                 SubfactionDef targetDef = defMap.get(result.op.getTargetSubfactionId());
                                 extra = " (targeting " +
                                         (targetDef != null ? targetDef.name : result.op.getTargetSubfactionId()) + ")";
+                            } else if (result.op.getType() == ActiveOp.OpType.ARMS_SHIPMENT
+                                    && result.op.getTargetSubfactionId() != null) {
+                                SubfactionDef recipientDef = defMap.get(result.op.getTargetSubfactionId());
+                                extra = " (supplying " +
+                                        (recipientDef != null ? recipientDef.name : result.op.getTargetSubfactionId()) + ")";
                             }
                             System.out.println("[Day " + day + "] " + tid +
                                     ": " + name + " launched " + result.op.getType() +
@@ -180,6 +192,40 @@ public class SimulationHarness {
                             System.out.println("[Day " + day + "] " + tid +
                                     ": ▼ " + name + " DEMOTED " + result.oldState + " → " + result.newState);
                             break;
+                        case ENTANGLEMENT_CREATED:
+                            entanglementStats.computeIfAbsent(tid, k -> new int[3])[0]++;
+                            entanglementTypeStats.computeIfAbsent(tid, k -> new LinkedHashMap<>())
+                                    .merge(result.entanglement.getType().name(), 1, Integer::sum);
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": ⚡ ENTANGLEMENT CREATED: " + result.entanglement);
+                            break;
+                        case ENTANGLEMENT_EXPIRED:
+                            entanglementStats.computeIfAbsent(tid, k -> new int[3])[1]++;
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": ○ ENTANGLEMENT EXPIRED: " + result.entanglement);
+                            break;
+                        case ENTANGLEMENT_REPLACED:
+                            entanglementStats.computeIfAbsent(tid, k -> new int[3])[2]++;
+                            entanglementTypeStats.computeIfAbsent(tid, k -> new LinkedHashMap<>())
+                                    .merge(result.entanglement.getType().name(), 1, Integer::sum);
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": ↔ ENTANGLEMENT REPLACED: " + result.replacedEntanglement
+                                    + " → " + result.entanglement);
+                            break;
+                        case HOSTILITIES_STARTED:
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": 🔥 HOSTILITIES STARTED: " + result.parentPair);
+                            break;
+                        case HOSTILITIES_ENDED:
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": 🕊 HOSTILITIES ENDED: " + result.parentPair);
+                            break;
+                        case SUBFACTION_EVICTED:
+                            SubfactionDef evictedDef = defMap.get(result.subfactionId);
+                            String evictedName = evictedDef != null ? evictedDef.name : result.subfactionId;
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": \u2620 " + evictedName + " EVICTED from territory");
+                            break;
                     }
                 }
 
@@ -187,18 +233,21 @@ public class SimulationHarness {
                 for (SubfactionPresence p : state.getPresences().values()) {
                     String tk = tid + "|" + p.getSubfactionId();
                     SubfactionTracker t = trackers.get(tk);
-                    if (t != null) {
-                        t.recordDay(p.getState(), p.getNetBalance());
-                        for (PresenceFactor f : p.getFactors()) {
-                            if (f.getType() == PresenceFactor.FactorType.DESERTION_QUELLED
-                                    && f.getDaysRemaining() == 44f) {
-                                desertionStats.get(tid)[0]++;
-                                desertionStats.get(tid)[1]++;
-                            } else if (f.getType() == PresenceFactor.FactorType.DESERTION_SPIRALED
-                                    && f.getDaysRemaining() == 44f) {
-                                desertionStats.get(tid)[0]++;
-                                desertionStats.get(tid)[2]++;
-                            }
+                    if (t == null) {
+                        // New subfaction entered via invasion — create tracker
+                        t = new SubfactionTracker(p.getState());
+                        trackers.put(tk, t);
+                    }
+                    t.recordDay(p.getState(), p.getNetBalance());
+                    for (PresenceFactor f : p.getFactors()) {
+                        if (f.getType() == PresenceFactor.FactorType.DESERTION_QUELLED
+                                && f.getDaysRemaining() == 44f) {
+                            desertionStats.get(tid)[0]++;
+                            desertionStats.get(tid)[1]++;
+                        } else if (f.getType() == PresenceFactor.FactorType.DESERTION_SPIRALED
+                                && f.getDaysRemaining() == 44f) {
+                            desertionStats.get(tid)[0]++;
+                            desertionStats.get(tid)[2]++;
                         }
                     }
                 }
@@ -216,6 +265,13 @@ public class SimulationHarness {
                 System.out.println("    Factors for " + p.getSubfactionId() + ":");
                 for (PresenceFactor f : p.getFactors()) {
                     System.out.println("      " + f);
+                }
+            }
+            // Print active entanglements
+            if (!state.getEntanglements().isEmpty()) {
+                System.out.println("  Active Entanglements:");
+                for (Map.Entry<SubfactionPair, ActiveEntanglement> e : state.getEntanglements().entrySet()) {
+                    System.out.println("    " + e.getValue());
                 }
             }
         }
@@ -266,6 +322,19 @@ public class SimulationHarness {
             int[] d = entry.getValue();
             System.out.println(entry.getKey() + ": resolved=" + d[0] +
                     ", quelled=" + d[1] + ", spiraled=" + d[2]);
+        }
+        System.out.println();
+        System.out.println("── Entanglements ──────────────────────────────────────");
+        for (Map.Entry<String, int[]> entry : entanglementStats.entrySet()) {
+            int[] e = entry.getValue();
+            System.out.println(entry.getKey() + ": created=" + e[0] +
+                    ", expired=" + e[1] + ", replaced=" + e[2]);
+            Map<String, Integer> typeMap = entanglementTypeStats.get(entry.getKey());
+            if (typeMap != null) {
+                for (Map.Entry<String, Integer> te : typeMap.entrySet()) {
+                    System.out.println("    " + te.getKey() + ": " + te.getValue());
+                }
+            }
         }
         System.out.println();
         System.out.println("── Subfaction Details ─────────────────────────────────");
@@ -324,9 +393,15 @@ public class SimulationHarness {
                         if (transitionStats != null) transitionStats[1]++;
                         SubfactionDef targetDef = defMap.get(op.getTargetSubfactionId());
                         String targetName = targetDef != null ? targetDef.name : op.getTargetSubfactionId();
-                        System.out.println("[Day " + day + "] " + tid +
-                                ": ▼ " + targetName + " DEMOTED (raided) " +
-                                demotion.oldState + " → " + demotion.newState);
+                        if (demotion.newState == PresenceState.NONE) {
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": \u2620 " + targetName + " EVICTED (raided out) " +
+                                    demotion.oldState + " \u2192 NONE");
+                        } else {
+                            System.out.println("[Day " + day + "] " + tid +
+                                    ": \u25BC " + targetName + " DEMOTED (raided) " +
+                                    demotion.oldState + " \u2192 " + demotion.newState);
+                        }
                     }
                 }
                 break;
@@ -359,8 +434,20 @@ public class SimulationHarness {
                     }
                 }
                 break;
-            }
-            default:
+            }            case INVASION: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS && op.getTargetSubfactionId() != null) {
+                    SubfactionDef invaderDef = defMap.get(op.getSubfactionId());
+                    List<TerritoryState.TickResult> invasionResults =
+                            state.applyInvasion(op.getSubfactionId(), op.getTargetSubfactionId(), invaderDef);
+                    SubfactionDef targetDef = defMap.get(op.getTargetSubfactionId());
+                    String targetName = targetDef != null ? targetDef.name : op.getTargetSubfactionId();
+                    String invName = invaderDef != null ? invaderDef.name : op.getSubfactionId();
+                    System.out.println("[Day " + day + "] " + tid +
+                            ": \u2694 " + invName + " INVADED and replaced " + targetName);
+                    if (transitionStats != null) transitionStats[1]++;
+                }
+                break;
+            }            default:
                 break;
         }
     }

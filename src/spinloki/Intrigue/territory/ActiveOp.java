@@ -24,7 +24,19 @@ public class ActiveOp implements Serializable {
         /** ESTABLISHED → FORTIFIED: secure additional infrastructure. */
         EXPANSION,
         /** FORTIFIED → DOMINANT: major fleet action to assert control. */
-        SUPREMACY
+        SUPREMACY,
+        /** Entanglement op: Protector patrols the Hirer's base system (Hired Protection). */
+        PROTECTION_PATROL,
+        /** Entanglement op: coordinated strike against a shared enemy (Shared-Enemy Pact). */
+        JOINT_STRIKE,
+        /** Entanglement op: combat fleet hunting enemy patrols during Territorial War. */
+        WAR_RAID,
+        /** Entanglement op: covert arms shipment to the backed subfaction (Proxy Support). */
+        ARMS_SHIPMENT,
+        /** External invasion: an outside subfaction attacks a stagnant ESTABLISHED presence. */
+        INVASION,
+        /** Territory-wide: emissary fleets negotiate, may rewrite the entanglement map. */
+        COUNCIL
     }
 
     public enum OpOutcome {
@@ -50,6 +62,7 @@ public class ActiveOp implements Serializable {
     private String targetSubfactionId;
 
     private float daysRemaining;
+    private float effectiveSuccessChance;
     private OpOutcome outcome = OpOutcome.PENDING;
 
     public ActiveOp(OpType type, String subfactionId,
@@ -63,6 +76,7 @@ public class ActiveOp implements Serializable {
         this.totalDays = totalDays;
         this.daysRemaining = totalDays;
         this.successChance = successChance;
+        this.effectiveSuccessChance = successChance;
     }
 
     /** Advance the timer by one day. Returns true if the timer just expired. */
@@ -75,7 +89,12 @@ public class ActiveOp implements Serializable {
     /** Resolve the operation probabilistically using the given random source. */
     public void resolve(java.util.Random rand) {
         if (outcome != OpOutcome.PENDING) return;
-        outcome = rand.nextFloat() < successChance ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
+        outcome = rand.nextFloat() < effectiveSuccessChance ? OpOutcome.SUCCESS : OpOutcome.FAILURE;
+    }
+
+    /** Apply a multiplier to the effective success chance (e.g. 0.5 to halve it). */
+    public void applySuccessChanceMult(float mult) {
+        this.effectiveSuccessChance = Math.max(0f, Math.min(1f, this.effectiveSuccessChance * mult));
     }
 
     /** Override the outcome (used when the player intervenes). */

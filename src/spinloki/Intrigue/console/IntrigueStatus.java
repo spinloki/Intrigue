@@ -8,8 +8,10 @@ import org.lazywizard.console.Console;
 import spinloki.Intrigue.subfaction.SubfactionDef;
 import spinloki.Intrigue.subfaction.SubfactionSetup;
 import spinloki.Intrigue.territory.ActiveOp;
+import spinloki.Intrigue.territory.ActiveEntanglement;
 import spinloki.Intrigue.territory.BaseSlot;
 import spinloki.Intrigue.territory.PresenceFactor;
+import spinloki.Intrigue.territory.SubfactionPair;
 import spinloki.Intrigue.territory.SubfactionPresence;
 import spinloki.Intrigue.territory.TerritoryGenerationPlugin;
 import spinloki.Intrigue.territory.TerritoryManager;
@@ -201,6 +203,56 @@ public class IntrigueStatus implements BaseCommand {
                             sb.append(" FLEET DESTROYED");
                         }
                         sb.append("\n");
+                    }
+                }
+
+                // Show active entanglements
+                Map<SubfactionPair, ActiveEntanglement> entanglements = mgr.getState().getEntanglements();
+                if (!entanglements.isEmpty()) {
+                    sb.append("    Entanglements:\n");
+                    for (Map.Entry<SubfactionPair, ActiveEntanglement> ent : entanglements.entrySet()) {
+                        ActiveEntanglement ae = ent.getValue();
+                        SubfactionPair pair = ae.getPair();
+                        FactionAPI fA = Global.getSector().getFaction(pair.getFirst());
+                        FactionAPI fB = Global.getSector().getFaction(pair.getSecond());
+                        String nameA = fA != null ? fA.getDisplayName() : pair.getFirst();
+                        String nameB = fB != null ? fB.getDisplayName() : pair.getSecond();
+
+                        sb.append("      ").append(ae.getType())
+                                .append(": ").append(nameA).append(" ↔ ").append(nameB);
+                        if (ae.isTimerBased()) {
+                            sb.append(" (").append(String.format("%.0f", ae.getDaysRemaining())).append("d left)");
+                        } else {
+                            sb.append(" (condition-based)");
+                        }
+                        if (ae.getType().setsHostile) {
+                            sb.append(" [HOSTILE]");
+                        } else if (ae.getType().suppressesHostile) {
+                            sb.append(" [SUPPRESSES HOSTILITY]");
+                        }
+                        sb.append("\n");
+                        sb.append("        Trigger: ").append(ae.getTriggerReason()).append("\n");
+                        if (ae.getThirdPartyId() != null) {
+                            FactionAPI third = Global.getSector().getFaction(ae.getThirdPartyId());
+                            String thirdName = third != null ? third.getDisplayName() : ae.getThirdPartyId();
+                            sb.append("        Third party: ").append(thirdName).append("\n");
+                        }
+                    }
+                }
+
+                // Show active dynamic hostilities (volatile parent-pair conflicts)
+                Map<SubfactionPair, Float> dynHostilities = mgr.getState().getDynamicHostilities();
+                if (!dynHostilities.isEmpty()) {
+                    sb.append("    Dynamic Hostilities:\n");
+                    for (Map.Entry<SubfactionPair, Float> dh : dynHostilities.entrySet()) {
+                        SubfactionPair pp = dh.getKey();
+                        FactionAPI fA = Global.getSector().getFaction(pp.getFirst());
+                        FactionAPI fB = Global.getSector().getFaction(pp.getSecond());
+                        String nameA = fA != null ? fA.getDisplayName() : pp.getFirst();
+                        String nameB = fB != null ? fB.getDisplayName() : pp.getSecond();
+                        sb.append("      ").append(nameA).append(" ↔ ").append(nameB)
+                                .append(" (").append(String.format("%.0f", dh.getValue())).append("d left)")
+                                .append(" [HOSTILE]\n");
                     }
                 }
             }

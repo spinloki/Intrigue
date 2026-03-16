@@ -14,7 +14,7 @@
     "HOSTILE_PRESENCE": {
       "polarity": "PRESSURE",
       "weightsByState": {
-        "ESTABLISHED": 1,
+        "ESTABLISHED": 0,
         "FORTIFIED": 1,
         "DOMINANT": 2
       }

@@ -2,6 +2,7 @@ package spinloki.Intrigue.territory;
 
 import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
 import com.fs.starfarer.api.campaign.StarSystemAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
@@ -117,6 +118,7 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
 
         IntrigueSettings settings = getSettings();
         List<TerritoryState.TickResult> results = state.advanceDay(defMap, settings);
+        boolean entanglementsDirty = false;
         for (TerritoryState.TickResult result : results) {
             switch (result.type) {
                 case ESTABLISH_BASE:
@@ -143,7 +145,37 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
                     log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
                             result.subfactionId + " DEMOTED " + result.oldState + " → " + result.newState);
                     break;
+                case ENTANGLEMENT_CREATED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: ENTANGLEMENT CREATED: "
+                            + result.entanglement);
+                    entanglementsDirty = true;
+                    break;
+                case ENTANGLEMENT_EXPIRED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: ENTANGLEMENT EXPIRED: "
+                            + result.entanglement);
+                    entanglementsDirty = true;
+                    break;
+                case ENTANGLEMENT_REPLACED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: ENTANGLEMENT REPLACED: "
+                            + result.replacedEntanglement + " → " + result.entanglement);
+                    entanglementsDirty = true;
+                    break;
+                case HOSTILITIES_STARTED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: HOSTILITIES STARTED: "
+                            + result.parentPair);
+                    entanglementsDirty = true;
+                    break;
+                case HOSTILITIES_ENDED:
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: HOSTILITIES ENDED: "
+                            + result.parentPair);
+                    entanglementsDirty = true;
+                    break;
             }
+        }
+
+        // Sync hostility to FactionAPI if entanglements changed this tick
+        if (entanglementsDirty) {
+            syncHostilityToFactionAPI(defMap);
         }
     }
 
@@ -178,30 +210,41 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         SubfactionDef def = defMap.get(result.subfactionId);
         if (def == null) return;
 
-        BaseSlot slot = findOccupiedSlot(result.subfactionId);
-        if (slot == null) {
-            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no occupied slot for " +
-                    result.subfactionId + ", skipping intel");
-            return;
-        }
-
         TerritoryOpIntel intel = null;
         switch (result.op.getType()) {
             case PATROL:
-                intel = new TerritoryPatrolIntel(
-                        result.op, def, slot, state.getTerritoryId());
+                intel = createSimpleSlotIntel(result, def,
+                        (op, d, slot) -> new TerritoryPatrolIntel(op, d, slot, state.getTerritoryId()));
                 break;
             case RAID:
-                intel = createRaidIntel(result, defMap, def, slot);
+                intel = createRaidIntel(result, defMap, def);
                 break;
             case EXPANSION:
             case SUPREMACY:
-                intel = new TerritoryReinforcementIntel(
-                        result.op, def, slot, state.getTerritoryId());
+                intel = createSimpleSlotIntel(result, def,
+                        (op, d, slot) -> new TerritoryReinforcementIntel(op, d, slot, state.getTerritoryId()));
                 break;
             case EVACUATION:
-                intel = new TerritoryEvacuationIntel(
-                        result.op, def, slot, state.getTerritoryId());
+                intel = createSimpleSlotIntel(result, def,
+                        (op, d, slot) -> new TerritoryEvacuationIntel(op, d, slot, state.getTerritoryId()));
+                break;
+            case PROTECTION_PATROL:
+                intel = createProtectionPatrolIntel(result, defMap, def);
+                break;
+            case JOINT_STRIKE:
+                intel = createJointStrikeIntel(result, defMap, def);
+                break;
+            case WAR_RAID:
+                intel = createWarRaidIntel(result, defMap, def);
+                break;
+            case ARMS_SHIPMENT:
+                intel = createArmsShipmentIntel(result, defMap, def);
+                break;
+            case INVASION:
+                intel = createInvasionIntel(result, defMap, def);
+                break;
+            case COUNCIL:
+                intel = createCouncilIntel(result, defMap, def);
                 break;
         }
 
@@ -210,13 +253,42 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         }
     }
 
+    // ── Intel factory methods ────────────────────────────────────────────
+
     /**
-     * Create a raid intel. Requires finding the target subfaction's slot.
+     * Functional interface for creating single-slot Intel instances.
      */
+    @FunctionalInterface
+    private interface SlotIntelFactory {
+        TerritoryOpIntel create(ActiveOp op, SubfactionDef def, BaseSlot slot);
+    }
+
+    /**
+     * Create an Intel that only needs the launcher's own occupied slot.
+     * Used by PATROL, EXPANSION, SUPREMACY, EVACUATION.
+     */
+    private TerritoryOpIntel createSimpleSlotIntel(TerritoryState.TickResult result,
+                                                    SubfactionDef def,
+                                                    SlotIntelFactory factory) {
+        BaseSlot slot = findOccupiedSlot(result.subfactionId);
+        if (slot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no occupied slot for " +
+                    result.subfactionId + ", skipping intel");
+            return null;
+        }
+        return factory.create(result.op, def, slot);
+    }
+
     private TerritoryRaidIntel createRaidIntel(TerritoryState.TickResult result,
                                                 Map<String, SubfactionDef> defMap,
-                                                SubfactionDef raiderDef,
-                                                BaseSlot raiderSlot) {
+                                                SubfactionDef raiderDef) {
+        BaseSlot raiderSlot = findOccupiedSlot(result.subfactionId);
+        if (raiderSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for raider " +
+                    result.subfactionId);
+            return null;
+        }
+
         String targetId = result.op.getTargetSubfactionId();
         if (targetId == null) {
             log.warn("TerritoryManager [" + state.getTerritoryId() + "]: RAID op has no target subfaction");
@@ -232,6 +304,235 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
         SubfactionDef targetDef = defMap.get(targetId);
         return new TerritoryRaidIntel(
                 result.op, raiderDef, raiderSlot, targetSlot, targetDef, state.getTerritoryId());
+    }
+
+    private TerritoryProtectionPatrolIntel createProtectionPatrolIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef protectorDef) {
+        BaseSlot protectorSlot = findOccupiedSlot(result.subfactionId);
+        if (protectorSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for protector " +
+                    result.subfactionId);
+            return null;
+        }
+
+        String hirerId = result.op.getTargetSubfactionId();
+        if (hirerId == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: PROTECTION_PATROL has no hirer");
+            return null;
+        }
+
+        BaseSlot hirerSlot = findOccupiedSlot(hirerId);
+        if (hirerSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for hirer " + hirerId);
+            return null;
+        }
+
+        SubfactionDef hirerDef = defMap.get(hirerId);
+        String hirerName = hirerDef != null ? hirerDef.name : hirerId;
+
+        return new TerritoryProtectionPatrolIntel(
+                result.op, protectorDef, protectorSlot, hirerSlot, hirerName, state.getTerritoryId());
+    }
+
+    private TerritoryJointStrikeIntel createJointStrikeIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef strikerDef) {
+        BaseSlot strikerSlot = findOccupiedSlot(result.subfactionId);
+        if (strikerSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for striker " +
+                    result.subfactionId);
+            return null;
+        }
+
+        String targetId = result.op.getTargetSubfactionId();
+        if (targetId == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: JOINT_STRIKE has no target");
+            return null;
+        }
+
+        BaseSlot targetSlot = findOccupiedSlot(targetId);
+        if (targetSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for strike target " +
+                    targetId);
+            return null;
+        }
+
+        SubfactionDef targetDef = defMap.get(targetId);
+        return new TerritoryJointStrikeIntel(
+                result.op, strikerDef, strikerSlot, targetSlot, targetDef, state.getTerritoryId());
+    }
+
+    private TerritoryWarRaidIntel createWarRaidIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef raiderDef) {
+        BaseSlot raiderSlot = findOccupiedSlot(result.subfactionId);
+        if (raiderSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for war raider " +
+                    result.subfactionId);
+            return null;
+        }
+
+        String targetId = result.op.getTargetSubfactionId();
+        SubfactionDef targetDef = defMap.get(targetId);
+        String targetName = targetDef != null ? targetDef.name : (targetId != null ? targetId : "unknown");
+
+        return new TerritoryWarRaidIntel(
+                result.op, raiderDef, raiderSlot, targetId, targetName, state.getTerritoryId());
+    }
+
+    private TerritoryArmsShipmentIntel createArmsShipmentIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef backerDef) {
+        BaseSlot backerSlot = findOccupiedSlot(result.subfactionId);
+        if (backerSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for backer " +
+                    result.subfactionId);
+            return null;
+        }
+
+        String backedId = result.op.getTargetSubfactionId();
+        if (backedId == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: ARMS_SHIPMENT has no backed id");
+            return null;
+        }
+
+        BaseSlot backedSlot = findOccupiedSlot(backedId);
+        if (backedSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for backed " + backedId);
+            return null;
+        }
+
+        SubfactionDef backedDef = defMap.get(backedId);
+        if (backedDef == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no def for backed " + backedId);
+            return null;
+        }
+
+        return new TerritoryArmsShipmentIntel(
+                result.op, backerDef, backerSlot, backedDef, backedSlot, state.getTerritoryId());
+    }
+
+    private TerritoryInvasionIntel createInvasionIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef invaderDef) {
+        // Invader is external — they have no slot in this territory.
+        // We only need the target's slot.
+        String targetId = result.op.getTargetSubfactionId();
+        if (targetId == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: INVASION has no target");
+            return null;
+        }
+
+        BaseSlot targetSlot = findOccupiedSlot(targetId);
+        if (targetSlot == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no slot for invasion target " +
+                    targetId);
+            return null;
+        }
+
+        SubfactionDef targetDef = defMap.get(targetId);
+        if (targetDef == null) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: no def for invasion target " +
+                    targetId);
+            return null;
+        }
+
+        return new TerritoryInvasionIntel(
+                result.op, invaderDef, targetSlot, targetDef, state.getTerritoryId());
+    }
+
+    private TerritoryCouncilIntel createCouncilIntel(
+            TerritoryState.TickResult result,
+            Map<String, SubfactionDef> defMap,
+            SubfactionDef triggerDef) {
+        // Gather all ESTABLISHED+ subfactions as participants
+        List<TerritoryCouncilIntel.Participant> participants = new ArrayList<>();
+        for (SubfactionPresence presence : state.getPresences().values()) {
+            if (!presence.getState().canLaunchOps()) continue;
+            SubfactionDef pDef = defMap.get(presence.getSubfactionId());
+            if (pDef == null) continue;
+            BaseSlot pSlot = findOccupiedSlot(presence.getSubfactionId());
+            if (pSlot == null) continue;
+            participants.add(new TerritoryCouncilIntel.Participant(pDef, pSlot));
+        }
+
+        if (participants.size() < 2) {
+            log.warn("TerritoryManager [" + state.getTerritoryId() + "]: not enough council participants");
+            return null;
+        }
+
+        // Find a base-free system for the meeting
+        String meetingSystem = findBaseFreeSystem();
+
+        // Count hostile pairs for fleet sizing
+        int hostilePairs = countHostilePairs(defMap);
+
+        return new TerritoryCouncilIntel(
+                result.op, triggerDef, participants, meetingSystem,
+                hostilePairs, state.getTerritoryId());
+    }
+
+    /**
+     * Find a system in this territory where no subfaction has a base.
+     * Falls back to the least-occupied system if all have bases.
+     */
+    private String findBaseFreeSystem() {
+        Set<String> occupiedSystems = new HashSet<>();
+        for (BaseSlot slot : state.getBaseSlots()) {
+            if (slot.isOccupied()) {
+                occupiedSystems.add(slot.getSystemId());
+            }
+        }
+
+        // Prefer a completely base-free system
+        for (String systemId : state.getSystemIds()) {
+            if (!occupiedSystems.contains(systemId)) {
+                return systemId;
+            }
+        }
+
+        // Fallback: pick the system with the fewest bases
+        String best = null;
+        int bestCount = Integer.MAX_VALUE;
+        for (String systemId : state.getSystemIds()) {
+            int count = 0;
+            for (BaseSlot slot : state.getBaseSlots()) {
+                if (slot.isOccupied() && slot.getSystemId().equals(systemId)) count++;
+            }
+            if (count < bestCount) {
+                bestCount = count;
+                best = systemId;
+            }
+        }
+        return best != null ? best : (state.getSystemIds().isEmpty() ? null : state.getSystemIds().get(0));
+    }
+
+    /**
+     * Count the number of hostile subfaction pairs in this territory.
+     */
+    private int countHostilePairs(Map<String, SubfactionDef> defMap) {
+        List<String> ids = new ArrayList<>();
+        for (SubfactionPresence p : state.getPresences().values()) {
+            if (p.getState().canLaunchOps()) {
+                ids.add(p.getSubfactionId());
+            }
+        }
+
+        int count = 0;
+        for (int i = 0; i < ids.size(); i++) {
+            for (int j = i + 1; j < ids.size(); j++) {
+                if (state.isHostile(ids.get(i), ids.get(j), defMap)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -291,8 +592,57 @@ public class TerritoryManager implements EveryFrameScript, Serializable {
                 }
                 break;
             }
+            case INVASION: {
+                if (op.getOutcome() == ActiveOp.OpOutcome.SUCCESS && op.getTargetSubfactionId() != null) {
+                    Map<String, SubfactionDef> defMap = loadSubfactionDefMap();
+                    SubfactionDef invaderDef = defMap != null ? defMap.get(op.getSubfactionId()) : null;
+                    List<TerritoryState.TickResult> invasionResults =
+                            state.applyInvasion(op.getSubfactionId(), op.getTargetSubfactionId(), invaderDef);
+                    String invName = invaderDef != null ? invaderDef.name : op.getSubfactionId();
+                    String targetName = op.getTargetSubfactionId();
+                    log.info("TerritoryManager [" + state.getTerritoryId() + "]: " +
+                            invName + " INVADED and replaced " + targetName);
+                }
+                break;
+            }
             default:
                 break;
+        }
+    }
+
+    /**
+     * Push entanglement-derived hostility to FactionAPI for all subfaction pairs
+     * in this territory. Because FactionAPI.setRelationship() is sector-wide,
+     * this is called whenever entanglements change and reflects the current
+     * territory's political state.
+     *
+     * <p>Hostile pairs get a strongly negative relationship; non-hostile pairs
+     * that were baseline-hostile get a neutral relationship (entanglement suppresses
+     * hostility). Pairs unaffected by entanglements are left at baseline.</p>
+     */
+    private void syncHostilityToFactionAPI(Map<String, SubfactionDef> defMap) {
+        List<String> subfactionIds = new ArrayList<>(state.getPresences().keySet());
+        for (int i = 0; i < subfactionIds.size(); i++) {
+            for (int j = i + 1; j < subfactionIds.size(); j++) {
+                String a = subfactionIds.get(i);
+                String b = subfactionIds.get(j);
+
+                SubfactionDef defA = defMap.get(a);
+                SubfactionDef defB = defMap.get(b);
+                if (defA == null || defB == null) continue;
+
+                FactionAPI factionA = Global.getSector().getFaction(a);
+                FactionAPI factionB = Global.getSector().getFaction(b);
+                if (factionA == null || factionB == null) continue;
+
+                boolean hostile = state.isHostile(a, b, defMap);
+                float rel = hostile ? -0.75f : 0.0f;
+                factionA.setRelationship(b, rel);
+
+                log.debug("TerritoryManager [" + state.getTerritoryId() + "]: hostility sync " +
+                        a + " ↔ " + b + " → " + (hostile ? "HOSTILE" : "NEUTRAL") +
+                        " (rel=" + rel + ")");
+            }
         }
     }
 

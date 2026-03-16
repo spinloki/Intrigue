@@ -284,6 +284,196 @@
           "stableLocationCount": 1
         }
       ]
+    },
+    {
+      "id": "intrigue_driftmire",
+      "name": "Driftmire",
+      "location": { "x": -12000, "y": -16000 },
+      "age": "OLD",
+      "randomSystemCountMin": 2,
+      "randomSystemCountMax": 3,
+      "baseSlotCount": 5,
+      "pinnedBaseSlots": ["intrigue_mire_haven"],
+      "systems": [
+        {
+          "id": "intrigue_driftmire_deeps",
+          "name": "Driftmire Deeps",
+          "age": "OLD",
+          "starType": "star_red_dwarf",
+          "starRadius": 450,
+          "coronaRadius": 350,
+          "planets": [
+            {
+              "id": "intrigue_deeps_murk",
+              "name": "Murk",
+              "type": "toxic",
+              "orbitRadius": 2600,
+              "orbitDays": 95,
+              "orbitAngle": 40,
+              "radius": 190,
+              "conditions": ["toxic_atmosphere", "ore_rich", "organics_abundant"]
+            },
+            {
+              "id": "intrigue_deeps_fen",
+              "name": "Fen",
+              "type": "jungle",
+              "orbitRadius": 4000,
+              "orbitDays": 165,
+              "orbitAngle": 170,
+              "radius": 155,
+              "conditions": ["habitable", "hot", "dense_atmosphere", "farmland_rich", "organics_common", "ore_sparse"]
+            },
+            {
+              "id": "intrigue_deeps_bloat",
+              "name": "Bloat",
+              "type": "gas_giant",
+              "orbitRadius": 6500,
+              "orbitDays": 260,
+              "orbitAngle": 290,
+              "radius": 380,
+              "conditions": ["volatiles_abundant", "high_gravity"]
+            }
+          ],
+          "asteroidBelts": [
+            {
+              "orbitRadius": 3300,
+              "width": 180,
+              "count": 60,
+              "orbitDaysMin": 120,
+              "orbitDaysMax": 140,
+              "name": "Murk Ring"
+            }
+          ],
+          "stableLocationCount": 2
+        },
+        {
+          "id": "intrigue_driftmire_mire",
+          "name": "Driftmire Mire",
+          "age": "OLD",
+          "starType": "star_orange",
+          "starRadius": 550,
+          "coronaRadius": 400,
+          "planets": [
+            {
+              "id": "intrigue_mire_haven",
+              "name": "Mirehaven",
+              "type": "terran",
+              "orbitRadius": 4200,
+              "orbitDays": 180,
+              "orbitAngle": 120,
+              "radius": 165,
+              "conditions": ["habitable", "mild_climate", "farmland_adequate", "ore_moderate", "organics_trace", "ruins_widespread"]
+            },
+            {
+              "id": "intrigue_mire_rot",
+              "name": "Rot",
+              "type": "barren",
+              "orbitRadius": 5800,
+              "orbitDays": 230,
+              "orbitAngle": 250,
+              "radius": 105,
+              "conditions": ["no_atmosphere", "low_gravity", "ore_sparse", "volatiles_diffuse"]
+            }
+          ],
+          "asteroidBelts": [],
+          "stableLocationCount": 1
+        }
+      ]
+    },
+    {
+      "id": "intrigue_ironvault",
+      "name": "Ironvault",
+      "location": { "x": 20000, "y": 10000 },
+      "age": "AVERAGE",
+      "randomSystemCountMin": 2,
+      "randomSystemCountMax": 4,
+      "baseSlotCount": 6,
+      "pinnedBaseSlots": ["intrigue_vault_citadel"],
+      "systems": [
+        {
+          "id": "intrigue_ironvault_core",
+          "name": "Ironvault Core",
+          "age": "AVERAGE",
+          "starType": "star_white",
+          "starRadius": 650,
+          "coronaRadius": 500,
+          "planets": [
+            {
+              "id": "intrigue_vault_citadel",
+              "name": "Citadel",
+              "type": "barren-bombarded",
+              "orbitRadius": 3200,
+              "orbitDays": 120,
+              "orbitAngle": 55,
+              "radius": 175,
+              "conditions": ["no_atmosphere", "ore_ultrarich", "rare_ore_ultrarich", "ruins_extensive"]
+            },
+            {
+              "id": "intrigue_vault_bastion",
+              "name": "Bastion",
+              "type": "terran-eccentric",
+              "orbitRadius": 5000,
+              "orbitDays": 195,
+              "orbitAngle": 165,
+              "radius": 160,
+              "conditions": ["habitable", "mild_climate", "farmland_adequate", "ore_rich", "organics_common"]
+            },
+            {
+              "id": "intrigue_vault_warden",
+              "name": "Warden",
+              "type": "ice_giant",
+              "orbitRadius": 7800,
+              "orbitDays": 310,
+              "orbitAngle": 310,
+              "radius": 400,
+              "conditions": ["volatiles_plentiful", "high_gravity"]
+            }
+          ],
+          "asteroidBelts": [
+            {
+              "orbitRadius": 4100,
+              "width": 220,
+              "count": 90,
+              "orbitDaysMin": 145,
+              "orbitDaysMax": 165,
+              "name": "Iron Belt"
+            }
+          ],
+          "stableLocationCount": 3
+        },
+        {
+          "id": "intrigue_ironvault_reach",
+          "name": "Ironvault Reach",
+          "age": "OLD",
+          "starType": "star_yellow",
+          "starRadius": 580,
+          "coronaRadius": 430,
+          "planets": [
+            {
+              "id": "intrigue_reach_sentinel",
+              "name": "Sentinel",
+              "type": "desert",
+              "orbitRadius": 3800,
+              "orbitDays": 155,
+              "orbitAngle": 95,
+              "radius": 145,
+              "conditions": ["hot", "arid", "ore_rich", "rare_ore_moderate", "ruins_scattered"]
+            },
+            {
+              "id": "intrigue_reach_hollow",
+              "name": "Hollow",
+              "type": "frozen",
+              "orbitRadius": 5600,
+              "orbitDays": 225,
+              "orbitAngle": 240,
+              "radius": 125,
+              "conditions": ["very_cold", "dark", "volatiles_diffuse", "ore_sparse"]
+            }
+          ],
+          "asteroidBelts": [],
+          "stableLocationCount": 2
+        }
+      ]
     }
   ]
 }

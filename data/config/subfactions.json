@@ -10,6 +10,15 @@
       "fleetQualityMod": 0.25
     },
     {
+      "id": "intrigue_hegemony_garrison",
+      "parentFactionId": "hegemony",
+      "name": "Hegemony Garrison Corps",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_mid",
+      "fleetSizeMult": 0.6,
+      "fleetQualityMod": 0.35
+    },
+    {
       "id": "intrigue_tritachyon_ventures",
       "parentFactionId": "tritachyon",
       "name": "Tri-Tachyon Ventures",
@@ -19,12 +28,30 @@
       "fleetQualityMod": 0.5
     },
     {
+      "id": "intrigue_tritachyon_acquisitions",
+      "parentFactionId": "tritachyon",
+      "name": "Tri-Tachyon Acquisitions",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_mid",
+      "fleetSizeMult": 0.6,
+      "fleetQualityMod": 0.4
+    },
+    {
       "id": "intrigue_church_missionary",
       "parentFactionId": "luddic_church",
       "name": "Luddic Missionary Corps",
       "stationIndustry": "orbitalstation",
       "fleetSizeMult": 0.75,
       "fleetQualityMod": 0.1
+    },
+    {
+      "id": "intrigue_church_templar",
+      "parentFactionId": "luddic_church",
+      "name": "Luddic Templar Order",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_mid",
+      "fleetSizeMult": 0.45,
+      "fleetQualityMod": 0.45
     },
     {
       "id": "intrigue_pirates_freehold",
@@ -40,6 +67,19 @@
       "fleetQualityMod": 0.0
     },
     {
+      "id": "intrigue_pirates_shadow",
+      "parentFactionId": "pirates",
+      "name": "Shadow Syndicate",
+      "preferredSlotTypes": ["ASTEROID_BELT"],
+      "stationIndustry": {
+        "orbitalstation": 3,
+        "orbitalstation_mid": 4,
+        "orbitalstation_high": 2
+      },
+      "fleetSizeMult": 0.4,
+      "fleetQualityMod": 0.3
+    },
+    {
       "id": "intrigue_diktat_fuel_company",
       "parentFactionId": "sindrian_diktat",
       "name": "Sindrian Fuel Company",
@@ -49,6 +89,15 @@
       "fleetQualityMod": 0.2
     },
     {
+      "id": "intrigue_diktat_lions_guard",
+      "parentFactionId": "sindrian_diktat",
+      "name": "Lion's Guard Detachment",
+      "preferredSlotTypes": ["PLANET_ORBIT"],
+      "stationIndustry": "orbitalstation_high",
+      "fleetSizeMult": 0.4,
+      "fleetQualityMod": 0.55
+    },
+    {
       "id": "intrigue_persean_vanguard",
       "parentFactionId": "persean",
       "name": "Persean League Vanguard",
@@ -56,6 +105,18 @@
       "stationIndustry": "orbitalstation",
       "fleetSizeMult": 0.6,
       "fleetQualityMod": 0.3
+    },
+    {
+      "id": "intrigue_persean_free_traders",
+      "parentFactionId": "persean",
+      "name": "Persean Free Traders",
+      "stationIndustry": {
+        "orbitalstation": 4,
+        "orbitalstation_mid": 4,
+        "orbitalstation_high": 1
+      },
+      "fleetSizeMult": 0.55,
+      "fleetQualityMod": 0.1
     },
     {
       "id": "intrigue_path_zealots",
@@ -70,6 +131,18 @@
       "fleetQualityMod": 0.0
     },
     {
+      "id": "intrigue_path_reclamation",
+      "parentFactionId": "luddic_path",
+      "name": "Path Reclamation Cell",
+      "preferredSlotTypes": ["ASTEROID_BELT"],
+      "stationIndustry": {
+        "orbitalstation": 4,
+        "orbitalstation_mid": 4
+      },
+      "fleetSizeMult": 0.6,
+      "fleetQualityMod": 0.15
+    },
+    {
       "id": "intrigue_independents_frontier",
       "parentFactionId": "independent",
       "name": "Frontier Coalition",
@@ -80,6 +153,18 @@
       },
       "fleetSizeMult": 0.55,
       "fleetQualityMod": 0.15
+    },
+    {
+      "id": "intrigue_independents_rimward",
+      "parentFactionId": "independent",
+      "name": "Rimward Salvage Collective",
+      "preferredSlotTypes": ["ASTEROID_BELT"],
+      "stationIndustry": {
+        "orbitalstation": 5,
+        "orbitalstation_mid": 3
+      },
+      "fleetSizeMult": 0.7,
+      "fleetQualityMod": 0.0
     }
   ]
 }
